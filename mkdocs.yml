@@ -1,5 +1,5 @@
-site_name: PYTO Base Para Generar Proyectos
-site_description: Generic RAG-driven agent pipeline for generating web applications view by view
+site_name: Cuaderno de Aula
+site_description: A Cuaderno de Aula web application for Canary Islands teachers, built view by view through an agent pipeline
 repo_url: https://github.com/dbetancorfp/PYTO_CUADERNO_DE_AULA_V0
 repo_name: dbetancorfp/PYTO_CUADERNO_DE_AULA_V0
 
