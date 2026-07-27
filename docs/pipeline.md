@@ -39,6 +39,60 @@ Merge — human-gated, single step, fires once right after "view complete"
          user declines or wants changes → branch stays open, no forced timeline
 ```
 
+```mermaid
+flowchart TD
+    Branch(["Orchestrator: create/checkout view/&lt;view-name&gt;"]) --> Start(["you: read views/&lt;view&gt;/description_&lt;view&gt;.md, tables: [...]"]) --> VD
+
+    BI["Step 1 — backend-implementer"]
+    FI["Step 1 — frontend-implementer"]
+
+    subgraph PhaseA["Phase A — step by step, human review at every point"]
+        VD["view-designer<br/>→ ui-spec.json + functional-spec.json"] --> RVA{"human review"}
+        RVA -- redo --> VD
+        RVA -- continue --> RA["requirement-architect<br/>→ use-cases.md + api-contracts.md<br/>(+ schema-changes.sql if needed)"]
+        RA --> RVB{"human review"}
+        RVB -- redo --> RA
+        RVB -- continue --> TDD["tdd-engineer<br/>→ TDD tests (red)"]
+        TDD --> RVC{"human review"}
+        RVC -- redo --> TDD
+    end
+
+    RVC -- "implement" --> BI
+    RVC -- "implement" --> FI
+
+    subgraph PhaseB["Phase B — autonomous, up to 10 full cycles, no stopping"]
+        direction TB
+
+        Sup{"Step 2 — supervisor TEST gate<br/>unit tests + integration/contract<br/>smoke test (redo costs no cycle)"}
+        Rev{"Step 3 — reviewer<br/>SOLID + SonarCloud, 100% coverage<br/>(fail costs +1 cycle)"}
+        E2E{"Step 4 — e2e-engineer<br/>Cypress specs per use case<br/>(fail costs +1 cycle)"}
+
+        BI --> Sup
+        FI --> Sup
+        Sup -- "backend implicated → redo backend only" --> BI
+        Sup -- "frontend implicated → redo frontend only" --> FI
+        Sup -- "both/cross-layer → redo both" --> BI
+        Sup -- "both/cross-layer → redo both" --> FI
+        Sup -- "none" --> Rev
+
+        Rev -- "FAIL backend (+1 cycle) → back to TEST gate" --> BI
+        Rev -- "FAIL frontend (+1 cycle) → back to TEST gate" --> FI
+        Rev -- "FAIL cross-layer/ambiguous (+1 cycle) → back to TEST gate" --> BI
+        Rev -- "FAIL cross-layer/ambiguous (+1 cycle) → back to TEST gate" --> FI
+        Rev -- PASS --> E2E
+
+        E2E -- "FAIL, layer implicated (+1 cycle) → back to TEST gate" --> BI
+        E2E -- "FAIL, layer implicated (+1 cycle) → back to TEST gate" --> FI
+        E2E -- PASS --> Done(["Orchestrator: 'view complete'"])
+
+        Sup -. "10 cycles, no convergence" .-> Fail(["Orchestrator reports failure"])
+    end
+
+    Done --> MergeGate{"human confirms merge?"}
+    MergeGate -- "yes" --> Merged(["merge --no-ff into main, push, delete branch"])
+    MergeGate -- "no / changes wanted" --> Open(["branch stays open"])
+```
+
 There is no visual mockup and no external element numbering. Every element of a view gets
 an **`elementId`** (kebab-case string) assigned by `view-designer` — this is the identifier
 that runs through the rest of the pipeline:
