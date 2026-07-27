@@ -1,8 +1,17 @@
-# PYTO Base Para Generar Proyectos
+# Cuaderno de Aula
 
-A generic, domain-agnostic framework for generating web applications one view at a time,
-through a pipeline of [Claude Code](https://claude.com/claude-code) agents coordinated by a
-conversational **Orchestrator**, backed by a real PostgreSQL database.
+A **Cuaderno de Aula** web application for teachers in the Canary Islands (Spain) public
+education system, built one view at a time through a pipeline of
+[Claude Code](https://claude.com/claude-code) agents coordinated by a conversational
+**Orchestrator**, backed by a real PostgreSQL database.
+
+A "cuaderno de aula" is the day-to-day classroom register a teacher keeps per group and
+subject: learning situations delivered, marks against each evaluation criterion, and the
+resulting degree of competency acquisition — consistent with the evaluation model set out
+in Decreto 211/2022 and Orden de 31 de mayo de 2023 (Canary Islands), and with what feeds
+the individual student file in the region's own school-management platforms (Pincel Ekade,
+ProIDEAC). Each view is specified in natural language by the user and carried through the
+pipeline into working, tested code — no visual mockup, no predefined UI.
 
 📖 **Full documentation:** https://dbetancorfp.github.io/PYTO_CUADERNO_DE_AULA_V0/
 
@@ -30,9 +39,10 @@ for details.
 ## Status
 
 - ✅ Pipeline skeleton (agents, schemas, folder structure)
+- ✅ First view built end to end: `login` (backend, frontend, unit tests, Cypress specs)
 - ⏳ `DATABASE_URL` pending configuration — see [`.env.example`](.env.example)
 - ⏳ RAG (`knowledge_base` with pgvector + embeddings) — designed, not built yet
-- ⏳ No view generated yet
+- ⏳ CI limited to the docs deploy workflow (`deploy-docs.yml`) — no test/E2E workflow yet
 
 ## License
 
