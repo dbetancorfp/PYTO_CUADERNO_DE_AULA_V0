@@ -106,7 +106,7 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/app_test
 
       - name: Build frontend
-        run: bun build src/frontend/src/index.ts --outdir src/frontend/dist --target browser
+        run: bun run build
 ```
 
 ## `e2e.yml` specification
@@ -147,22 +147,12 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Build frontend
-        run: bun build src/frontend/src/index.ts --outdir src/frontend/dist --target browser
-
-      - name: Start server
-        run: bun run start &
+      - name: Run e2e suite
+        run: bun run e2e
         env:
+          DATA_BACKEND: postgres
+          PORT: 3050
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/app_e2e
-          PORT: 3000
-
-      - name: Wait for server
-        run: bunx wait-on http://localhost:3000 --timeout 30000
-
-      - name: Run Cypress tests
-        run: bunx cypress run
-        env:
-          CYPRESS_BASE_URL: http://localhost:3000
 ```
 
 ## `deploy-docs.yml` specification
@@ -182,20 +172,21 @@ build_type=workflow`, a one-time setup).
 ### Step 1 — Read the current state
 
 1. Read `CLAUDE.md` — confirm runtime (Bun), tests (bun test + Cypress), DB (PostgreSQL 16)
-2. Read `package.json` — verify the `type-check`, `start`, `test` scripts exist
+2. Read `package.json` — verify the `type-check`, `test`, `build`, `e2e` scripts exist
 3. List `.github/workflows/` — identify existing workflows
 
 ### Step 2 — Verify package.json scripts
 
-The workflows depend on these scripts. If any is missing, warn the user before generating
-the workflows:
+The workflows depend on these scripts — both call them by name rather than re-hardcoding
+their commands, so they can't drift from what `package.json` actually runs. If any is
+missing, warn the user before generating the workflows:
 
 | Script | Expected command |
 |--------|-------------------|
 | `type-check` | `tsc --noEmit` |
 | `test` | `bun test` |
-| `start` | `bun run src/backend/src/index.ts` |
-| `build` | `bun build src/frontend/src/index.ts --outdir src/frontend/dist --target browser` |
+| `build` | builds the frontend (JS + CSS) — created by `e2e-engineer` if missing, see `e2e-engineer.md` Step 0 |
+| `e2e` | `build && db:seed:e2e && start-server-and-test "<start command>" <url> "cypress run"` — also created by `e2e-engineer` Step 0 |
 
 ### Step 3 — Generate the workflows
 

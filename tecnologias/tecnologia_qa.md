@@ -37,8 +37,9 @@ Source: `package.json`, `.github/workflows/`, `sonar-project.properties`,
   `e2e-engineer.md`'s Step 0, which also creates the Cypress config, the frontend build
   wiring, and the static-serving route the first time any of them is missing — no other
   agent in the pipeline owns that infrastructure.
-- No CI workflow for Cypress (explicit in `CLAUDE.md`): e2e only runs locally, unlike unit
-  tests, which do run in GitHub Actions.
+- No CI workflow exists yet at all (only `deploy-docs.yml`, from the initial bootstrap —
+  see `ci-setup.md`, on-demand and not yet invoked): both `bun test` and `bun run e2e`
+  currently run locally only.
 
 ### Runbook — backend port stuck after a killed e2e run
 

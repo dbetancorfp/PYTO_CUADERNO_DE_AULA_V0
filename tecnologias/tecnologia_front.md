@@ -21,9 +21,9 @@ Source: `src/frontend/`, `CLAUDE.md`.
 
 ## Build
 
-- **`bun build`** compiles `src/frontend/src/index.ts` → `src/frontend/dist/*.js`
+- **`bun build`** compiles `src/frontend/src/main.ts` → `src/frontend/dist/*.js`
   (`--target browser`), loaded in the HTML via `<script type="module">`.
-- **Tailwind CSS 3.x** compiled separately with `bunx tailwindcss` (`build:css` in
+- **Tailwind CSS 3.x** compiled separately with `bunx tailwindcss` (`build:frontend:css` in
   `package.json`) → `src/frontend/dist/tailwind.css`. Doesn't go through `bun build`; see
   `tecnologia_ux.md` for how it's injected into each Shadow DOM.
 - No additional bundler (Webpack/Vite/standalone esbuild): `bun build` is the only step.
