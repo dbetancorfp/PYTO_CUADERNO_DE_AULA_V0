@@ -1,12 +1,15 @@
-# PYTO Base Para Generar Proyectos
+# Cuaderno de Aula
 
-A generic, domain-agnostic framework for generating web applications one view at a time,
-through a pipeline of [Claude Code](https://claude.com/claude-code) agents coordinated by
-an **Orchestrator** agent, backed by a real PostgreSQL database.
+A **Cuaderno de Aula** (a teacher's digital classroom notebook) — attendance, grades and
+continuous evaluation, per-student observations, and incidents, in the spirit of official
+platforms like the Canary Islands' **Pincel Ekade** — generated one view at a time through a
+pipeline of [Claude Code](https://claude.com/claude-code) agents coordinated by an
+**Orchestrator** agent, backed by a real PostgreSQL database. Built on the generic,
+domain-agnostic `PYTO_BASE_PARA_GENERAR_PROYECTOS` agent-pipeline framework.
 
-It does not generate a concrete application by itself: every use of this framework starts a
-new project, view by view, from natural-language descriptions the user writes — no visual
-mockup, no predefined domain.
+Every view still starts from a natural-language description the user writes — no visual
+mockup — but every view built here targets this one concrete domain (see `CLAUDE.md`'s
+"Project" section for the full domain framing).
 
 ## Getting started
 
@@ -32,9 +35,10 @@ See [Pipeline](pipeline.md) for the two phases and the agents involved, and
 ## Project status
 
 - ✅ Pipeline skeleton (agents, schemas, folder structure)
-- ⏳ `DATABASE_URL` pending configuration — see `.env.example`
+- ✅ `login` view generated (Phase A + B complete, `reviewer` PASS, Cypress green)
+- ⏳ `DATABASE_URL` — configure your own; see `.env.example`
 - ⏳ RAG (`knowledge_base` with pgvector + embeddings) — designed, not built yet
-- ⏳ No view generated yet
+- ⏳ Cuaderno de Aula's own domain views (students, groups, grades, attendance…) — not yet designed
 
 ## Source of truth
 
