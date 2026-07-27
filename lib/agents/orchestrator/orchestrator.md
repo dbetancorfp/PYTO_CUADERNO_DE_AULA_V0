@@ -32,6 +32,7 @@ While working a view, keep track of where you are:
 
 ```
 phase: A | B
+branch: view/<view-name>
 current_step: view-designer | requirement-architect | tdd-engineer
              | backend-implementer+frontend-implementer (parallel) | supervisor
              | reviewer | e2e-engineer
@@ -53,7 +54,15 @@ user who tells you and who decides whether to repeat the same agent or adjust so
 first.
 
 1. The user gives you the initial instruction: `"read views/<view>/description_<view>.md,
-   tables: [...]"` (or equivalent).
+   tables: [...]"` (or equivalent). Before running anything else, set up the view's branch:
+   - New view: `git checkout main && git pull && git checkout -b view/<view-name>`.
+   - Resumed view (artifacts already exist in `views/<view-name>/` from a prior session):
+     `git checkout view/<view-name>` if it exists locally, otherwise `git fetch origin &&
+     git checkout view/<view-name>` to recover it from the remote. Ask the user where they
+     left off if it isn't obvious from the artifacts already present.
+   - Every artifact this view produces — specs, tests, code — is written and committed on
+     this branch from here on; nothing about the rest of the pipeline changes because of
+     it (see "Merge" at the end of Phase B for the only other git-aware step).
 2. Run `view-designer` (via `Skill`).
 3. When it finishes, **notify the user** with the summary `view-designer` gave you
    (elements designed, tables used, ambiguities resolved) and wait.
@@ -179,7 +188,7 @@ while cycle <= 10:
         else (mixed layers, or any spec tagged both/ambiguous): re-dispatch BOTH, concurrently
         go back to Step 2 (supervisor gate)
         continue
-    # e2e == PASS → VIEW COMPLETE, exit loop, notify the user
+    # e2e == PASS → VIEW COMPLETE, exit loop, run the Merge step below
 
 if cycle > 10 without completing:
     notify the user of the failure, including what failed in the last attempt
@@ -209,10 +218,33 @@ Important details:
 
 ---
 
+## Merge — human-gated, single step
+
+Fires exactly once, right after `e2e-engineer` returns PASS. This is the only other
+git-aware step in the pipeline besides branch setup at the start of Phase A, and it never
+runs automatically — merging into `main` always waits for the user's explicit go-ahead,
+the same bar as any other push to a shared branch.
+
+1. Deliver the "view complete" final notification (see below), and in the same message
+   state you're ready to merge `view/<view-name>` into `main`. Then wait.
+2. If the user confirms (e.g. "sí, fusiona" / "merge" / equivalent):
+   - `git fetch origin && git merge origin/main` into the view branch first, to catch any
+     drift if `main` moved since the branch was created. If this produces conflicts, stop
+     and hand them to the user — never resolve them yourself.
+   - `git checkout main && git merge --no-ff view/<view-name> && git push origin main`
+   - Delete the branch on both sides: `git branch -d view/<view-name> && git push origin
+     --delete view/<view-name>`
+   - Confirm the merge and branch deletion to the user.
+3. If the user declines or wants changes first, leave the branch as-is — there's no forced
+   timeline. Resume from wherever they left off next time they talk about this view.
+
 ## Final notification
 
 When a view is complete (or the 10 cycles are exhausted), summarize:
-- Which view was worked on and its path (`views/<view>/`)
+- Which view was worked on and its path (`views/<view>/`) and branch (`view/<view-name>`)
 - Phase A: which agents ran and how many times each was redone
 - Phase B: how many full cycles it took, and whether it ended in success or failure
 - If it failed: the reason for the last failure and at which step it happened
+- If it succeeded: that you're ready to merge to `main` pending the user's confirmation
+  (see "Merge" above), or, once confirmed, that the merge completed and the branch was
+  deleted

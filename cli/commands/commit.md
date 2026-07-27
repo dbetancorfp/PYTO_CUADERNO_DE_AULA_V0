@@ -130,8 +130,13 @@ If the branch has no upstream, push with `-u`.
 
 ## 5. Pull Request (only if explicitly requested)
 
-This project pushes directly to `main`. Do **not** create a PR unless the user explicitly
-asks for one.
+`/commit` pushes to whichever branch is currently checked out — step 4 already does this
+via `git push origin <branch>`, no special-casing needed. In normal pipeline use that's the
+current view's `view/<view-name>` branch (see `CLAUDE.md`'s Pipeline section); `main` only
+sees direct commits for framework-level maintenance done outside the view pipeline (docs,
+config, agent role files). The Orchestrator's own dedicated merge step — not `/commit` — is
+what eventually lands a finished view branch on `main`. Do **not** create a PR unless the
+user explicitly asks for one.
 
 If a PR is requested, use `gh pr create` with:
 - **Title**: same as the commit subject (include scope if present).

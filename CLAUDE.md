@@ -31,6 +31,10 @@ Author: David Betancor.
 
 - **One view at a time.** The Orchestrator never chains design-phase agents without
   explicit human approval between them (see "Pipeline" below).
+- **One branch per view.** Every view is built on its own `view/<view-name>` branch,
+  created before `view-designer` runs and carried through Phase A and Phase B. It merges
+  into `main` only after `e2e-engineer` passes **and** the user explicitly confirms the
+  merge — never automatically (see "Pipeline" below).
 - **TDD.** Tests are written red before the implementation.
 - **Type safety.** All code fully typed — no `any`, no implicit returns, no untyped
   parameters.
@@ -88,6 +92,11 @@ Every view goes through two phases with opposite control rules, coordinated by t
 normal use.
 
 ```
+Branch — created once, before Phase A starts
+  Orchestrator creates/checks out view/<view-name> from main (or resumes it if the view
+  was already in progress in a prior session) — every artifact for this view, specs and
+  code alike, lives on this branch until it merges
+
 Phase A — step by step, human review required at every point
   you: "read views/<view>/description_<view>.md, tables: [...]"
     → view-designer          → ui-spec.json + functional-spec.json → human review → redo | continue
@@ -109,11 +118,17 @@ Phase B — autonomous, up to 10 full cycles, no stopping
               fail → redo the layer(s) its report implicates (both if ambiguous); cycle += 1; back to supervisor gate
               pass → Orchestrator announces: "view complete"
     → after 10 cycles without converging → Orchestrator reports the failure
+
+Merge — human-gated, single step, fires once right after "view complete"
+    → Orchestrator states it's ready to merge view/<view-name> into main and waits
+         user confirms → fetch/merge origin/main into the branch first (stop on conflict,
+              never auto-resolve) → merge --no-ff into main → push → delete the branch
+         user declines or wants changes → branch stays open, no forced timeline
 ```
 
 ```mermaid
 flowchart TD
-    Start(["you: read views/&lt;view&gt;/description_&lt;view&gt;.md, tables: [...]"]) --> VD
+    Branch(["Orchestrator: create/checkout view/&lt;view-name&gt;"]) --> Start(["you: read views/&lt;view&gt;/description_&lt;view&gt;.md, tables: [...]"]) --> VD
 
     subgraph PhaseA["Phase A — step by step, human review at every point"]
         VD["view-designer<br/>→ ui-spec.json + functional-spec.json"] --> RVA{"human review"}
@@ -169,6 +184,10 @@ flowchart TD
 
         Sup -. "10 cycles, no convergence" .-> Fail(["Orchestrator reports failure"])
     end
+
+    Done --> MergeGate{"human confirms merge?"}
+    MergeGate -- "yes" --> Merged(["merge --no-ff into main, push, delete branch"])
+    MergeGate -- "no / changes wanted" --> Open(["branch stays open"])
 ```
 
 The TEST gate isn't just "each layer's own unit tests" — `backend-implementer` and
@@ -196,7 +215,7 @@ use-cases.md → tests → code`.
 
 | Agent | Responsibility | Input | Output |
 |-------|-----------------|-------|--------|
-| `orchestrator` | Single entry point; decides which agent to run, manages human review (Phase A) and the autonomous loop (Phase B, max. 10 cycles) | User instruction + view state | Notifications to the user at every checkpoint |
+| `orchestrator` | Single entry point; decides which agent to run, manages human review (Phase A) and the autonomous loop (Phase B, max. 10 cycles), and owns the view's `view/<view-name>` branch lifecycle (create → carry through A+B → merge to `main` on explicit human confirmation) | User instruction + view state | Notifications to the user at every checkpoint |
 | `view-designer` | Designs the UI and behavior of a view from its natural-language description; introspects the real DB if `DATABASE_URL` is configured | `views/<view>/description_<view>.md` | `views/<view>/ui-spec.json` + `views/<view>/functional-spec.json` |
 | `requirement-architect` | Use cases + API contracts + incremental schema changes if the view needs them | `ui-spec.json` + `functional-spec.json` | `views/<view>/use-cases.md` + `views/<view>/api-contracts.md` (+ `schema-changes.sql`) |
 | `tdd-engineer` | Red unit tests from the acceptance criteria; also a `fake-sql.ts`-backed unit test for any new Postgres repository, and (rarely) re-invoked mid-Phase-B on `reviewer`'s `requires-tdd-engineer` verdict | `use-cases.md` + `api-contracts.md` + `schema-changes.sql` | `src/{backend,frontend}/tests/*.test.ts` (+ `src/backend/tests/helpers/fake-sql.ts`, `pg-<entity>.repository.test.ts`) |

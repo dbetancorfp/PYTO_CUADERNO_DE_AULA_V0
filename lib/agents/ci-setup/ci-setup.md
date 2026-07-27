@@ -31,8 +31,8 @@ It isn't part of the pipeline's linear flow.
 
 | File | Trigger | Responsibility |
 |------|---------|-----------------|
-| `ci.yml` | push + PR to `main` | Type-check + `bun test` + `bun build` |
-| `e2e.yml` | push to `main` | Start the server + run Cypress |
+| `ci.yml` | push to `main` or `view/**` + PR to `main` | Type-check + `bun test` + `bun build` |
+| `e2e.yml` | push to `main` or `view/**` | Start the server + run Cypress |
 | `deploy-docs.yml` | push to `main` with changes in `docs/**`/`mkdocs.yml` | Publish `docs/` to GitHub Pages — already exists, **don't regenerate it** unless the user explicitly asks to change how the docs are deployed |
 
 ---
@@ -64,7 +64,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'view/**']
   pull_request:
     branches: [main]
 
@@ -116,7 +116,7 @@ name: E2E
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'view/**']
 
 jobs:
   cypress:
