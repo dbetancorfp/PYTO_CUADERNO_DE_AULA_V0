@@ -8,8 +8,6 @@
     "build:frontend:js": "bun build src/frontend/src/main.ts --outdir src/frontend/dist --target browser",
     "build:frontend:css": "tailwindcss -i src/frontend/src/styles/tailwind-input.css -o src/frontend/dist/tailwind.css --minify",
     "build": "bun run build:frontend:js && bun run build:frontend:css",
-    "db:seed:e2e": "bun run scripts/db-seed-e2e.ts",
-    "e2e": "bun run build && bun run db:seed:e2e && start-server-and-test \"bun run start:e2e\" http://localhost:3050/login \"cypress run\"",
     "start:e2e": "DATA_BACKEND=postgres PORT=3050 bun run src/backend/src/index.ts"
   },
   "dependencies": {

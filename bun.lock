@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "pyto-base-para-generar-proyectos",
+      "name": "pyto-cuaderno-de-aula-v0",
       "dependencies": {
         "@anthropic-ai/sdk": "^0.32.1",
         "dotenv": "^16.4.5",

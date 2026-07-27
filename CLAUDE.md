@@ -4,29 +4,14 @@ alwaysApply: true
 
 ## Project
 
-**PYTO_CUADERNO_DE_AULA_V0** — a concrete application bootstrapped from the generic,
-domain-agnostic `PYTO_BASE_PARA_GENERAR_PROYECTOS` agent-pipeline framework: a **Cuaderno de
-Aula** (a teacher's digital classroom notebook) for a single teacher's day-to-day classroom
-management.
+**PYTO_CUADERNO_DE_AULA_V0** — a generic, domain-agnostic framework for generating
+web applications one view at a time, through a pipeline of Claude Code agents coordinated
+by a conversational Orchestrator, backed by a real PostgreSQL database and (eventually) a
+RAG system that gives context across views.
 
-A *cuaderno de aula* (also called *cuaderno del profesor*) is the teacher's everyday working
-tool in Spanish schools — traditionally a paper notebook, now commonly a digital one — used
-to track, per class group: student attendance, grades and continuous/formative evaluation
-(criteria- and rubric-based, per the LOMLOE model), individual observations, and classroom
-incidents. Official regional school-management platforms follow the same model — e.g. the
-Canary Islands' **Pincel Ekade** (Gobierno de Canarias, Consejería de Educación, Formación
-Profesional, Actividad Física y Deportes) gives teachers exactly these subsystems
-(attendance, grading, observations, reports) alongside communication with families. This
-project doesn't reuse or integrate with Pincel Ekade — it's an independent application that
-takes the same real-world domain as its reference model. Full domain scope (which of these
-areas this app actually covers, and in how much depth) is still to be defined, view by view,
-starting from each `views/<view>/description_<view>.md`.
-
-The app is still generated one view at a time, through the same pipeline of Claude Code
-agents coordinated by a conversational Orchestrator, backed by a real PostgreSQL database
-and (eventually) a RAG system that gives context across views. Each view still starts from a
-natural-language description the user writes — no visual mockup — but, unlike the base
-framework's own template views, every view built here targets this one concrete domain.
+It does not generate a concrete application by itself: every use of this framework starts a
+new project, view by view, from natural-language descriptions the user writes — no visual
+mockup, no predefined domain.
 
 Author: David Betancor.
 
