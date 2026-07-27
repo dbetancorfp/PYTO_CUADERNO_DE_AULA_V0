@@ -4,14 +4,26 @@ alwaysApply: true
 
 ## Project
 
-**PYTO_CUADERNO_DE_AULA_V0** — a generic, domain-agnostic framework for generating
-web applications one view at a time, through a pipeline of Claude Code agents coordinated
-by a conversational Orchestrator, backed by a real PostgreSQL database and (eventually) a
-RAG system that gives context across views.
+**PYTO_CUADERNO_DE_AULA_V0** — a **Cuaderno de Aula** web application for teachers in the
+Canary Islands (Spain) public education system, built one view at a time through a
+pipeline of Claude Code agents coordinated by a conversational Orchestrator, backed by a
+real PostgreSQL database and (eventually) a RAG system that gives context across views.
 
-It does not generate a concrete application by itself: every use of this framework starts a
-new project, view by view, from natural-language descriptions the user writes — no visual
-mockup, no predefined domain.
+A "cuaderno de aula" is the day-to-day classroom register a teacher keeps per group and
+subject: recording the learning situations delivered, marking student performance against
+each evaluation criterion, and tracking the resulting degree of competency acquisition,
+consistent with the evaluation model set out in Decreto 211/2022, de 10 de noviembre (which
+establishes the organization and curriculum of Primary Education in the Canary Islands) and
+Orden de 31 de mayo de 2023 (which regulates evaluation and promotion of students in
+Infant, Primary, Compulsory Secondary and Baccalaureate education in the Canary Islands).
+In the Canary Islands' own school-management platforms (Pincel Ekade, ProIDEAC) this
+register is what feeds each student's individual file, so the teaching team stays
+coordinated on what has been taught and how each student is progressing.
+
+This project builds that cuaderno de aula as a real, view-by-view application — not a
+generic scaffold: every view (student/group management, evaluation criteria, grading,
+learning situations, reports, etc.) is specified in natural language by the user and
+carried through the pipeline below into working, tested code.
 
 Author: David Betancor.
 
