@@ -1,0 +1,206 @@
+{
+  "view_id": "login",
+  "version": 1,
+  "generated_at": "2026-07-26T20:42:00.000Z",
+  "agent": "view-designer",
+  "model": "claude-sonnet-5",
+  "total_elements": 7,
+  "screens": [
+    {
+      "screen_id": "login-screen",
+      "screen_name": "Login",
+      "file": "login-view.ts",
+      "route": "/login",
+      "role_guard": [],
+      "element_ids": [
+        "login-heading",
+        "email-input",
+        "password-input",
+        "password-toggle-button",
+        "login-button",
+        "forgot-password-link",
+        "login-error-message"
+      ],
+      "data_needs": ["users"],
+      "notes": "Public route, no auth required. users table does not exist yet in the real DB (new app, per description_login.md) — schema pending requirement-architect's schema-changes.sql.",
+      "components": [
+        {
+          "elementId": "login-heading",
+          "type": "heading",
+          "label": "App name",
+          "props": {},
+          "states": [
+            {
+              "name": "default",
+              "description": "Displays the app name/logo, static, no interaction",
+              "visual_cues": ["static text at the top of the card"]
+            }
+          ],
+          "interactions": []
+        },
+        {
+          "elementId": "email-input",
+          "type": "text-input",
+          "label": "Email",
+          "props": { "placeholder": "Email", "size": "md" },
+          "states": [
+            {
+              "name": "default",
+              "description": "Empty or valid, no error shown",
+              "visual_cues": ["neutral border color"]
+            },
+            {
+              "name": "invalid",
+              "description": "Empty or malformed at submit time",
+              "visual_cues": ["red border color", "inline error text below the field"],
+              "condition": "submit attempted while email is empty or doesn't look like an email"
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "input",
+              "event": "app:email-changed",
+              "response": "Updates the internal email value; clears the invalid state once the value becomes non-empty and email-shaped"
+            }
+          ],
+          "validation": [
+            { "rule": "required", "message": "Email is required" },
+            { "rule": "contains '@' with at least one character after it", "message": "Enter a valid email address" }
+          ],
+          "accessibility": { "aria_label": "Email" }
+        },
+        {
+          "elementId": "password-input",
+          "type": "password-input",
+          "label": "Password",
+          "props": { "placeholder": "Password", "size": "md" },
+          "states": [
+            {
+              "name": "default",
+              "description": "Empty or filled, masked, no error shown",
+              "visual_cues": ["neutral border color", "masked characters"]
+            },
+            {
+              "name": "invalid",
+              "description": "Empty at submit time",
+              "visual_cues": ["red border color", "inline error text below the field"],
+              "condition": "submit attempted while password is empty"
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "input",
+              "event": "app:password-changed",
+              "response": "Updates the internal password value; clears the invalid state once non-empty"
+            }
+          ],
+          "validation": [
+            { "rule": "required", "message": "Password is required" }
+          ],
+          "accessibility": { "aria_label": "Password" }
+        },
+        {
+          "elementId": "password-toggle-button",
+          "type": "icon-button",
+          "label": "Toggle password visibility",
+          "props": { "icon": "eye", "variant": "ghost", "size": "sm" },
+          "states": [
+            {
+              "name": "hidden",
+              "description": "password-input is masked (default)",
+              "visual_cues": ["eye icon"]
+            },
+            {
+              "name": "visible",
+              "description": "password-input shows plain text",
+              "visual_cues": ["eye-slash icon"],
+              "condition": "user toggled visibility on"
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "click",
+              "event": "app:password-visibility-toggled",
+              "target_elements": ["password-input"],
+              "response": "Toggles password-input's rendered type between masked and plain text"
+            }
+          ],
+          "accessibility": { "aria_label": "Show password", "keyboard": "Enter/Space activates" }
+        },
+        {
+          "elementId": "login-button",
+          "type": "submit-button",
+          "label": "Sign in",
+          "props": { "variant": "primary", "size": "md" },
+          "states": [
+            {
+              "name": "default",
+              "description": "Enabled, ready to submit",
+              "visual_cues": ["solid primary color"]
+            },
+            {
+              "name": "loading",
+              "description": "Login request in flight",
+              "visual_cues": ["loading indicator", "disabled, not clickable"],
+              "condition": "a login request has been sent and no response received yet"
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "click",
+              "event": "app:login-submitted",
+              "response": "Runs client-side validation on email-input/password-input first; if both valid, sends POST to the login endpoint and enters the loading state until a response arrives"
+            }
+          ]
+        },
+        {
+          "elementId": "forgot-password-link",
+          "type": "link",
+          "label": "Forgot your password?",
+          "props": {},
+          "states": [
+            {
+              "name": "default",
+              "description": "Visible, non-functional placeholder, below login-button",
+              "visual_cues": ["underlined text"]
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "click",
+              "event": "app:forgot-password-clicked",
+              "response": "No navigation and no request — out of scope placeholder per description_login.md"
+            }
+          ]
+        },
+        {
+          "elementId": "login-error-message",
+          "type": "paragraph",
+          "label": "Error message",
+          "props": {},
+          "states": [
+            {
+              "name": "hidden",
+              "description": "No error to show (default, first load, and after any successful correction)",
+              "visual_cues": ["not rendered"]
+            },
+            {
+              "name": "visible",
+              "description": "The last login attempt failed",
+              "visual_cues": ["red text"],
+              "condition": "the server responded with invalid-credentials or account-locked"
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "login response received",
+              "event": "app:login-error-shown",
+              "response": "Renders the server-provided generic error message — wrong-credentials and account-locked share this same element, with different text"
+            }
+          ],
+          "accessibility": { "aria_live": "assertive" }
+        }
+      ]
+    }
+  ]
+}

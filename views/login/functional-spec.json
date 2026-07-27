@@ -1,0 +1,110 @@
+{
+  "appOverview": "Login is the entry screen for anyone who opens the app without an active session: a centered card with the app name, an email field, a masked password field with a show/hide toggle, a Sign in button, a non-functional 'Forgot your password?' placeholder link, and an error area that stays hidden until a login attempt fails. Successful login redirects to /dashboard (not yet implemented). There is no registration view yet — QA accounts are inserted directly.",
+  "elementSpecs": [
+    {
+      "elementId": "login-heading",
+      "behavior": "Static text showing the app name/logo at the top of the card. No user interaction.",
+      "businessRules": [],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "Is visible on the login screen at all times"
+      ]
+    },
+    {
+      "elementId": "email-input",
+      "behavior": "Free-text field for the account email. Validated client-side before any request is sent.",
+      "businessRules": [
+        "Required: submitting while empty shows an inline validation message next to the field and sends no request",
+        "Must look like an email (contains '@' with at least one character after it) before submit is allowed; otherwise shows an inline validation message and sends no request"
+      ],
+      "dataNeeds": ["users.email (pending verification against the real schema — table doesn't exist yet, see schema-changes.sql)"],
+      "acceptanceCriteria": [
+        "Shows an inline error and does not submit if left empty",
+        "Shows an inline error and does not submit if the value has no '@' or nothing after the '@'",
+        "Clears its inline error once corrected to a non-empty, email-shaped value"
+      ]
+    },
+    {
+      "elementId": "password-input",
+      "behavior": "Masked free-text field for the account password. Content can be revealed via password-toggle-button.",
+      "businessRules": [
+        "Required: submitting while empty shows an inline validation message next to the field and sends no request"
+      ],
+      "dataNeeds": ["users.password_hash (pending verification against the real schema)"],
+      "acceptanceCriteria": [
+        "Shows an inline error and does not submit if left empty",
+        "Clears its inline error once corrected to a non-empty value",
+        "Renders as masked characters by default"
+      ]
+    },
+    {
+      "elementId": "password-toggle-button",
+      "behavior": "Toggles password-input between masked and plain-text rendering. Purely client-side, no request involved.",
+      "businessRules": [
+        "Toggling never clears or alters the typed password value, only its visual rendering"
+      ],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "Reveals password-input as plain text after one click",
+        "Masks password-input again after a second click"
+      ]
+    },
+    {
+      "elementId": "login-button",
+      "behavior": "Runs client-side validation on email-input and password-input; if both pass, sends the login request and enters a loading/disabled state until a response arrives, then reflects the outcome (redirect, or an error shown via login-error-message).",
+      "businessRules": [
+        "Disabled and showing a loading state while the request is in flight, so a double-click can't send two requests",
+        "On success (valid credentials, account not locked): redirects to /dashboard",
+        "On failure due to wrong email/password combination: shows the generic message 'Incorrect email or password' via login-error-message — never reveals which of the two fields was wrong",
+        "After 5 failed attempts in a row for the same account, the next attempt (even with the correct password) shows 'This account has been locked due to too many failed attempts. Contact support.' via login-error-message",
+        "A successful login resets that account's failed-attempt counter back to zero"
+      ],
+      "dataNeeds": [
+        "users.email",
+        "users.password_hash",
+        "users.failed_attempts (pending verification against the real schema)",
+        "users.is_locked (pending verification against the real schema)"
+      ],
+      "acceptanceCriteria": [
+        "Does not send a request if either field fails client-side validation",
+        "Shows a loading state and is disabled from click until the response arrives",
+        "Redirects to /dashboard after a response indicating valid, non-locked credentials",
+        "Shows 'Incorrect email or password' after a wrong-credentials response, without indicating which field was wrong",
+        "Shows 'This account has been locked due to too many failed attempts. Contact support.' after the 6th consecutive failed attempt, even if that 6th attempt used the correct password",
+        "A successful login resets the account's failed-attempt counter to zero"
+      ]
+    },
+    {
+      "elementId": "forgot-password-link",
+      "behavior": "Present below login-button as a placeholder. Does nothing when clicked.",
+      "businessRules": [
+        "Out of scope for this view: no navigation, no request, per description_login.md"
+      ],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "Is present and visible below login-button on first load",
+        "Does not navigate and sends no request when clicked"
+      ]
+    },
+    {
+      "elementId": "login-error-message",
+      "behavior": "Hidden by default; becomes visible only after a failed login response, showing whichever generic message applies.",
+      "businessRules": [
+        "Not visible on first load",
+        "Shows exactly one of the two defined messages — never both, never a field-specific one"
+      ],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "Is not visible on first load",
+        "Becomes visible showing 'Incorrect email or password' after a wrong-credentials response",
+        "Becomes visible showing 'This account has been locked due to too many failed attempts. Contact support.' after a locked-account response"
+      ]
+    }
+  ],
+  "globalRules": [
+    "No 'remember me' checkbox and no social login (Google/GitHub/etc.) in this view — explicitly out of scope per description_login.md",
+    "The client never indicates which of email/password was incorrect for a wrong-credentials response — same generic message either way (security requirement)",
+    "This view's responsibility ends at a successful login; /dashboard itself is a separate, not-yet-implemented view",
+    "Registration is a separate, future view — for now, QA test accounts are inserted directly into the users table"
+  ]
+}
