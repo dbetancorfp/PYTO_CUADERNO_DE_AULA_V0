@@ -27,6 +27,7 @@ nav:
   - Home: index.md
   - Pipeline: pipeline.md
   - Architecture: architecture.md
+  - Database: database.md
 
 markdown_extensions:
   - admonition

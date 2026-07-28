@@ -26,6 +26,7 @@ Before auditing any file, establish the source of truth for each layer:
 | Implemented agent roles | `.md` files in `lib/agents/` |
 | Real dependencies | `package.json` |
 | Folder structure | The actual filesystem |
+| Database schema | The live `DATABASE_URL` (introspect it — `\d <table>`, `\dt`, `\dx` — when configured) and the accumulated `views/*/schema-changes.sql` files, never `docs/database.md` itself or `tecnologias/tecnologia_bbdd.md`'s prose |
 
 ---
 
@@ -87,6 +88,30 @@ Any file path mentioned in CLAUDE.md or in the docs must actually exist. Example
 - File paths cited in CLAUDE.md must exist.
 - The CLI section's commands must be runnable with the declared runtime (Bun).
 - `package.json` must have the scripts CLAUDE.md describes.
+
+### 8. Database documentation (`docs/database.md`)
+
+`docs/database.md` documents the live schema for GitHub Pages — it must never drift from
+reality, the same "no pretend mechanisms" bar CLAUDE.md holds everything else to.
+
+- Every table documented there must exist in the live database (`\dt` if `DATABASE_URL` is
+  configured) or, if it isn't configured, be traceable to a real `CREATE TABLE` in some
+  `views/*/schema-changes.sql`.
+- Every column, type, default, and constraint listed must match what `\d <table>` (or the
+  `schema-changes.sql` DDL) actually shows — not what an older `schema-changes.sql` draft
+  proposed before a later view amended it (e.g. `login`'s session-gap reopen added
+  `users.full_name` after the view's original build).
+- Every table that exists in the live database (or in some `schema-changes.sql`) but is
+  missing from `docs/database.md` is a gap — report it the same as a wrong fact, not just a
+  suggestion.
+- Tooling claims are held to the same bar as everywhere else in this checklist: don't let
+  `docs/database.md` (or `tecnologias/tecnologia_bbdd.md`) assert a migration runner,
+  script, or helper (e.g. a `bun run db:setup`, a `schema-bootstrap.ts`) exists unless it's
+  actually in `package.json` / the filesystem — flag it as `[CRITICAL]` if it does, exactly
+  like a false pipeline-state claim elsewhere in this checklist.
+- The Mermaid `erDiagram` in `docs/database.md` must list the same tables/columns as the
+  prose immediately below it — same "the same fact must not show up with different values"
+  rule as check 6, applied within a single page instead of across pages.
 
 ---
 
@@ -153,6 +178,10 @@ Read, in this order:
 4. List of files in `lib/agents/` — implemented roles
 5. List of folders in `views/` and files in `src/{backend,frontend}/` — existing views and
    artifacts
+6. Database schema: if `DATABASE_URL` is configured, introspect it (`\dt`, then `\d
+   <table>` for each); otherwise, read every `views/*/schema-changes.sql` in view order and
+   derive the schema from the accumulated DDL. Either way, this — not `docs/database.md`'s
+   own prose — is the source of truth check 8 audits against.
 
 ### Step 2 — Audit CLAUDE.md
 

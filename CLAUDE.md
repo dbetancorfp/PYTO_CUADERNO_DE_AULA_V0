@@ -413,7 +413,7 @@ scripts/
 cli/commands/      # commit.md — the /commit slash command's role file (not a pipeline agent)
 tecnologias/       # detailed stack decisions per layer (bbdd, code, front, qa, ux)
 tests/             # tests for the framework itself (schemas.test.js)
-docs/              # MkDocs source (index.md, pipeline.md, architecture.md), published to GitHub Pages
+docs/              # MkDocs source (index.md, pipeline.md, architecture.md, database.md), published to GitHub Pages
 .github/workflows/ # ci-setup output (on-demand) — currently only deploy-docs.yml (docs publishing)
 cypress.config.ts  # e2e-engineer output (first use)
 tailwind.config.js # e2e-engineer output (first use)
