@@ -19,7 +19,7 @@ export type ComponentVisualType =
   | 'card'
   | 'badge';
 
-export type Variant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'link';
+export type Variant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'link' | 'interactive';
 
 export type Size = 'sm' | 'md' | 'lg';
 
@@ -35,6 +35,7 @@ const VARIANT_CLASSES: Record<Variant, string> = {
   danger: 'text-red-600',
   ghost: 'bg-transparent text-slate-500 hover:text-slate-800 disabled:opacity-60',
   link: 'text-blue-600 underline hover:text-blue-800',
+  interactive: 'cursor-pointer hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-slate-400 transition-shadow',
 };
 
 const BASE_CLASSES: Record<ComponentVisualType, string> = {

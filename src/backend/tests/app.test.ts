@@ -84,6 +84,39 @@ describe('createApp — GET /login static route', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toContain('text/html');
-    expect(await response.text()).toContain('<app-login-view></app-login-view>');
+    // index.html has no static view tags (see main.ts: each view is created via
+    // document.createElement only after its service is wired, avoiding a connectedCallback-
+    // before-service-is-set race) — the one static invariant is the bootstrap script itself.
+    expect(await response.text()).toContain('<script type="module" src="/dist/main.js">');
+  });
+});
+
+// e2e-engineer Step 0 (views/dashboard/review-report.md context): a browser hitting
+// /dashboard directly (not via LoginView's client-side redirect) needs the server to serve
+// index.html there too, same as /login — added proactively alongside its own test this
+// time, per the /login precedent above (added post-reviewer, uncovered until the next
+// cycle caught it).
+describe('createApp — GET /dashboard static route', () => {
+  const port = allocateTestPort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  let server: Server;
+
+  beforeAll(async () => {
+    const app = createApp({ backend: 'memory' });
+    await new Promise<void>((resolve) => {
+      server = app.listen(port, () => resolve());
+    });
+  });
+
+  afterAll(() => {
+    server.close();
+  });
+
+  it('serves the frontend index.html', async () => {
+    const response = await fetch(`${baseUrl}/dashboard`);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toContain('text/html');
+    expect(await response.text()).toContain('<script type="module" src="/dist/main.js">');
   });
 });
