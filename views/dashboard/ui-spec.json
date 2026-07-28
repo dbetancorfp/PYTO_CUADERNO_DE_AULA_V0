@@ -1,0 +1,183 @@
+{
+  "view_id": "dashboard",
+  "version": 1,
+  "generated_at": "2026-07-28T17:10:00.000Z",
+  "agent": "view-designer",
+  "model": "claude-sonnet-5",
+  "total_elements": 11,
+  "screens": [
+    {
+      "screen_id": "dashboard-screen",
+      "screen_name": "Dashboard",
+      "file": "dashboard-view.ts",
+      "route": "/dashboard",
+      "role_guard": ["authenticated"],
+      "element_ids": [
+        "app-logo",
+        "settings-menu",
+        "welcome-message",
+        "logout-link",
+        "calendar-card",
+        "evaluation-criteria-card",
+        "work-units-card",
+        "student-roster-card",
+        "diary-card",
+        "student-detail-card",
+        "reports-card"
+      ],
+      "data_needs": ["users.full_name (via GET /api/auth/session)"],
+      "notes": "Only a signed-in teacher can reach this screen (role_guard: authenticated) — an invalid/missing session redirects to /login instead of rendering. No other DB table is involved yet; the seven cards are pure navigation, no data of their own.",
+      "components": [
+        {
+          "elementId": "app-logo",
+          "type": "heading",
+          "label": "App logo (text placeholder)",
+          "props": {},
+          "states": [
+            {
+              "name": "default",
+              "description": "Static app name text at the left end of the navbar, standing in for the real logo image asset (pending — user will provide it later)",
+              "visual_cues": ["left end of the navbar", "static text"]
+            }
+          ],
+          "interactions": [],
+          "note": "Temporary text placeholder — swap to an image component once the real logo asset is supplied, per description_dashboard.md."
+        },
+        {
+          "elementId": "settings-menu",
+          "type": "icon-button",
+          "label": "Configuración",
+          "props": { "icon": "cog", "variant": "ghost", "size": "sm" },
+          "states": [
+            {
+              "name": "disabled",
+              "description": "Visible at the right end of the navbar, always disabled — no functional options exist yet for this view",
+              "visual_cues": ["muted/disabled icon styling", "no dropdown ever opens"]
+            }
+          ],
+          "interactions": [],
+          "accessibility": { "aria_label": "Configuración (no disponible todavía)" },
+          "note": "Intentionally non-functional per description_dashboard.md — must never look or claim to be interactive."
+        },
+        {
+          "elementId": "welcome-message",
+          "type": "paragraph",
+          "label": "Bienvenido, <nombre del profesor>",
+          "props": {},
+          "states": [
+            {
+              "name": "default",
+              "description": "Shows 'Bienvenido, ' followed by the signed-in teacher's full name, resolved from the session",
+              "visual_cues": ["right side of the navbar, before Salir"]
+            }
+          ],
+          "interactions": []
+        },
+        {
+          "elementId": "logout-link",
+          "type": "link",
+          "label": "Salir",
+          "props": {},
+          "states": [
+            {
+              "name": "default",
+              "description": "Visible at the far right end of the navbar",
+              "visual_cues": ["right end of the navbar, after welcome-message"]
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "click",
+              "event": "app:logout-clicked",
+              "response": "Sends POST /api/auth/logout; on response, redirects to /login regardless of prior state"
+            }
+          ]
+        },
+        {
+          "elementId": "calendar-card",
+          "type": "card",
+          "label": "Calendario",
+          "props": { "icon": "calendar" },
+          "states": [
+            { "name": "default", "description": "Visible in the dashboard grid, position 1", "visual_cues": ["icon + title 'Calendario'"] }
+          ],
+          "interactions": [
+            { "trigger": "click", "event": "app:section-card-clicked", "response": "Navigates to the Calendario section's route (not yet built)" }
+          ]
+        },
+        {
+          "elementId": "evaluation-criteria-card",
+          "type": "card",
+          "label": "Criterios de evaluación",
+          "props": { "icon": "clipboard-check" },
+          "states": [
+            { "name": "default", "description": "Visible in the dashboard grid, position 2", "visual_cues": ["icon + title 'Criterios de evaluación'"] }
+          ],
+          "interactions": [
+            { "trigger": "click", "event": "app:section-card-clicked", "response": "Navigates to the Criterios de evaluación section's route (not yet built)" }
+          ]
+        },
+        {
+          "elementId": "work-units-card",
+          "type": "card",
+          "label": "Unidades de Trabajo",
+          "props": { "icon": "book-open" },
+          "states": [
+            { "name": "default", "description": "Visible in the dashboard grid, position 3", "visual_cues": ["icon + title 'Unidades de Trabajo'"] }
+          ],
+          "interactions": [
+            { "trigger": "click", "event": "app:section-card-clicked", "response": "Navigates to the Unidades de Trabajo section's route (not yet built)" }
+          ]
+        },
+        {
+          "elementId": "student-roster-card",
+          "type": "card",
+          "label": "Listado de alumnos",
+          "props": { "icon": "users" },
+          "states": [
+            { "name": "default", "description": "Visible in the dashboard grid, position 4", "visual_cues": ["icon + title 'Listado de alumnos'"] }
+          ],
+          "interactions": [
+            { "trigger": "click", "event": "app:section-card-clicked", "response": "Navigates to the Listado de alumnos section's route (not yet built)" }
+          ]
+        },
+        {
+          "elementId": "diary-card",
+          "type": "card",
+          "label": "Diario",
+          "props": { "icon": "notebook" },
+          "states": [
+            { "name": "default", "description": "Visible in the dashboard grid, position 5", "visual_cues": ["icon + title 'Diario'"] }
+          ],
+          "interactions": [
+            { "trigger": "click", "event": "app:section-card-clicked", "response": "Navigates to the Diario section's route (not yet built)" }
+          ]
+        },
+        {
+          "elementId": "student-detail-card",
+          "type": "card",
+          "label": "Vista individual de alumno",
+          "props": { "icon": "user" },
+          "states": [
+            { "name": "default", "description": "Visible in the dashboard grid, position 6", "visual_cues": ["icon + title 'Vista individual de alumno'"] }
+          ],
+          "interactions": [
+            { "trigger": "click", "event": "app:section-card-clicked", "response": "Navigates to the Vista individual de alumno section's route (not yet built)" }
+          ]
+        },
+        {
+          "elementId": "reports-card",
+          "type": "card",
+          "label": "Informes",
+          "props": { "icon": "file-text" },
+          "states": [
+            { "name": "default", "description": "Visible in the dashboard grid, position 7", "visual_cues": ["icon + title 'Informes'"] }
+          ],
+          "interactions": [
+            { "trigger": "click", "event": "app:section-card-clicked", "response": "Navigates to the Informes section's route (not yet built)" }
+          ]
+        }
+      ]
+    }
+  ]
+}

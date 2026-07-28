@@ -17,6 +17,7 @@
   "include": [
     "src/backend/**/*.ts",
     "src/frontend/src/**/*.ts",
+    "src/frontend/tests/**/*.ts",
     "lib/**/*.ts",
     "lib/**/*.js",
     "tests/**/*.ts",

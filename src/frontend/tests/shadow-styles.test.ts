@@ -26,7 +26,7 @@ describe('attachSharedStyles', () => {
     globalThis.fetch = (async () => {
       fetchCalls += 1;
       return new Response('.a{color:red}', { status: 200 });
-    }) as typeof fetch;
+    }) as unknown as typeof fetch;
 
     const hostA = document.createElement('div');
     const shadowA = hostA.attachShadow({ mode: 'open' });
@@ -44,7 +44,7 @@ describe('attachSharedStyles', () => {
   });
 
   it('does not adopt the same sheet twice when called again on the same shadow root', async () => {
-    globalThis.fetch = (async () => new Response('.a{color:red}', { status: 200 })) as typeof fetch;
+    globalThis.fetch = (async () => new Response('.a{color:red}', { status: 200 })) as unknown as typeof fetch;
 
     const host = document.createElement('div');
     const shadow = host.attachShadow({ mode: 'open' });
@@ -58,7 +58,7 @@ describe('attachSharedStyles', () => {
   });
 
   it('leaves the shadow root unstyled when the response is not ok', async () => {
-    globalThis.fetch = (async () => new Response(null, { status: 404 })) as typeof fetch;
+    globalThis.fetch = (async () => new Response(null, { status: 404 })) as unknown as typeof fetch;
 
     const host = document.createElement('div');
     const shadow = host.attachShadow({ mode: 'open' });
@@ -72,7 +72,7 @@ describe('attachSharedStyles', () => {
   it('leaves the shadow root unstyled, without throwing, when fetch itself rejects', async () => {
     globalThis.fetch = (async () => {
       throw new Error('network error');
-    }) as typeof fetch;
+    }) as unknown as typeof fetch;
 
     const host = document.createElement('div');
     const shadow = host.attachShadow({ mode: 'open' });

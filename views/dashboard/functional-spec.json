@@ -1,0 +1,154 @@
+{
+  "appOverview": "Dashboard is the landing screen right after a successful login. A top navbar (logo placeholder on the left; a disabled Configuración icon, 'Bienvenido, <nombre>', and a Salir link on the right) sits above a responsive grid of seven large cards — Calendario, Criterios de evaluación, Unidades de Trabajo, Listado de alumnos, Diario, Vista individual de alumno, and Informes — each a link into its own not-yet-built view. Only a signed-in teacher can reach it: on load it checks GET /api/auth/session and redirects to /login on a 401. Salir ends the session (POST /api/auth/logout) and returns to /login. Domain: Formación Profesional (Canarias) — the seven sections are organized by ciclo formativo and módulo profesional, not by curso/área.",
+  "elementSpecs": [
+    {
+      "elementId": "app-logo",
+      "behavior": "Static text standing in for the app logo/name at the left end of the navbar, until the real image asset is supplied.",
+      "businessRules": [
+        "Renders as plain text (the app name) — not the final art; swap to an image once the asset is supplied"
+      ],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "Is visible at the left end of the navbar at all times"
+      ]
+    },
+    {
+      "elementId": "settings-menu",
+      "behavior": "Visible icon at the right end of the navbar. Has no functional options in this view — clicking it does nothing.",
+      "businessRules": [
+        "Always rendered disabled — never opens a menu, never looks interactive",
+        "Exposes a non-availability indicator (e.g. aria-disabled or a tooltip/label) rather than silently doing nothing when clicked"
+      ],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "Is visible at the right end of the navbar",
+        "Is disabled and does not open any menu when clicked",
+        "Exposes a non-availability indicator (aria-disabled or equivalent tooltip/label)"
+      ]
+    },
+    {
+      "elementId": "welcome-message",
+      "behavior": "Shows 'Bienvenido, ' followed by the signed-in teacher's full name, read from the session.",
+      "businessRules": [
+        "The name shown is exactly the full_name the current session resolves to (GET /api/auth/session) — never a locally-cached or guessed value"
+      ],
+      "dataNeeds": ["session.fullName (GET /api/auth/session)"],
+      "acceptanceCriteria": [
+        "Shows 'Bienvenido, ' followed by the signed-in teacher's full name once the session check resolves"
+      ]
+    },
+    {
+      "elementId": "logout-link",
+      "behavior": "Ends the current session and returns the user to /login when clicked.",
+      "businessRules": [
+        "Clicking sends POST /api/auth/logout",
+        "After the logout response, redirects to /login regardless of the response body",
+        "Once logged out, a later visit to /dashboard with the same (now-invalid) session must redirect to /login instead of rendering the Dashboard"
+      ],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "Sends POST /api/auth/logout when clicked",
+        "Redirects to /login after the logout response",
+        "A later visit to /dashboard with the same, now-ended session redirects to /login instead of showing the Dashboard"
+      ]
+    },
+    {
+      "elementId": "calendar-card",
+      "behavior": "Large clickable card linking to the Calendario section: días festivos, fechas de comienzo de temas, fechas de inicio/fin de proyectos, controles y exámenes finales, y fechas de inicio/fin de la FEOE.",
+      "businessRules": [
+        "Clicking navigates to this card's route",
+        "The destination view isn't built yet — this view's responsibility ends at navigating there"
+      ],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "Is visible in the dashboard grid with its icon and title, in position 1",
+        "Navigates to its route when clicked"
+      ]
+    },
+    {
+      "elementId": "evaluation-criteria-card",
+      "behavior": "Large clickable card linking to the Criterios de evaluación section, organized by ciclo formativo y módulo profesional.",
+      "businessRules": [
+        "Clicking navigates to this card's route",
+        "The destination view isn't built yet — this view's responsibility ends at navigating there"
+      ],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "Is visible in the dashboard grid with its icon and title, in position 2",
+        "Navigates to its route when clicked"
+      ]
+    },
+    {
+      "elementId": "work-units-card",
+      "behavior": "Large clickable card linking to the Unidades de Trabajo section: contenido, planificación de tareas y pruebas objetivas.",
+      "businessRules": [
+        "Clicking navigates to this card's route",
+        "The destination view isn't built yet — this view's responsibility ends at navigating there"
+      ],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "Is visible in the dashboard grid with its icon and title, in position 3",
+        "Navigates to its route when clicked"
+      ]
+    },
+    {
+      "elementId": "student-roster-card",
+      "behavior": "Large clickable card linking to the Listado de alumnos section: notas de tareas, proyectos, controles y exámenes, y cálculo de la nota final por evaluación, por ciclo y módulo.",
+      "businessRules": [
+        "Clicking navigates to this card's route",
+        "The destination view isn't built yet — this view's responsibility ends at navigating there"
+      ],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "Is visible in the dashboard grid with its icon and title, in position 4",
+        "Navigates to its route when clicked"
+      ]
+    },
+    {
+      "elementId": "diary-card",
+      "behavior": "Large clickable card linking to the Diario section: columna de lo planificado junto a columna de lo realmente sucedido, con notas de mejora.",
+      "businessRules": [
+        "Clicking navigates to this card's route",
+        "The destination view isn't built yet — this view's responsibility ends at navigating there"
+      ],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "Is visible in the dashboard grid with its icon and title, in position 5",
+        "Navigates to its route when clicked"
+      ]
+    },
+    {
+      "elementId": "student-detail-card",
+      "behavior": "Large clickable card linking to the Vista individual de alumno section: notas, observaciones y faltas de asistencia.",
+      "businessRules": [
+        "Clicking navigates to this card's route",
+        "The destination view isn't built yet — this view's responsibility ends at navigating there"
+      ],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "Is visible in the dashboard grid with its icon and title, in position 6",
+        "Navigates to its route when clicked"
+      ]
+    },
+    {
+      "elementId": "reports-card",
+      "behavior": "Large clickable card linking to the Informes section: imprimibles/exportables.",
+      "businessRules": [
+        "Clicking navigates to this card's route",
+        "The destination view isn't built yet — this view's responsibility ends at navigating there"
+      ],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "Is visible in the dashboard grid with its icon and title, in position 7",
+        "Navigates to its route when clicked"
+      ]
+    }
+  ],
+  "globalRules": [
+    "The Dashboard is reachable only with a valid session: on load, it calls GET /api/auth/session; a 401 response redirects to /login instead of rendering the Dashboard",
+    "The seven section cards render in this fixed order: Calendario, Criterios de evaluación, Unidades de Trabajo, Listado de alumnos, Diario, Vista individual de alumno, Informes",
+    "None of the seven cards' destination routes exist yet — each is out of scope beyond navigating there",
+    "Configuración never appears interactive in this view — it's an explicit, non-functional placeholder, not a stub pretending to work",
+    "Multi-teacher/role differences beyond showing the signed-in teacher's own name are out of scope for this view"
+  ]
+}

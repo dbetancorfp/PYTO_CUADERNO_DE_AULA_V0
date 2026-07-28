@@ -51,6 +51,7 @@ export function createApp(deps: AppDeps): Express {
   const frontendIndex = path.join(import.meta.dir, '..', '..', 'frontend', 'index.html');
   app.use('/dist', express.static(frontendDist));
   app.get('/login', (_req, res) => res.sendFile(frontendIndex));
+  app.get('/dashboard', (_req, res) => res.sendFile(frontendIndex));
 
   return app;
 }
