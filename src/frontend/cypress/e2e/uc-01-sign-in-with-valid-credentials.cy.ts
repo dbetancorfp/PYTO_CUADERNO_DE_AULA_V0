@@ -16,6 +16,16 @@ describe('UC-01: Sign in with valid credentials', () => {
     cy.url().should('include', '/dashboard');
   });
 
+  it('starts a real, HttpOnly session identifying the signed-in user (session gap — see UC-01\'s session postcondition, use-cases.md)', () => {
+    cy.get('[data-element-id="email-input"]').type('e2e-valid-user@example.com');
+    cy.get('[data-element-id="password-input"]').type('CorrectHorseBattery1');
+    cy.get('[data-element-id="login-button"]').click();
+
+    cy.wait('@login');
+    cy.getCookie('session_id').should('exist').its('httpOnly').should('eq', true);
+    cy.request('/api/auth/session').its('body').should('deep.equal', { fullName: 'E2E Valid User' });
+  });
+
   it("loads the shared Tailwind stylesheet into login-button's Shadow DOM", () => {
     // Proves attachSharedStyles actually fetched and adopted /dist/tailwind.css into the
     // component's shadow root — a regression here would ship a silently unstyled view (see

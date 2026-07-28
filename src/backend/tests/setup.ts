@@ -18,6 +18,22 @@ if (happyDom) {
   happyDom.settings.fetch.disableSameOriginPolicy = true;
 }
 
+// happy-dom's fetch also strips the Set-Cookie/Set-Cookie2 response headers before they
+// ever reach JS (node_modules/happy-dom/src/fetch/utilities/FetchResponseHeaderUtility.ts —
+// "Set-Cookie and Set-Cookie2 are not allowed in response headers according to spec"),
+// unlike a real HTTP client, and happy-dom exposes no settings flag to opt out of this
+// (unlike disableSameOriginPolicy above). Backend tests that assert on a session cookie
+// (session.routes.test.ts) need the real header — restore the native `fetch` that
+// dom-setup.ts (preloaded before this file, see bunfig.toml) captured just before
+// GlobalRegistrator.register() overwrote it. This only changes fetch's response-header
+// visibility in this test process, not anything backend routes/services do at runtime, and
+// doesn't affect frontend tests: none of them call fetch() directly, they inject
+// API-service doubles per this project's DIP testing convention.
+const nativeFetch = (globalThis as { __nativeFetch?: typeof fetch }).__nativeFetch;
+if (nativeFetch) {
+  globalThis.fetch = nativeFetch;
+}
+
 let nextPort = 4100;
 
 export function allocateTestPort(): number {

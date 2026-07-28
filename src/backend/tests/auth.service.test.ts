@@ -16,6 +16,7 @@ async function userWith(overrides: Partial<User>): Promise<User> {
   return {
     id: 'u1',
     email: 'ana@example.com',
+    fullName: 'Ana García',
     passwordHash: await Bun.password.hash('CorrectHorseBattery1'),
     failedAttempts: 0,
     isLocked: false,

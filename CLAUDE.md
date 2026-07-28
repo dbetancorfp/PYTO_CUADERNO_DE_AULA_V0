@@ -4,19 +4,24 @@ alwaysApply: true
 
 ## Project
 
-**PYTO_CUADERNO_DE_AULA_V0** — a **Cuaderno de Aula** web application for teachers in the
-Canary Islands (Spain) public education system, built one view at a time through a
-pipeline of Claude Code agents coordinated by a conversational Orchestrator, backed by a
-real PostgreSQL database and (eventually) a RAG system that gives context across views.
+**PYTO_CUADERNO_DE_AULA_V0** — a **Cuaderno de Aula** web application for Vocational
+Training (Formación Profesional) teachers in the Canary Islands (Spain) public education
+system, built one view at a time through a pipeline of Claude Code agents coordinated by a
+conversational Orchestrator, backed by a real PostgreSQL database and (eventually) a RAG
+system that gives context across views.
 
-A "cuaderno de aula" is the day-to-day classroom register a teacher keeps per group and
-subject: recording the learning situations delivered, marking student performance against
-each evaluation criterion, and tracking the resulting degree of competency acquisition,
-consistent with the evaluation model set out in Decreto 211/2022, de 10 de noviembre (which
-establishes the organization and curriculum of Primary Education in the Canary Islands) and
-Orden de 31 de mayo de 2023 (which regulates evaluation and promotion of students in
-Infant, Primary, Compulsory Secondary and Baccalaureate education in the Canary Islands).
-In the Canary Islands' own school-management platforms (Pincel Ekade, ProIDEAC) this
+A "cuaderno de aula" is the day-to-day classroom register a teacher keeps per training
+cycle (*ciclo formativo*) and professional module (*módulo profesional*): recording the
+work units (*unidades de trabajo*) and learning situations delivered, planning and grading
+tasks, projects and objective tests (*pruebas objetivas*), marking student performance
+against each evaluation criterion, and tracking the resulting degree of competency
+acquisition — consistent with the evaluation model for Vocational Training set out in Ley
+Orgánica 3/2022, de 31 de marzo, de ordenación e integración de la Formación Profesional,
+Real Decreto 659/2023, de 18 de julio, por el que se desarrolla la ordenación del sistema
+de Formación Profesional, and the Canary Islands' own annual evaluation-instructions
+resolution for Formación Profesional (issued each course by the Consejería de Educación),
+which also governs the FEOE (Formación en Empresa u Organismo Equiparado) work-placement
+phase. In the Canary Islands' own school-management platforms (Pincel Ekade, ProIDEAC) this
 register is what feeds each student's individual file, so the teaching team stays
 coordinated on what has been taught and how each student is progressing.
 

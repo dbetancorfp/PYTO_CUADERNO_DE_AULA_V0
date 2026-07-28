@@ -4,7 +4,7 @@
 
 **Primary actor**: Any unauthenticated visitor
 **Preconditions**: A `users` row exists with the entered email; account is not locked
-**Elements**: `email-input`, `password-input`, `login-button` (submit), `login-error-message` (error display)
+**Elements**: `email-input`, `password-input`, `login-button` (submit), `login-error-message` (error display), `session-guard` (session established as a side effect)
 
 ### Main flow
 
@@ -13,7 +13,8 @@
 3. User clicks `login-button`.
 4. `login-button` enters its loading state and the request is sent.
 5. Server validates the credentials, resets the account's failed-attempt counter to zero,
-   and responds success.
+   starts a session for that user (`session_id` cookie, resolvable by `session-guard`), and
+   responds success.
 6. The app redirects to `/dashboard`.
 
 ### Alternative flows
@@ -29,13 +30,18 @@
 
 ### Postconditions
 
-- On main flow success: user is redirected to `/dashboard`; failed-attempt counter is 0.
-- On A1: failed-attempt counter incremented by 1; user remains on `/login`.
-- On A2: failed-attempt counter unchanged; user remains on `/login`.
+- On main flow success: user is redirected to `/dashboard`; failed-attempt counter is 0; a
+  session now identifies this user (`session-guard` resolves the issued `session_id` to
+  their `full_name`).
+- On A1: failed-attempt counter incremented by 1; user remains on `/login`; no session
+  started.
+- On A2: failed-attempt counter unchanged; user remains on `/login`; no session started.
 
 ### Acceptance criteria
 
 - [x] Redirects to `/dashboard` after a response indicating valid, non-locked credentials
+- [x] A successful response is accompanied by a session identifying the signed-in user
+      (`session-guard` resolves the issued `session_id` to that user's `full_name`)
 - [x] Shows "Incorrect email or password" after a wrong-credentials response, without
       indicating which field was wrong
 - [x] Shows "This account has been locked due to too many failed attempts. Contact support."
@@ -131,3 +137,76 @@ case)
 
 - [x] Is present and visible below `login-button` on first load
 - [x] Does not navigate and sends no request when clicked
+
+---
+
+## UC-05: Resolve who is signed in (session-guard)
+
+**Primary actor**: Any other view's frontend, or that view's own backend endpoint, checking
+the caller's identity (first consumer: the Dashboard view, not yet built)
+**Preconditions**: None — applies to any incoming request
+**Elements**: `session-guard`
+
+### Main flow
+
+1. A request arrives carrying a `session_id` cookie.
+2. `session-guard` looks it up in the in-process session store.
+3. The `session_id` matches an active session: resolves to that user's `full_name` (and any
+   other identity fields a future view may need).
+
+### Alternative flows
+
+- **A1 — No `session_id` cookie**: resolves to "not signed in".
+- **A2 — `session_id` doesn't match any active session** (never existed, expired, or already
+  ended via `logout-session`): resolves to "not signed in" — indistinguishable from A1, so
+  no response ever reveals whether a given `session_id` once existed.
+
+### Postconditions
+
+- The caller knows whether there's a signed-in user and, if so, their `full_name`. No state
+  changes as a result of resolving — this is a read-only check.
+
+### Acceptance criteria
+
+- [x] Resolves to "not signed in" when no `session_id` cookie is present
+- [x] Resolves to "not signed in" when `session_id` doesn't match any active session
+- [x] Resolves to the signed-in user's `full_name` when `session_id` matches an active
+      session
+- [x] Resolves to "not signed in" for a `session_id` that was previously ended via
+      `logout-session` — same response shape as A1/A2, no distinguishing detail
+
+---
+
+## UC-06: End a session (logout-session)
+
+**Primary actor**: A signed-in user, via another view's logout action (first caller: the
+Dashboard view's future "Salir" element — out of scope here, this use case only covers the
+session-ending capability itself)
+**Preconditions**: A `session_id` cookie is present (may or may not still be active)
+**Elements**: `logout-session`
+
+### Main flow
+
+1. The caller invokes the logout capability with the current `session_id`.
+2. The session is removed from the in-process session store.
+3. `session-guard` immediately resolves that same `session_id` to "not signed in" for any
+   subsequent request.
+
+### Alternative flows
+
+- **A1 — Already-ended or unknown `session_id`**: no error; the outcome is the same as the
+  main flow's end state ("not signed in") — idempotent, and never reveals whether the
+  `session_id` had ever been valid.
+
+### Postconditions
+
+- The `session_id` no longer identifies anyone. A request that previously reached an
+  authenticated view (e.g. Dashboard) using this `session_id` must be treated as
+  unauthenticated afterward — no reaching it again via back button or a resubmitted cookie.
+
+### Acceptance criteria
+
+- [x] After `logout-session` runs for a given `session_id`, `session-guard` resolves that
+      same `session_id` to "not signed in"
+- [x] Running `logout-session` again for an already-ended or unknown `session_id` doesn't
+      error and still results in "not signed in"

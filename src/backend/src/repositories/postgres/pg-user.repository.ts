@@ -7,12 +7,14 @@ interface UserRow {
   password_hash: string;
   failed_attempts: number;
   is_locked: boolean;
+  full_name: string;
 }
 
 function toUser(row: UserRow): User {
   return {
     id: row.id,
     email: row.email,
+    fullName: row.full_name,
     passwordHash: row.password_hash,
     failedAttempts: row.failed_attempts,
     isLocked: row.is_locked,
@@ -26,7 +28,7 @@ export class PgUserRepository implements UserRepository {
 
   async findByEmail(email: string): Promise<User | null> {
     const rows = (await this.sql`
-      SELECT id, email, password_hash, failed_attempts, is_locked
+      SELECT id, email, password_hash, failed_attempts, is_locked, full_name
       FROM users
       WHERE email = ${email}
     `) as unknown as UserRow[];
@@ -45,7 +47,7 @@ export class PgUserRepository implements UserRepository {
       SET failed_attempts = failed_attempts + 1,
           is_locked = (failed_attempts + 1) >= 5
       WHERE email = ${email}
-      RETURNING id, email, password_hash, failed_attempts, is_locked
+      RETURNING id, email, password_hash, failed_attempts, is_locked, full_name
     `) as unknown as UserRow[];
     const [row] = rows;
     return row ? toUser(row) : null;
