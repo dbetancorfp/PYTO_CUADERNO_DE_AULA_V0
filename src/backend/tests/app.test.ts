@@ -6,9 +6,11 @@
 // branch and pg-client.ts's createPgClient, because nothing exercised them (see
 // views/login/review-report.md from the prior run and this session's tdd-engineer.md
 // process fix, commits b6a539f/f200dbb).
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect, afterAll, beforeAll } from 'bun:test';
+import type { Server } from 'node:http';
 import { createApp } from '../src/app';
 import { createPgClient } from '../src/db/pg-client';
+import { allocateTestPort } from './setup';
 
 describe('createApp — composition root', () => {
   it('builds a working app when backend is "memory"', () => {
@@ -55,5 +57,33 @@ describe('createPgClient', () => {
     const client = createPgClient('postgresql://user:pass@127.0.0.1:5432/db');
 
     expect(typeof client).toBe('function');
+  });
+});
+
+// Reviewer's requires-tdd-engineer verdict (views/login/review-report.md, 2026-07-28):
+// GET /login (src/app.ts's static-file route, wired by e2e-engineer after this view's
+// original reviewer pass) had zero coverage — real, correctly-working code, just untested.
+describe('createApp — GET /login static route', () => {
+  const port = allocateTestPort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  let server: Server;
+
+  beforeAll(async () => {
+    const app = createApp({ backend: 'memory' });
+    await new Promise<void>((resolve) => {
+      server = app.listen(port, () => resolve());
+    });
+  });
+
+  afterAll(() => {
+    server.close();
+  });
+
+  it('serves the frontend index.html', async () => {
+    const response = await fetch(`${baseUrl}/login`);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toContain('text/html');
+    expect(await response.text()).toContain('<app-login-view></app-login-view>');
   });
 });

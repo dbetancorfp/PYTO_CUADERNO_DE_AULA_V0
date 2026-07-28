@@ -16,17 +16,19 @@ async function seedLoginFixtures(): Promise<void> {
   const lockedPasswordHash = await Bun.password.hash('CorrectHorseBattery1');
 
   await sql`
-    INSERT INTO users (email, password_hash, failed_attempts, is_locked)
-    VALUES (${'e2e-valid-user@example.com'}, ${validPasswordHash}, 0, false)
+    INSERT INTO users (email, password_hash, full_name, failed_attempts, is_locked)
+    VALUES (${'e2e-valid-user@example.com'}, ${validPasswordHash}, ${'E2E Valid User'}, 0, false)
     ON CONFLICT (email) DO UPDATE
-      SET password_hash = EXCLUDED.password_hash, failed_attempts = 0, is_locked = false
+      SET password_hash = EXCLUDED.password_hash, full_name = EXCLUDED.full_name,
+          failed_attempts = 0, is_locked = false
   `;
 
   await sql`
-    INSERT INTO users (email, password_hash, failed_attempts, is_locked)
-    VALUES (${'e2e-locked-user@example.com'}, ${lockedPasswordHash}, 5, true)
+    INSERT INTO users (email, password_hash, full_name, failed_attempts, is_locked)
+    VALUES (${'e2e-locked-user@example.com'}, ${lockedPasswordHash}, ${'E2E Locked User'}, 5, true)
     ON CONFLICT (email) DO UPDATE
-      SET password_hash = EXCLUDED.password_hash, failed_attempts = 5, is_locked = true
+      SET password_hash = EXCLUDED.password_hash, full_name = EXCLUDED.full_name,
+          failed_attempts = 5, is_locked = true
   `;
 }
 

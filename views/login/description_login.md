@@ -45,3 +45,29 @@ track failed login attempts and whether the account is locked.
 
 We don't have a registration view yet either — for now, assume a handful of test accounts
 get inserted directly for QA purposes; registration is a separate, future view.
+
+## Session (added — closing a gap found while designing the Dashboard view)
+
+Right now a successful login only returns a generic success message — there's no way for
+any other view to know who is signed in. This has to close, because the Dashboard (the
+view built right after this one) shows "Bienvenido, `<nombre del profesor>`" and needs to
+be able to end that session on "Salir".
+
+- On successful login, the server starts a session for that user; the browser holds a
+  `session_id` cookie identifying it. Per `tecnologias/tecnologia_code.md` and
+  `tecnologia_bbdd.md`, this was already the intended design (`cookie-parser`, no JWT, no
+  `express-session`; sessions live in an in-process `InMemorySessionRepository` `Map`, not
+  persisted to Postgres) — it just was never implemented when this view was first built.
+- Any other view must be able to ask "who is currently signed in" and get back at least the
+  teacher's full name.
+- There must be a way to end the session (used by the Dashboard's "Salir" link): after
+  logout, the session is invalidated server-side and the cookie no longer identifies
+  anyone — a later "who is signed in" check must fail, and the app sends the user back to
+  `/login`.
+- A signed-out session must not be able to reach an authenticated view again via back
+  button or a stale/resubmitted `session_id` cookie.
+
+## Data (updated)
+
+`users` is also missing a **full name** field entirely — there's no column to answer "who
+is signed in" with something displayable. Add one (e.g. `full_name`).

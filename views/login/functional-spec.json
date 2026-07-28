@@ -1,5 +1,5 @@
 {
-  "appOverview": "Login is the entry screen for anyone who opens the app without an active session: a centered card with the app name, an email field, a masked password field with a show/hide toggle, a Sign in button, a non-functional 'Forgot your password?' placeholder link, and an error area that stays hidden until a login attempt fails. Successful login redirects to /dashboard (not yet implemented). There is no registration view yet — QA accounts are inserted directly.",
+  "appOverview": "Login is the entry screen for anyone who opens the app without an active session: a centered card with the app name, an email field, a masked password field with a show/hide toggle, a Sign in button, a non-functional 'Forgot your password?' placeholder link, and an error area that stays hidden until a login attempt fails. Successful login starts a server-side session (session_id cookie) and redirects to /dashboard. Other views rely on that session to know who is signed in (e.g. Dashboard's 'Bienvenido, <nombre>') and to end it on logout. There is no registration view yet — QA accounts are inserted directly.",
   "elementSpecs": [
     {
       "elementId": "login-heading",
@@ -54,7 +54,7 @@
       "behavior": "Runs client-side validation on email-input and password-input; if both pass, sends the login request and enters a loading/disabled state until a response arrives, then reflects the outcome (redirect, or an error shown via login-error-message).",
       "businessRules": [
         "Disabled and showing a loading state while the request is in flight, so a double-click can't send two requests",
-        "On success (valid credentials, account not locked): redirects to /dashboard",
+        "On success (valid credentials, account not locked): the server starts a session for that user (session_id cookie) and the client redirects to /dashboard",
         "On failure due to wrong email/password combination: shows the generic message 'Incorrect email or password' via login-error-message — never reveals which of the two fields was wrong",
         "After 5 failed attempts in a row for the same account, the next attempt (even with the correct password) shows 'This account has been locked due to too many failed attempts. Contact support.' via login-error-message",
         "A successful login resets that account's failed-attempt counter back to zero"
@@ -69,6 +69,7 @@
         "Does not send a request if either field fails client-side validation",
         "Shows a loading state and is disabled from click until the response arrives",
         "Redirects to /dashboard after a response indicating valid, non-locked credentials",
+        "A successful response is accompanied by a session identifying the signed-in user (verified via session-guard, not by inspecting the cookie's contents)",
         "Shows 'Incorrect email or password' after a wrong-credentials response, without indicating which field was wrong",
         "Shows 'This account has been locked due to too many failed attempts. Contact support.' after the 6th consecutive failed attempt, even if that 6th attempt used the correct password",
         "A successful login resets the account's failed-attempt counter to zero"
@@ -84,6 +85,35 @@
       "acceptanceCriteria": [
         "Is present and visible below login-button on first load",
         "Does not navigate and sends no request when clicked"
+      ]
+    },
+    {
+      "elementId": "session-guard",
+      "behavior": "Non-visual, backend-owned concern (not a rendered component in this screen): given a request's session_id cookie, determines whether it identifies a currently signed-in user and, if so, that user's identity (at least full_name). Every authenticated view (starting with Dashboard) uses this to gate access and to render 'who is signed in'.",
+      "businessRules": [
+        "A missing, invalid, or previously-invalidated session_id must resolve to 'not signed in' — never partial or stale identity",
+        "Resolves to the signed-in user's full_name (users.full_name), not just an opaque id, so views don't need a second round-trip to display a name",
+        "Session data lives in an in-process store (InMemorySessionRepository), never persisted to Postgres, per tecnologias/tecnologia_bbdd.md"
+      ],
+      "dataNeeds": ["users.full_name (new column, see schema-changes.sql)"],
+      "acceptanceCriteria": [
+        "Resolves to 'not signed in' when no session_id cookie is present",
+        "Resolves to 'not signed in' when session_id doesn't match any active session",
+        "Resolves to the signed-in user's full_name when session_id matches an active session",
+        "Resolves to 'not signed in' for a session_id that was previously ended via logout-session"
+      ]
+    },
+    {
+      "elementId": "logout-session",
+      "behavior": "Non-visual, backend-owned capability (not a rendered component in this screen): ends an active session server-side. Triggered later by the Dashboard view's 'Salir' element, which lives outside this view — this view only owns the session lifecycle, not that button.",
+      "businessRules": [
+        "Invalidates the session server-side (removed from the in-memory store) so session-guard immediately resolves it to 'not signed in'",
+        "A session_id that has already been logged out, or never existed, is treated the same as any other 'not signed in' case — no error distinguishing them, to avoid leaking session existence"
+      ],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "After logout-session runs for a given session_id, session-guard resolves that same session_id to 'not signed in'",
+        "Running logout-session again for an already-ended (or unknown) session_id doesn't error and still results in 'not signed in'"
       ]
     },
     {
@@ -105,6 +135,8 @@
     "No 'remember me' checkbox and no social login (Google/GitHub/etc.) in this view — explicitly out of scope per description_login.md",
     "The client never indicates which of email/password was incorrect for a wrong-credentials response — same generic message either way (security requirement)",
     "This view's responsibility ends at a successful login; /dashboard itself is a separate, not-yet-implemented view",
-    "Registration is a separate, future view — for now, QA test accounts are inserted directly into the users table"
+    "Registration is a separate, future view — for now, QA test accounts are inserted directly into the users table",
+    "Session mechanism is session_id cookie + in-memory store (no JWT, no express-session, per tecnologia_code.md/tecnologia_bbdd.md) — this was already the intended design, only now being implemented",
+    "A signed-out or never-existed session must never be distinguishable from each other in any response — same as the email/password non-disclosure rule above, applied to session state"
   ]
 }

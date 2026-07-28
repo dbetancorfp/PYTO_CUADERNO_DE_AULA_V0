@@ -2,13 +2,16 @@
 // services only ever see the `UserRepository` interface, never the concrete
 // `InMemoryUserRepository`/`PgUserRepository` classes.
 import path from 'node:path';
+import cookieParser from 'cookie-parser';
 import express, { type Express } from 'express';
 import { createPgClient } from './db/pg-client';
+import { InMemorySessionRepository } from './repositories/in-memory/in-memory-session.repository';
 import { InMemoryUserRepository } from './repositories/in-memory/in-memory-user.repository';
 import { PgUserRepository } from './repositories/postgres/pg-user.repository';
 import type { User, UserRepository } from './repositories/user.repository';
 import { authRouter } from './routes/auth.routes';
 import { AuthService } from './services/auth.service';
+import { SessionService } from './services/session.service';
 
 export interface AppDeps {
   backend: 'memory' | 'postgres';
@@ -35,10 +38,14 @@ function buildUserRepository(deps: AppDeps): UserRepository {
 export function createApp(deps: AppDeps): Express {
   const userRepository = buildUserRepository(deps);
   const authService = new AuthService(userRepository);
+  // One InMemorySessionRepository per app instance, same lifetime as the Express app — not
+  // per-request (see views/login/description_login.md's Session section).
+  const sessionService = new SessionService(new InMemorySessionRepository());
 
   const app = express();
   app.use(express.json());
-  app.use('/api/auth', authRouter(authService));
+  app.use(cookieParser());
+  app.use('/api/auth', authRouter(authService, sessionService));
 
   const frontendDist = path.join(import.meta.dir, '..', '..', 'frontend', 'dist');
   const frontendIndex = path.join(import.meta.dir, '..', '..', 'frontend', 'index.html');

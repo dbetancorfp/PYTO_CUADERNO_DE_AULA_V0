@@ -38,4 +38,16 @@ export class AuthService {
     await this.userRepository.resetFailedAttempts(email);
     return { outcome: 'success' };
   }
+
+  /**
+   * Looks up the display name for an account, for callers that already hold a successful
+   * `login()` outcome for the same `email` and need it to start a session (see
+   * views/login/use-cases.md UC-01's session postcondition). Kept as a separate method,
+   * rather than folded into `login()`'s success result, because `LoginResult`'s `success`
+   * variant is asserted elsewhere as exactly `{ outcome: 'success' }` with no extra fields.
+   */
+  async fullNameFor(email: string): Promise<string | null> {
+    const user = await this.userRepository.findByEmail(email);
+    return user ? user.fullName : null;
+  }
 }

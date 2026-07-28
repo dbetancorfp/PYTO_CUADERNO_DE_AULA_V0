@@ -13,6 +13,7 @@ async function seededUser(overrides: Partial<User>): Promise<User> {
   return {
     id: 'u1',
     email: 'e2e-valid-user@example.com',
+    fullName: 'Test User',
     passwordHash: await Bun.password.hash('CorrectHorseBattery1'),
     failedAttempts: 0,
     isLocked: false,
