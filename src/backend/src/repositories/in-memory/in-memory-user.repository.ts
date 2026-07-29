@@ -35,4 +35,25 @@ export class InMemoryUserRepository implements UserRepository {
 
     this.usersByEmail.set(email, { ...user, failedAttempts: 0, isLocked: false });
   }
+
+  async findById(id: string): Promise<User | null> {
+    for (const user of this.usersByEmail.values()) {
+      if (user.id === id) return user;
+    }
+    return null;
+  }
+
+  async updateFullName(id: string, fullName: string): Promise<void> {
+    const user = await this.findById(id);
+    if (!user) return;
+
+    this.usersByEmail.set(user.email, { ...user, fullName });
+  }
+
+  async updatePasswordHash(id: string, passwordHash: string): Promise<void> {
+    const user = await this.findById(id);
+    if (!user) return;
+
+    this.usersByEmail.set(user.email, { ...user, passwordHash });
+  }
 }

@@ -40,8 +40,8 @@ export function authRouter(authService: AuthService, sessionService: SessionServ
     const result = await authService.login(email, password);
 
     if (result.outcome === 'success') {
-      const fullName = (await authService.fullNameFor(email)) ?? '';
-      const sessionId = sessionService.start({ fullName });
+      const identity = (await authService.identityFor(email)) ?? { id: '', fullName: '' };
+      const sessionId = sessionService.start({ id: identity.id, fullName: identity.fullName });
       res.cookie(SESSION_COOKIE, sessionId, { httpOnly: true, sameSite: 'lax', path: '/' });
       res.status(200).json({ message: 'Login successful' });
       return;
@@ -53,13 +53,16 @@ export function authRouter(authService: AuthService, sessionService: SessionServ
     res.status(401).json({ message: ERROR_MESSAGES.invalidCredentials });
   });
 
-  router.get('/session', (req: Request, res: Response) => {
-    const user = sessionService.resolve(readSessionId(req));
-    if (!user) {
+  router.get('/session', async (req: Request, res: Response) => {
+    const session = sessionService.resolve(readSessionId(req));
+    if (!session) {
       res.status(401).json({ message: ERROR_MESSAGES.notAuthenticated });
       return;
     }
-    res.status(200).json({ fullName: user.fullName });
+    // Resolves users.full_name fresh on every call, rather than the value cached in the
+    // session at login time — see AuthService.fullNameForId.
+    const fullName = (await authService.fullNameForId(session.id)) ?? session.fullName;
+    res.status(200).json({ fullName });
   });
 
   router.post('/logout', (req: Request, res: Response) => {

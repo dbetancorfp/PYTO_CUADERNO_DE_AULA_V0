@@ -61,4 +61,30 @@ export class PgUserRepository implements UserRepository {
       WHERE email = ${email}
     `;
   }
+
+  async findById(id: string): Promise<User | null> {
+    const rows = (await this.sql`
+      SELECT id, email, password_hash, failed_attempts, is_locked, full_name
+      FROM users
+      WHERE id = ${id}
+    `) as unknown as UserRow[];
+    const [row] = rows;
+    return row ? toUser(row) : null;
+  }
+
+  async updateFullName(id: string, fullName: string): Promise<void> {
+    await this.sql`
+      UPDATE users
+      SET full_name = ${fullName}
+      WHERE id = ${id}
+    `;
+  }
+
+  async updatePasswordHash(id: string, passwordHash: string): Promise<void> {
+    await this.sql`
+      UPDATE users
+      SET password_hash = ${passwordHash}
+      WHERE id = ${id}
+    `;
+  }
 }

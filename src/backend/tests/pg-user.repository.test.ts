@@ -129,4 +129,70 @@ describe('PgUserRepository', () => {
     });
     expect(sqlTextOf(fakeSql.calls[0])).toContain('full_name');
   });
+
+  // Configuración (new view): teacher-settings needs to look up a user by id (requireAuth
+  // only resolves a teacherId, not the full row) and to update full_name/password_hash.
+  it('findById maps the returned row to the domain User shape', async () => {
+    const fakeSql = createFakeSql([
+      [
+        {
+          id: 'u1',
+          email: 'ana@example.com',
+          password_hash: 'hash1',
+          failed_attempts: 0,
+          is_locked: false,
+          full_name: 'Ana García',
+        },
+      ],
+    ]);
+    const repo = new PgUserRepository(fakeSql);
+
+    const user = await repo.findById('u1');
+
+    expect(user).toEqual({
+      id: 'u1',
+      email: 'ana@example.com',
+      passwordHash: 'hash1',
+      failedAttempts: 0,
+      isLocked: false,
+      fullName: 'Ana García',
+    });
+    expect(sqlTextOf(fakeSql.calls[0])).toContain('FROM users');
+    expect(fakeSql.calls[0].values).toEqual(['u1']);
+  });
+
+  it('findById returns null when no row matches', async () => {
+    const fakeSql = createFakeSql([[]]);
+    const repo = new PgUserRepository(fakeSql);
+
+    const user = await repo.findById('unknown-id');
+
+    expect(user).toBeNull();
+  });
+
+  it('updateFullName sends an UPDATE for the given id', async () => {
+    const fakeSql = createFakeSql([[]]);
+    const repo = new PgUserRepository(fakeSql);
+
+    await repo.updateFullName('u1', 'Nuevo Nombre');
+
+    expect(fakeSql.calls).toHaveLength(1);
+    const sql = sqlTextOf(fakeSql.calls[0]);
+    expect(sql).toContain('UPDATE users');
+    expect(sql).toContain('full_name');
+    expect(fakeSql.calls[0].values).toEqual(['Nuevo Nombre', 'u1']);
+  });
+
+  it('updatePasswordHash sends an UPDATE for the given id', async () => {
+    const fakeSql = createFakeSql([[]]);
+    const repo = new PgUserRepository(fakeSql);
+
+    await repo.updatePasswordHash('u1', 'new-hash');
+
+    expect(fakeSql.calls).toHaveLength(1);
+    const sql = sqlTextOf(fakeSql.calls[0]);
+    expect(sql).toContain('UPDATE users');
+    expect(sql).toContain('password_hash');
+    expect(fakeSql.calls[0].values).toEqual(['new-hash', 'u1']);
+  });
 });

@@ -25,6 +25,46 @@ async function bootstrap(): Promise<void> {
     return;
   }
 
+  if (window.location.pathname === '/configuracion/profesor') {
+    const [{ HttpSessionApiService }, { HttpTeacherSettingsApiService }, { TeacherSettingsView }] = await Promise.all([
+      import('./http-session-api-service'),
+      import('./http-teacher-settings-api-service'),
+      import('./teacher-settings-view'),
+    ]);
+    const teacherSettingsView = document.createElement('app-teacher-settings-view') as InstanceType<
+      typeof TeacherSettingsView
+    >;
+    teacherSettingsView.sessionService = new HttpSessionApiService();
+    teacherSettingsView.settingsService = new HttpTeacherSettingsApiService();
+    document.body.appendChild(teacherSettingsView);
+    return;
+  }
+
+  if (window.location.pathname === '/configuracion/ano-academico') {
+    const [
+      { HttpSessionApiService },
+      { HttpTrainingCycleApiService },
+      { HttpModuleApiService },
+      { HttpAcademicYearApiService },
+      { AcademicYearSettingsView },
+    ] = await Promise.all([
+      import('./http-session-api-service'),
+      import('./http-training-cycle-api-service'),
+      import('./http-module-api-service'),
+      import('./http-academic-year-api-service'),
+      import('./academic-year-settings-view'),
+    ]);
+    const academicYearSettingsView = document.createElement('app-academic-year-settings-view') as InstanceType<
+      typeof AcademicYearSettingsView
+    >;
+    academicYearSettingsView.sessionService = new HttpSessionApiService();
+    academicYearSettingsView.trainingCycleService = new HttpTrainingCycleApiService();
+    academicYearSettingsView.moduleService = new HttpModuleApiService();
+    academicYearSettingsView.academicYearService = new HttpAcademicYearApiService();
+    document.body.appendChild(academicYearSettingsView);
+    return;
+  }
+
   const [{ HttpAuthApiService }, { LoginView }] = await Promise.all([
     import('./http-auth-api-service'),
     import('./login-view'),

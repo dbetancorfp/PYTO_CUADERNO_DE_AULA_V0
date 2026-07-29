@@ -40,14 +40,26 @@ export class AuthService {
   }
 
   /**
-   * Looks up the display name for an account, for callers that already hold a successful
-   * `login()` outcome for the same `email` and need it to start a session (see
+   * Looks up the id + display name for an account, for callers that already hold a
+   * successful `login()` outcome for the same `email` and need it to start a session (see
    * views/login/use-cases.md UC-01's session postcondition). Kept as a separate method,
    * rather than folded into `login()`'s success result, because `LoginResult`'s `success`
    * variant is asserted elsewhere as exactly `{ outcome: 'success' }` with no extra fields.
    */
-  async fullNameFor(email: string): Promise<string | null> {
+  async identityFor(email: string): Promise<{ id: string; fullName: string } | null> {
     const user = await this.userRepository.findByEmail(email);
+    return user ? { id: user.id, fullName: user.fullName } : null;
+  }
+
+  /**
+   * Looks up an account's current display name by id, for session-guard (GET
+   * /api/auth/session) to resolve `users.full_name` fresh on every call, rather than trust
+   * the value cached in the session at login time — this is what makes Configuración's
+   * `teacher-save-name-button` (views/configuracion/use-cases.md UC-01) visible on
+   * Dashboard's next load without a re-login. Returns `null` when `id` matches no account.
+   */
+  async fullNameForId(id: string): Promise<string | null> {
+    const user = await this.userRepository.findById(id);
     return user ? user.fullName : null;
   }
 }

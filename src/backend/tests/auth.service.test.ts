@@ -6,8 +6,11 @@ import type { User, UserRepository } from '../src/repositories/user.repository';
 function repositoryDouble(overrides: Partial<UserRepository> = {}): UserRepository {
   return {
     findByEmail: async () => null,
+    findById: async () => null,
     incrementFailedAttempts: async () => null,
     resetFailedAttempts: async () => {},
+    updateFullName: async () => {},
+    updatePasswordHash: async () => {},
     ...overrides,
   };
 }
