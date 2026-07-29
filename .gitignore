@@ -5,3 +5,5 @@ coverage/
 site/
 *.log
 .DS_Store
+cypress/screenshots/
+cypress/videos/

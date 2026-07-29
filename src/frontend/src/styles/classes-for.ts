@@ -17,7 +17,9 @@ export type ComponentVisualType =
   | 'paragraph'
   | 'link'
   | 'card'
-  | 'badge';
+  | 'badge'
+  | 'table'
+  | 'modal';
 
 export type Variant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'link' | 'interactive';
 
@@ -52,7 +54,9 @@ const BASE_CLASSES: Record<ComponentVisualType, string> = {
   paragraph: 'text-sm',
   link: 'underline cursor-pointer',
   card: 'rounded-lg shadow-md bg-white',
-  badge: 'inline-flex items-center rounded-full',
+  badge: 'inline-flex items-center rounded-full px-2 py-0.5 text-xs',
+  table: 'w-full border-collapse text-left',
+  modal: 'fixed inset-0 z-10 flex items-center justify-center bg-black/40',
 };
 
 /**

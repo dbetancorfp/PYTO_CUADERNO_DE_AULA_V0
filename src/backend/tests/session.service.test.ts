@@ -28,19 +28,19 @@ describe('SessionService', () => {
     });
     const service = new SessionService(repo);
 
-    const sessionId = service.start({ fullName: 'Jane Doe' });
+    const sessionId = service.start({ id: 'u1', fullName: 'Jane Doe' });
 
     expect(sessionId).toBe('session-abc');
-    expect(calls.createdWith).toEqual({ fullName: 'Jane Doe' });
+    expect(calls.createdWith).toEqual({ id: 'u1', fullName: 'Jane Doe' });
   });
 
   it('resolve() returns the signed-in user for an active session id', () => {
     const repo = repositoryDouble({
-      resolve: (sessionId: string) => (sessionId === 'session-abc' ? { fullName: 'Jane Doe' } : null),
+      resolve: (sessionId: string) => (sessionId === 'session-abc' ? { id: 'u1', fullName: 'Jane Doe' } : null),
     });
     const service = new SessionService(repo);
 
-    expect(service.resolve('session-abc')).toEqual({ fullName: 'Jane Doe' });
+    expect(service.resolve('session-abc')).toEqual({ id: 'u1', fullName: 'Jane Doe' });
   });
 
   it('resolve() returns null when no session_id is provided', () => {
@@ -76,7 +76,7 @@ describe('SessionService', () => {
   });
 
   it('a session resolved after end() returns null', () => {
-    let active: SessionUser | null = { fullName: 'Jane Doe' };
+    let active: SessionUser | null = { id: 'u1', fullName: 'Jane Doe' };
     const repo = repositoryDouble({
       resolve: () => active,
       invalidate: () => {

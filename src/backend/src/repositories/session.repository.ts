@@ -5,6 +5,7 @@
 // an in-process store by design, never in Postgres.
 
 export interface SessionUser {
+  id: string;
   fullName: string;
 }
 

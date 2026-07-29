@@ -10,16 +10,16 @@ describe('InMemorySessionRepository', () => {
   it('create() returns a session id that resolve() maps back to the same user', () => {
     const repo = new InMemorySessionRepository();
 
-    const sessionId = repo.create({ fullName: 'Jane Doe' });
+    const sessionId = repo.create({ id: 'u1', fullName: 'Jane Doe' });
 
-    expect(repo.resolve(sessionId)).toEqual({ fullName: 'Jane Doe' });
+    expect(repo.resolve(sessionId)).toEqual({ id: 'u1', fullName: 'Jane Doe' });
   });
 
   it('create() returns a different id for each session', () => {
     const repo = new InMemorySessionRepository();
 
-    const first = repo.create({ fullName: 'Jane Doe' });
-    const second = repo.create({ fullName: 'John Smith' });
+    const first = repo.create({ id: 'u1', fullName: 'Jane Doe' });
+    const second = repo.create({ id: 'u2', fullName: 'John Smith' });
 
     expect(first).not.toBe(second);
   });
@@ -32,7 +32,7 @@ describe('InMemorySessionRepository', () => {
 
   it('invalidate() makes a previously active session resolve to null afterward', () => {
     const repo = new InMemorySessionRepository();
-    const sessionId = repo.create({ fullName: 'Jane Doe' });
+    const sessionId = repo.create({ id: 'u1', fullName: 'Jane Doe' });
 
     repo.invalidate(sessionId);
 
@@ -47,7 +47,7 @@ describe('InMemorySessionRepository', () => {
 
   it('invalidate() called twice on the same id does not throw', () => {
     const repo = new InMemorySessionRepository();
-    const sessionId = repo.create({ fullName: 'Jane Doe' });
+    const sessionId = repo.create({ id: 'u1', fullName: 'Jane Doe' });
 
     repo.invalidate(sessionId);
 

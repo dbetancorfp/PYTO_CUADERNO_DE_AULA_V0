@@ -120,3 +120,38 @@ describe('createApp — GET /dashboard static route', () => {
     expect(await response.text()).toContain('<script type="module" src="/dist/main.js">');
   });
 });
+
+// Same precedent as /dashboard above: a browser hitting either Configuración route
+// directly needs the server to serve index.html there too.
+describe('createApp — GET /configuracion/profesor and /configuracion/ano-academico static routes', () => {
+  const port = allocateTestPort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  let server: Server;
+
+  beforeAll(async () => {
+    const app = createApp({ backend: 'memory' });
+    await new Promise<void>((resolve) => {
+      server = app.listen(port, () => resolve());
+    });
+  });
+
+  afterAll(() => {
+    server.close();
+  });
+
+  it('serves the frontend index.html for /configuracion/profesor', async () => {
+    const response = await fetch(`${baseUrl}/configuracion/profesor`);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toContain('text/html');
+    expect(await response.text()).toContain('<script type="module" src="/dist/main.js">');
+  });
+
+  it('serves the frontend index.html for /configuracion/ano-academico', async () => {
+    const response = await fetch(`${baseUrl}/configuracion/ano-academico`);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toContain('text/html');
+    expect(await response.text()).toContain('<script type="module" src="/dist/main.js">');
+  });
+});

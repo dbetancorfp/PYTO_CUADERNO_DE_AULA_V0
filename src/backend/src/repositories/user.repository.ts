@@ -27,4 +27,11 @@ export interface UserRepository {
   incrementFailedAttempts(email: string): Promise<User | null>;
   /** Resets `failedAttempts` to zero for the account matching `email`. No-op if none matches. */
   resetFailedAttempts(email: string): Promise<void>;
+  /** Looks up a user by id (see views/configuracion/api-contracts.md — requireAuth only
+   * resolves a teacherId, not the full row). */
+  findById(id: string): Promise<User | null>;
+  /** Updates `full_name` for the given user id (see PATCH /api/teacher/name). */
+  updateFullName(id: string, fullName: string): Promise<void>;
+  /** Updates `password_hash` for the given user id (see PATCH /api/teacher/password). */
+  updatePasswordHash(id: string, passwordHash: string): Promise<void>;
 }
