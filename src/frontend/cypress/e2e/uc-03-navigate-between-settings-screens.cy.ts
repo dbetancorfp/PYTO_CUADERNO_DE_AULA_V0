@@ -25,4 +25,14 @@ describe('UC-03: Navigate between settings screens', () => {
     cy.get('[data-element-id="academic-year-nav-link"]').should('have.attr', 'aria-current', 'page');
     cy.get('[data-element-id="teacher-nav-link"]').should('not.have.attr', 'aria-current');
   });
+
+  it('navigates back to Dashboard from either settings screen via back-to-dashboard-link', () => {
+    cy.visit('/configuracion/profesor');
+    cy.get('[data-element-id="back-to-dashboard-link"]').click();
+    cy.url().should('include', '/dashboard');
+
+    cy.visit('/configuracion/ano-academico');
+    cy.get('[data-element-id="back-to-dashboard-link"]').click();
+    cy.url().should('include', '/dashboard');
+  });
 });

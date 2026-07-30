@@ -27,7 +27,15 @@ const NAV_LINKS: readonly NavLinkDef[] = [
 
 export function renderSettingsNav(activeScreen: SettingsScreen): TemplateResult {
   return html`
-    <nav class="flex gap-4 border-b border-slate-200 pb-2">
+    <nav class="flex items-center gap-4 border-b border-slate-200 pb-2">
+      <a
+        class="${classesFor('link', 'link')} text-slate-500"
+        data-element-id="back-to-dashboard-link"
+        tabindex="0"
+        role="link"
+      >
+        Volver
+      </a>
       ${NAV_LINKS.map((link) => {
         const isActive = link.screen === activeScreen;
         return html`
@@ -53,6 +61,11 @@ export function renderSettingsNav(activeScreen: SettingsScreen): TemplateResult 
  * own click handling.
  */
 export function handleSettingsNavClick(elementId: string): boolean {
+  if (elementId === 'back-to-dashboard-link') {
+    redirectTo('/dashboard');
+    return true;
+  }
+
   const link = NAV_LINKS.find((candidate) => candidate.elementId === elementId);
   if (!link) {
     return false;
