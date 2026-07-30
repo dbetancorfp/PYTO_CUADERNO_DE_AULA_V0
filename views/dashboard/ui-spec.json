@@ -50,14 +50,16 @@
           "props": { "icon": "cog", "variant": "ghost", "size": "sm" },
           "states": [
             {
-              "name": "disabled",
-              "description": "Visible at the right end of the navbar, always disabled — no functional options exist yet for this view",
-              "visual_cues": ["muted/disabled icon styling", "no dropdown ever opens"]
+              "name": "default",
+              "description": "Visible at the right end of the navbar, always enabled — a plain navigation link, same as the seven cards below",
+              "visual_cues": ["icon + label 'Configuración'", "same interactive styling as the section cards"]
             }
           ],
-          "interactions": [],
-          "accessibility": { "aria_label": "Configuración (no disponible todavía)" },
-          "note": "Intentionally non-functional per description_dashboard.md — must never look or claim to be interactive."
+          "interactions": [
+            { "trigger": "click", "event": "app:settings-menu-clicked", "response": "Navigates to /configuracion/profesor" }
+          ],
+          "accessibility": { "aria_label": "Configuración" },
+          "note": "Reopened — was an always-disabled placeholder until the Configuración view existed; see description_dashboard.md."
         },
         {
           "elementId": "welcome-message",

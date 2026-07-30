@@ -86,9 +86,8 @@ verified end-to-end by `e2e-engineer`'s Cypress run, not re-tested in isolation 
 | UC-03: each card visible in position | `dashboard-cards.test.ts`, 7× "is visible in the dashboard grid" |
 | UC-03: each card navigates to its route | `dashboard-cards.test.ts`, 7× "navigates to `<route>` when clicked" |
 | UC-03: cards render in fixed order | `dashboard-cards.test.ts` "render in the fixed order..." |
-| UC-04: settings-menu renders disabled | `settings-menu.test.ts` "renders disabled" |
-| UC-04: settings-menu exposes non-availability indicator | `settings-menu.test.ts` "exposes a non-availability indicator..." |
-| UC-04: clicking settings-menu opens nothing, sends nothing | `settings-menu.test.ts` "opens no menu and sends no request when clicked" |
+| UC-04 (reopened 2026-07-29 — see bottom of this report): settings-menu is visible and enabled | `settings-menu.test.ts` "is visible and enabled at the right end of the navbar" |
+| UC-04: clicking settings-menu navigates to /configuracion/profesor | `settings-menu.test.ts` "navigates to /configuracion/profesor when clicked" |
 
 ## Criteria without verifiable coverage
 
@@ -100,3 +99,48 @@ None.
 |---|---|---|
 | `http-session-api-service.ts` (both methods) | Thin `fetch` wrapper — a unit test re-stubbing `fetch` would only test `fetch` itself, not real wiring | `e2e-engineer`'s Cypress run should exercise the Dashboard against the real backend (login → land on Dashboard → see the welcome message → sign out), same as it already does for Login's own `HttpAuthApiService` |
 | `main.ts`'s dashboard registration block | Bootstrap wiring, only meaningful once the real DOM/build exists | Confirm `app-dashboard-view.service` is a real `HttpSessionApiService` instance in the served page (implicit in any Cypress test that reaches `/dashboard` and gets real data back) |
+| `src/frontend/cypress/e2e/uc-04-configuracion-is-a-non-functional-placeholder.cy.ts` (reopen, see below) | Asserts the pre-reopen behavior (`settings-menu` disabled, click does nothing) — now stale, would fail against the current implementation | `e2e-engineer` needs to rewrite this spec (not just add to it) to assert the new behavior: `settings-menu` enabled, click navigates to `/configuracion/profesor`, mirroring `uc-03-navigate-to-a-section-via-its-card.cy.ts`'s pattern. Flagging here per this report's scope; the Orchestrator, not this reviewer, decides when to re-invoke `e2e-engineer` |
+
+---
+
+# Reopen pass — 2026-07-29
+
+## Result: PASS ✅ (1 cycle)
+
+## Layers implicated: none
+
+Scope: `settings-menu` inverted from an always-disabled placeholder to a real,
+always-enabled navigation link to `/configuracion/profesor`, now that the Configuración
+view exists (merged to `main`). Single file touched in `src/frontend/src/`:
+`dashboard-view.ts`. No backend involved — verified zero backend surface before Phase B
+(no `schema-changes.sql`, `api-contracts.md` untouched), so `backend-implementer` wasn't
+dispatched this cycle; confirmed unaffected (183/183 backend tests still pass).
+
+## SOLID violations found
+
+None. `dashboard-view.ts`'s change is a straight continuation of its existing pattern: the
+new `elementId === 'settings-menu'` branch in `_handleClick` sits alongside the pre-existing
+`'logout-link'` special case and the `SECTION_CARDS.find(...)` lookup, calling the same
+local `redirectTo()` helper every other click case already uses — no new abstraction, no
+new navigation mechanism, no duplication.
+
+## Coverage
+
+`dashboard-view.ts`: **100% lines** (94.12% funcs — the same pre-existing lit-html-closure
+counting artifact noted across every view's review reports this cycle, not a regression).
+`settings-menu.test.ts`'s rewrite (2 tests, DIP-injected `SessionApiService` double, single
+responsibility per `describe`) — no SOLID concerns.
+
+## Acceptance criteria marked (use-cases.md) — this reopen
+
+| Criterion | Test that verifies it |
+|-----------|------------------------|
+| UC-04: `settings-menu` is visible and enabled at the right end of the navbar | `settings-menu.test.ts` "is visible and enabled at the right end of the navbar" |
+| UC-04: Clicking `settings-menu` navigates to `/configuracion/profesor` | `settings-menu.test.ts` "navigates to /configuracion/profesor when clicked" |
+
+## Deferred to e2e-engineer
+
+See the row added to the table above —
+`uc-04-configuracion-is-a-non-functional-placeholder.cy.ts` needs a rewrite (same class of
+change as `tdd-engineer`'s unit-test rewrite this cycle). This is the only remaining gate
+before merge.

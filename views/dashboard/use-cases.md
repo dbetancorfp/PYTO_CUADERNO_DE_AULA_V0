@@ -108,7 +108,12 @@ elements rendered once the session gate passes)
 
 ---
 
-## UC-04: Configuración is a non-functional placeholder
+## UC-04: Navigate to Configuración via settings-menu
+
+**Reopened** — previously "Configuración is a non-functional placeholder"; rewritten now
+that the Configuración view exists (see `views/configuracion/`). `settings-menu` behaves
+identically to the seven cards in UC-03 (always enabled, plain navigation link), just with
+a fixed destination instead of a card position.
 
 **Primary actor**: A signed-in teacher, viewing the Dashboard
 **Preconditions**: UC-01's main flow already succeeded
@@ -116,22 +121,22 @@ elements rendered once the session gate passes)
 
 ### Main flow
 
-1. Teacher sees `settings-menu`, visibly disabled (not just inert-looking — actually
-   non-interactive), at the right end of the navbar.
+1. Teacher sees `settings-menu`, always enabled, at the right end of the navbar.
 2. Teacher clicks it.
-3. Nothing happens: no menu opens, no navigation, no request.
+3. The app navigates to `/configuracion/profesor`.
 
 ### Alternative flows
 
-- None.
+- None — `/configuracion/profesor` exists and is reachable to any signed-in teacher (see
+  `views/configuracion/use-cases.md`), so there's no error branch to handle here, same
+  reasoning as UC-02's logout.
 
 ### Postconditions
 
-- The teacher remains on the Dashboard, `settings-menu` still disabled.
+- The browser is at `/configuracion/profesor`. This view's job ends here — what's on that
+  screen is Configuración's own responsibility.
 
 ### Acceptance criteria
 
-- [x] `settings-menu` renders in a disabled state
-- [x] `settings-menu` exposes a non-availability indicator (e.g. `aria-disabled` or a
-      tooltip/label)
-- [x] Clicking `settings-menu` opens no menu and sends no request
+- [x] `settings-menu` is visible and enabled at the right end of the navbar
+- [x] Clicking `settings-menu` navigates to `/configuracion/profesor`

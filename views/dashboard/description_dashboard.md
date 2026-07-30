@@ -20,10 +20,10 @@ A single bar across the top of the page:
 - **Left end**: the app logo. The image asset is pending (the user will provide it later)
   — use a placeholder (e.g. the app name as text) until it's supplied.
 - **Right end**, in this exact order:
-  1. A **Configuración** menu/icon. For this view it's visibly present but has no
-     functional options yet — clearly marked/disabled (e.g. tooltip or label saying it's
-     not available yet), so it never pretends to do something it doesn't. Its real options
-     are out of scope for this view.
+  1. A **Configuración** link (`settings-menu`). Reopened after the Configuración view was
+     built: it's now a real, always-enabled link to `/configuracion/profesor` (the Profesor
+     screen — see `views/configuracion/description_configuracion.md`). No dropdown/menu of
+     its own here; it's a plain navigation link, same as the seven cards below.
   2. Text **"Bienvenido, `<nombre del profesor>`"** — the signed-in teacher's full name,
      read from the session (see Login view's session work, added alongside this view).
   3. A **"Salir"** link/button — ends the session and returns the user to `/login`.
@@ -57,8 +57,8 @@ navigate there; what happens once you land is out of scope here.
 - Clicking **Salir** ends the session server-side and redirects to `/login`. Afterwards, the
   Dashboard must not be reachable again via back button or a stale/resubmitted session
   cookie.
-- Clicking **Configuración** must not open a working menu yet (see above) — it must not look
-  or claim to be interactive if it isn't.
+- Clicking **Configuración** navigates to `/configuracion/profesor` (see above — reopened,
+  previously a disabled placeholder).
 - Clicking any of the seven cards navigates to that card's route.
 
 ## Data
@@ -72,6 +72,7 @@ navigate there; what happens once you land is out of scope here.
 
 - The actual content of each of the seven sections (Calendario, Unidades de Trabajo, etc.)
   — separate views, one at a time.
-- Configuración's real options.
+- Configuración's own screens/behavior once navigated to — that's the Configuración view
+  itself, already built.
 - Multi-teacher/role differences (admin vs. teacher) beyond showing the signed-in teacher's
   name.

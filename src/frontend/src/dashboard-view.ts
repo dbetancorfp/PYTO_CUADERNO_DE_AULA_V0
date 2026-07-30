@@ -3,7 +3,10 @@ import { attachSharedStyles } from './styles/shadow-styles';
 import { classesFor } from './styles/classes-for';
 import type { SessionApiService } from './session-api-service';
 
-const SETTINGS_UNAVAILABLE_MESSAGE = 'Configuración (no disponible todavía)';
+// Reopened per views/dashboard/use-cases.md UC-04: settings-menu is now a real,
+// always-enabled navigation link, same pattern as the seven SECTION_CARDS below, just
+// with a fixed destination instead of a card position.
+const SETTINGS_MENU_ROUTE = '/configuracion/profesor';
 
 interface SectionCard {
   elementId: string;
@@ -112,6 +115,11 @@ export class DashboardView extends HTMLElement {
       return;
     }
 
+    if (elementId === 'settings-menu') {
+      redirectTo(SETTINGS_MENU_ROUTE);
+      return;
+    }
+
     const card = SECTION_CARDS.find((candidate) => candidate.elementId === elementId);
     if (card) {
       redirectTo(card.route);
@@ -144,10 +152,8 @@ export class DashboardView extends HTMLElement {
                 type="button"
                 class="${classesFor('icon-button', 'ghost', 'sm')}"
                 data-element-id="settings-menu"
-                disabled
-                aria-disabled="true"
-                aria-label="${SETTINGS_UNAVAILABLE_MESSAGE}"
-                title="${SETTINGS_UNAVAILABLE_MESSAGE}"
+                aria-label="Configuración"
+                title="Configuración"
               >
                 Config
               </button>
