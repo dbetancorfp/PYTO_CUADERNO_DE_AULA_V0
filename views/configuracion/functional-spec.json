@@ -2,6 +2,16 @@
   "appOverview": "Configuración is reached from Dashboard's settings-menu (which stops being a disabled placeholder) and is two separate top-level views, not one: app-teacher-settings-view (/configuracion/profesor — edit the signed-in teacher's full name; change password with current-password confirmation) and app-academic-year-settings-view (/configuracion/ano-academico — full CRUD on ciclos formativos, on their módulos profesionales — each tagged with a curso 1º/2º/3º — and on años académicos; plus, per año académico, which of the teacher's módulos apply that year). Each has its own Shadow DOM (CLAUDE.md's 'no nested Shadow DOM' rule) and is reached by a plain nav link (teacher-nav-link / academic-year-nav-link) rendered identically on both screens via one shared function, not a shared nested component. Everything is scoped to the signed-in teacher and persists immediately to Postgres — no draft/publish step. Every table in the Año académico screen follows lib/patterns/crud-table-component.md: inline editing, dependency-blocked deletion decided server-side. The one deliberate exception to that pattern's 'never a modal' rule is module-edit-confirm-modal, a save-time confirmation gate (not an edit-interaction modal) for editing a módulo already selected by one or more años académicos.",
   "elementSpecs": [
     {
+      "elementId": "back-to-dashboard-link",
+      "behavior": "Navigates to /dashboard. Rendered on both settings screens, sharing the same elementId and markup via one plain function, never a nested custom element.",
+      "businessRules": ["Always navigates to /dashboard when clicked, regardless of which settings screen is active"],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "Present on /configuracion/profesor and on /configuracion/ano-academico",
+        "Clicking it navigates to /dashboard"
+      ]
+    },
+    {
       "elementId": "teacher-nav-link",
       "behavior": "Navigates to /configuracion/profesor. Rendered on both settings screens, sharing the same elementId and markup via one plain function, never a nested custom element.",
       "businessRules": ["Shows an active state when the current route is /configuracion/profesor, inactive otherwise", "Clicking it while already on /configuracion/profesor is a no-op"],

@@ -283,6 +283,20 @@ describe('elementId: academic-year-table', () => {
   });
 });
 
+describe('elementId: back-to-dashboard-link', () => {
+  it('clicking back-to-dashboard-link navigates to /dashboard', async () => {
+    const el = await mountView();
+
+    el.shadowRoot!.querySelector<HTMLElement>('[data-element-id="back-to-dashboard-link"]')!.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(window.location.pathname).toBe('/dashboard');
+
+    window.history.pushState({}, '', '/configuracion/ano-academico');
+    el.remove();
+  });
+});
+
 describe('elementId: academic-year-nav-link, teacher-nav-link', () => {
   it('academic-year-nav-link is active and teacher-nav-link is inactive on this screen', async () => {
     const el = await mountView();

@@ -4,7 +4,7 @@
   "generated_at": "2026-07-28T22:00:00.000Z",
   "agent": "view-designer",
   "model": "claude-sonnet-5",
-  "total_elements": 23,
+  "total_elements": 24,
   "screens": [
     {
       "screen_id": "teacher-settings-screen",
@@ -13,6 +13,7 @@
       "route": "/configuracion/profesor",
       "role_guard": ["authenticated"],
       "element_ids": [
+        "back-to-dashboard-link",
         "teacher-nav-link",
         "academic-year-nav-link",
         "teacher-full-name-input",
@@ -27,6 +28,18 @@
       "data_needs": ["users"],
       "notes": "Own top-level custom element (app-teacher-settings-view), not nested inside anything — CLAUDE.md's 'no nested Shadow DOM' rule. Reached from Dashboard's settings-menu, which today is a disabled placeholder — making it link here is a small reopen of the Dashboard view, same pattern as Login's session-gap reopen. The two nav-link elements are shared with academic-year-settings-screen: same elementIds, same rendered markup, produced by one plain shared function (e.g. settingsNav()), never a nested custom element — see CLAUDE.md's explicit allowance for sharing behavior via plain functions/an abstract base class.",
       "components": [
+        {
+          "elementId": "back-to-dashboard-link",
+          "type": "link",
+          "label": "Volver",
+          "props": {},
+          "states": [
+            { "name": "default", "description": "Always visible on both settings screens", "visual_cues": ["plain link styling"] }
+          ],
+          "interactions": [
+            { "trigger": "click", "event": "app:back-to-dashboard-clicked", "response": "Navigates to /dashboard" }
+          ]
+        },
         {
           "elementId": "teacher-nav-link",
           "type": "link",
@@ -173,6 +186,7 @@
       "route": "/configuracion/ano-academico",
       "role_guard": ["authenticated"],
       "element_ids": [
+        "back-to-dashboard-link",
         "teacher-nav-link",
         "academic-year-nav-link",
         "academic-year-table",
@@ -192,6 +206,18 @@
       "data_needs": ["ciclos", "modulos", "anos_academicos", "anos_academicos_modulos"],
       "notes": "Own top-level custom element (app-academic-year-settings-view), sibling to app-teacher-settings-view, not nested inside it or vice versa. `ciclos`/`modulos`/`anos_academicos`/the join table don't exist yet — this view's requirement-architect pass adds them. Follows lib/patterns/crud-table-component.md throughout: every table is inline-edit (the one exception, module-edit-confirm-modal, is a save-time confirmation gate, not an edit-interaction modal), dependency-blocked deletion decided server-side, and per-row data-element-id is derived at runtime as `<table-elementId>-row-<id>` rather than being a separate top-level elementId — that's why there's one elementId per table, not one per action button.",
       "components": [
+        {
+          "elementId": "back-to-dashboard-link",
+          "type": "link",
+          "label": "Volver",
+          "props": {},
+          "states": [
+            { "name": "default", "description": "Always visible on both settings screens", "visual_cues": ["plain link styling"] }
+          ],
+          "interactions": [
+            { "trigger": "click", "event": "app:back-to-dashboard-clicked", "response": "Navigates to /dashboard" }
+          ]
+        },
         {
           "elementId": "teacher-nav-link",
           "type": "link",

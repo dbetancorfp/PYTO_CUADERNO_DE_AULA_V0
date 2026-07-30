@@ -83,7 +83,7 @@
 
 **Primary actor**: Any signed-in teacher
 **Preconditions**: Valid session
-**Elements**: `teacher-nav-link`, `academic-year-nav-link`
+**Elements**: `back-to-dashboard-link`, `teacher-nav-link`, `academic-year-nav-link`
 
 ### Main flow
 
@@ -94,6 +94,8 @@
 ### Alternative flows
 
 - **A1 — Clicking the link for the screen already active**: no-op, no navigation.
+- **A2 — Teacher clicks `back-to-dashboard-link`**: the app navigates to `/dashboard`,
+  regardless of which of the two settings screens is currently active.
 
 ### Postconditions
 
@@ -109,6 +111,9 @@
       `/configuracion/ano-academico`
 - [x] Clicking `teacher-nav-link` from `/configuracion/ano-academico` navigates to
       `/configuracion/profesor`
+- [x] `back-to-dashboard-link` is present on both `/configuracion/profesor` and
+      `/configuracion/ano-academico`
+- [x] Clicking `back-to-dashboard-link` navigates to `/dashboard`
 
 ---
 

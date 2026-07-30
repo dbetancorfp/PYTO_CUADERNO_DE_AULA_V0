@@ -200,6 +200,20 @@ describe('elementId: teacher-save-password-button', () => {
   });
 });
 
+describe('elementId: back-to-dashboard-link', () => {
+  it('clicking back-to-dashboard-link navigates to /dashboard', async () => {
+    const el = await mountView();
+
+    el.shadowRoot!.querySelector<HTMLElement>('[data-element-id="back-to-dashboard-link"]')!.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(window.location.pathname).toBe('/dashboard');
+
+    window.history.pushState({}, '', '/configuracion/profesor');
+    el.remove();
+  });
+});
+
 describe('elementId: teacher-nav-link, academic-year-nav-link', () => {
   it('teacher-nav-link is active and academic-year-nav-link is inactive on this screen', async () => {
     const el = await mountView();

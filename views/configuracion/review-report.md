@@ -121,3 +121,23 @@ human-approved) → `backend-implementer`/`frontend-implementer` → `supervisor
 `e2e-engineer`, full cycle closed after one `requires-tdd-engineer` round and one
 `e2e-engineer`-discovered `frontend` bug round. Ready for the human-gated merge of
 `view/configuracion` into `main`.
+
+## Reopen pass — 2026-07-30
+
+Missing element found after merge: neither settings screen had a way back to Dashboard.
+Added `back-to-dashboard-link` (elementId), rendered by the existing shared
+`renderSettingsNav` function alongside `teacher-nav-link`/`academic-year-nav-link`, so both
+screens get it from the one call site. Navigates unconditionally to `/dashboard` via
+`handleSettingsNavClick`.
+
+- `ui-spec.json` / `functional-spec.json`: new component + elementSpec, both screens'
+  `element_ids`, `total_elements` 23 → 24.
+- `use-cases.md` UC-03: element added, new alternative flow A2, two new acceptance criteria
+  (both now `[x]`).
+- Unit tests (red → green): one new test per settings-view test file, asserting the click
+  navigates to `/dashboard`.
+- `uc-03-navigate-between-settings-screens.cy.ts`: new e2e test, both screens, real signed-in
+  session — passing against the live `start:e2e` server.
+
+Full suite re-run clean: `bun test` 279/279, `tsc --noEmit` clean, all three affected e2e
+specs (`uc-03`, `uc-06-manage-modules`, `uc-07-select-modules-for-academic-year`) passing.
