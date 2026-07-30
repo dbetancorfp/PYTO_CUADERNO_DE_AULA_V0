@@ -14,16 +14,15 @@
     },
     {
       "elementId": "settings-menu",
-      "behavior": "Visible icon at the right end of the navbar. Has no functional options in this view — clicking it does nothing.",
+      "behavior": "Visible link at the right end of the navbar, linking to the Configuración view's Profesor screen.",
       "businessRules": [
-        "Always rendered disabled — never opens a menu, never looks interactive",
-        "Exposes a non-availability indicator (e.g. aria-disabled or a tooltip/label) rather than silently doing nothing when clicked"
+        "Always enabled — a plain navigation link, no menu/dropdown of its own",
+        "Clicking navigates to /configuracion/profesor"
       ],
       "dataNeeds": [],
       "acceptanceCriteria": [
         "Is visible at the right end of the navbar",
-        "Is disabled and does not open any menu when clicked",
-        "Exposes a non-availability indicator (aria-disabled or equivalent tooltip/label)"
+        "Navigates to /configuracion/profesor when clicked"
       ]
     },
     {

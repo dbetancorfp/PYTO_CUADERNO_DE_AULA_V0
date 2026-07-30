@@ -15,7 +15,7 @@ describe('UC-01: Reach the Dashboard as a signed-in teacher', () => {
 
     cy.get('[data-element-id="app-logo"]').should('be.visible');
     cy.get('[data-element-id="welcome-message"]').should('contain.text', 'Bienvenido, E2E Valid User');
-    cy.get('[data-element-id="settings-menu"]').should('be.disabled');
+    cy.get('[data-element-id="settings-menu"]').should('not.be.disabled');
     cy.get('[data-element-id="logout-link"]').should('be.visible');
   });
 

@@ -1,5 +1,6 @@
-// elementId: settings-menu (see views/dashboard/use-cases.md UC-04 — explicitly
-// non-functional placeholder, not a stub pretending to work)
+// elementId: settings-menu (see views/dashboard/use-cases.md UC-04 — reopened: now a real,
+// always-enabled navigation link to /configuracion/profesor, same pattern as the seven
+// section cards in dashboard-cards.test.ts, not the disabled placeholder it used to be)
 import { describe, it, expect } from 'bun:test';
 import '../src/dashboard-view';
 import type { DashboardView } from '../src/dashboard-view';
@@ -10,62 +11,38 @@ interface SessionApiService {
   logout(): Promise<void>;
 }
 
-async function mountAuthenticatedDashboard(service: SessionApiService): Promise<DashboardView> {
+async function mountAuthenticatedDashboard(): Promise<DashboardView> {
   const el = document.createElement('app-dashboard-view') as DashboardView;
-  el.service = service;
+  el.service = {
+    getSession: async () => ({ authenticated: true, fullName: 'Jane Doe' }),
+    logout: async () => {},
+  } satisfies SessionApiService;
   document.body.appendChild(el);
   await new Promise((resolve) => setTimeout(resolve, 0));
   return el;
 }
 
 describe('elementId: settings-menu', () => {
-  it('renders disabled', async () => {
-    const el = await mountAuthenticatedDashboard({
-      getSession: async () => ({ authenticated: true, fullName: 'Jane Doe' }),
-      logout: async () => {},
-    });
+  it('is visible and enabled at the right end of the navbar', async () => {
+    const el = await mountAuthenticatedDashboard();
 
     const settingsMenu = el.shadowRoot!.querySelector<HTMLButtonElement>('[data-element-id="settings-menu"]')!;
 
-    expect(settingsMenu.disabled).toBe(true);
+    expect(settingsMenu).not.toBeNull();
+    expect(settingsMenu.disabled).toBe(false);
 
     el.remove();
   });
 
-  it('exposes a non-availability indicator (aria-disabled or a title/tooltip)', async () => {
-    const el = await mountAuthenticatedDashboard({
-      getSession: async () => ({ authenticated: true, fullName: 'Jane Doe' }),
-      logout: async () => {},
-    });
+  it('navigates to /configuracion/profesor when clicked', async () => {
+    const el = await mountAuthenticatedDashboard();
 
-    const settingsMenu = el.shadowRoot!.querySelector<HTMLButtonElement>('[data-element-id="settings-menu"]')!;
-
-    const hasIndicator =
-      settingsMenu.getAttribute('aria-disabled') === 'true' || settingsMenu.title.length > 0;
-    expect(hasIndicator).toBe(true);
-
-    el.remove();
-  });
-
-  it('opens no menu and sends no request when clicked', async () => {
-    let sessionCalls = 0;
-    let logoutCalls = 0;
-    const el = await mountAuthenticatedDashboard({
-      getSession: async () => {
-        sessionCalls += 1;
-        return { authenticated: true, fullName: 'Jane Doe' };
-      },
-      logout: async () => {
-        logoutCalls += 1;
-      },
-    });
-    sessionCalls = 0; // ignore the mount-time call, only count calls made by the click below
-
-    el.shadowRoot!.querySelector<HTMLButtonElement>('[data-element-id="settings-menu"]')!.click();
+    el.shadowRoot!.querySelector<HTMLElement>('[data-element-id="settings-menu"]')!.click();
     await new Promise((resolve) => setTimeout(resolve, 0));
+    const path = window.location.pathname;
+    window.history.pushState({}, '', '/dashboard');
 
-    expect(sessionCalls).toBe(0);
-    expect(logoutCalls).toBe(0);
+    expect(path).toBe('/configuracion/profesor');
 
     el.remove();
   });
