@@ -36,6 +36,55 @@ your review during the design phase, and running autonomously (up to 10 cycles) 
 build phase. See the [pipeline docs](https://dbetancorfp.github.io/PYTO_CUADERNO_DE_AULA_V0/pipeline/)
 for details.
 
+## Running the app
+
+Backend and frontend aren't two separate servers — the Bun+Express backend also serves the
+built frontend as static files from the same origin. There's no separate frontend dev
+server to start.
+
+**Prerequisites:** [Bun](https://bun.sh) installed.
+
+```bash
+bun install
+```
+
+### Option A — in-memory backend (no database needed)
+
+Fastest way to run the app locally; data resets every time the process restarts.
+
+```bash
+bun run build        # compiles src/frontend/src → dist (JS) + Tailwind CSS
+bun run src/backend/src/index.ts
+```
+
+Open http://localhost:3000.
+
+### Option B — real PostgreSQL backend
+
+1. Copy `.env.example` to `.env` and set `DATABASE_URL` to a real Postgres 16 instance.
+2. Load the env vars and start with `DATA_BACKEND=postgres`:
+
+   ```bash
+   bun run build
+   set -a && source .env && set +a
+   DATA_BACKEND=postgres PORT=3000 bun run src/backend/src/index.ts
+   ```
+
+Open http://localhost:3000.
+
+### Iterating on the frontend
+
+Frontend changes need a rebuild (`bun run build`) before they show up — there's no
+hot-reload dev server yet. Restart the backend process to pick up backend changes.
+
+### Tests
+
+```bash
+bun test              # unit tests (backend + frontend)
+bun run e2e            # full Cypress suite: build + seed + serve + run + teardown
+                        # (requires DATABASE_URL — seeds/tears down real Postgres rows)
+```
+
 ## Status
 
 - ✅ Pipeline skeleton (agents, schemas, folder structure)
