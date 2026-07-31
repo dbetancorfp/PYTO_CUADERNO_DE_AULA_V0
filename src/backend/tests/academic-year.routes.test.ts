@@ -288,3 +288,92 @@ describe('elementId: module-selection-table, module-selection-save-button', () =
     expect(response.status).toBe(400);
   });
 });
+
+// New endpoints for the three-mode Año académico redesign (2026-07-30 reopen). Neither
+// route exists yet — expected 404s (route not found) until backend-implementer adds them.
+// See views/configuracion/api-contracts.md's GET /api/academic-years/:id/training-cycles and
+// GET /api/academic-years/:id/training-cycles/:cycleId/modules.
+describe('elementId: training-cycle-table, module-table (normal-mode cascading GETs)', () => {
+  async function createCycle(name: string): Promise<{ id: string; name: string }> {
+    const response = await fetch(`${baseUrl}/api/training-cycles`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: cookie },
+      body: JSON.stringify({ name }),
+    });
+    return (await response.json()) as { id: string; name: string };
+  }
+
+  async function createModule(cycleId: string, name: string, course: number): Promise<{ id: string }> {
+    const response = await fetch(`${baseUrl}/api/training-cycles/${cycleId}/modules`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: cookie },
+      body: JSON.stringify({ name, course }),
+    });
+    return (await response.json()) as { id: string };
+  }
+
+  it('GET /api/academic-years/:id/training-cycles starts empty for a year with nothing selected', async () => {
+    const year = await createYear('2044/2045');
+
+    const response = await fetch(`${baseUrl}/api/academic-years/${year.id}/training-cycles`, { headers: { Cookie: cookie } });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ trainingCycles: [] });
+  });
+
+  it('GET /api/academic-years/:id/training-cycles lists only cycles with a module selected for that year', async () => {
+    const year = await createYear('2045/2046');
+    const cycle = await createCycle('Ciclo Cascada');
+    const module = await createModule(cycle.id, 'Módulo Cascada', 1);
+
+    await fetch(`${baseUrl}/api/academic-years/${year.id}/modules`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Cookie: cookie },
+      body: JSON.stringify({ moduleIds: [module.id] }),
+    });
+
+    const response = await fetch(`${baseUrl}/api/academic-years/${year.id}/training-cycles`, { headers: { Cookie: cookie } });
+
+    expect(await response.json()).toEqual({ trainingCycles: [{ id: cycle.id, name: 'Ciclo Cascada' }] });
+  });
+
+  it('GET /api/academic-years/:id/training-cycles responds 404 for a nonexistent academic year', async () => {
+    const response = await fetch(`${baseUrl}/api/academic-years/00000000-0000-0000-0000-000000000000/training-cycles`, {
+      headers: { Cookie: cookie },
+    });
+
+    expect(response.status).toBe(404);
+  });
+
+  it("GET .../training-cycles/:cycleId/modules lists only that cycle's modules selected for the year", async () => {
+    const year = await createYear('2046/2047');
+    const cycle = await createCycle('Ciclo Cascada Módulos');
+    const kept = await createModule(cycle.id, 'Módulo Seleccionado', 1);
+    await createModule(cycle.id, 'Módulo No Seleccionado', 2);
+
+    await fetch(`${baseUrl}/api/academic-years/${year.id}/modules`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Cookie: cookie },
+      body: JSON.stringify({ moduleIds: [kept.id] }),
+    });
+
+    const response = await fetch(`${baseUrl}/api/academic-years/${year.id}/training-cycles/${cycle.id}/modules`, {
+      headers: { Cookie: cookie },
+    });
+
+    expect(await response.json()).toEqual({
+      modules: [{ id: kept.id, trainingCycleId: cycle.id, course: 1, name: 'Módulo Seleccionado' }],
+    });
+  });
+
+  it('GET .../training-cycles/:cycleId/modules responds 404 for a nonexistent academic year', async () => {
+    const cycle = await createCycle('Ciclo Huérfano');
+
+    const response = await fetch(
+      `${baseUrl}/api/academic-years/00000000-0000-0000-0000-000000000000/training-cycles/${cycle.id}/modules`,
+      { headers: { Cookie: cookie } },
+    );
+
+    expect(response.status).toBe(404);
+  });
+});

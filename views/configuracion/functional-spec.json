@@ -1,5 +1,5 @@
 {
-  "appOverview": "Configuración is reached from Dashboard's settings-menu (which stops being a disabled placeholder) and is two separate top-level views, not one: app-teacher-settings-view (/configuracion/profesor — edit the signed-in teacher's full name; change password with current-password confirmation) and app-academic-year-settings-view (/configuracion/ano-academico — full CRUD on ciclos formativos, on their módulos profesionales — each tagged with a curso 1º/2º/3º — and on años académicos; plus, per año académico, which of the teacher's módulos apply that year). Each has its own Shadow DOM (CLAUDE.md's 'no nested Shadow DOM' rule) and is reached by a plain nav link (teacher-nav-link / academic-year-nav-link) rendered identically on both screens via one shared function, not a shared nested component. Everything is scoped to the signed-in teacher and persists immediately to Postgres — no draft/publish step. Every table in the Año académico screen follows lib/patterns/crud-table-component.md: inline editing, dependency-blocked deletion decided server-side. The one deliberate exception to that pattern's 'never a modal' rule is module-edit-confirm-modal, a save-time confirmation gate (not an edit-interaction modal) for editing a módulo already selected by one or more años académicos.",
+  "appOverview": "Configuración is reached from Dashboard's settings-menu (which stops being a disabled placeholder) and is two separate top-level views, not one: app-teacher-settings-view (/configuracion/profesor — edit the signed-in teacher's full name; change password with current-password confirmation) and app-academic-year-settings-view (/configuracion/ano-academico — full CRUD on ciclos formativos, on their módulos profesionales — each tagged with a curso 1º/2º/3º — and on años académicos; plus, per año académico, which of the teacher's módulos apply that year). Each has its own Shadow DOM (CLAUDE.md's 'no nested Shadow DOM' rule) and is reached by a plain nav link (teacher-nav-link / academic-year-nav-link) rendered identically on both screens via one shared function, not a shared nested component. Everything is scoped to the signed-in teacher and persists immediately to Postgres — no draft/publish step. Every table in the Año académico screen follows lib/patterns/crud-table-component.md: inline editing, dependency-blocked deletion decided server-side. The one deliberate exception to that pattern's 'never a modal' rule is module-edit-confirm-modal, a save-time confirmation gate (not an edit-interaction modal) for editing a módulo already selected by one or more años académicos. **Reopened 2026-07-30**: the Año académico screen now has three modes instead of four always-visible sections — normal mode (selecting a año académico cascades to a filtered training-cycle-table then a filtered module-table, both derived from that year's módulo selection; module-selection-table/module-selection-save-button are hidden), adding-year mode (academic-year-table-add-button — training-cycle-table shows the full list, module-selection-table replaces module-table, one Guardar selección both creates the year and persists the selection), and adding-cycle mode (a new ciclo created in normal mode — same module-selection-table takeover, scoped to it, persisting only the selection since the año académico already exists). module-cycle-select is removed — training-cycle-table's own row click already selects the ciclo.",
   "elementSpecs": [
     {
       "elementId": "back-to-dashboard-link",
@@ -118,28 +118,37 @@
     },
     {
       "elementId": "academic-year-table",
-      "behavior": "Lists every año académico the teacher has created, inline-editable (rename), with an action per row to mark it 'en curso' and one to delete it. Selecting a row (outside its inline-edit controls) is what module-selection-table below reflects/edits.",
+      "behavior": "Lists every año académico the teacher has created, inline-editable (rename), with an action per row to mark it 'en curso' and one to delete it. The row marked 'en curso' is selected by default on load. Selecting a row cascades: reloads training-cycle-table filtered to that year's ciclos, then (once it auto-selects its first row) module-table filtered to that ciclo's módulos for this year. Clicking academic-year-table-add-button opens a draft row (name only, no per-row Guardar) and switches training-cycle-table/module-table/module-selection-table into adding-year mode.",
       "businessRules": [
         "Año académico nombre is unique per teacher — a duplicate rename/create is rejected server-side and the row's inline error shows why",
         "Marking a row 'en curso' un-marks whichever row was previously current (exactly one current at a time, or none)",
         "Deleting the row currently marked 'en curso' is rejected server-side (dependency-blocked deletion pattern) — academic-year-delete-blocked-message shows the rejection",
-        "Deleting a non-current año académico is unrestricted — it doesn't cascade-block anything else (only ciclos/módulos are protected by references, not the año académico row itself)"
+        "Deleting a non-current año académico is unrestricted — it doesn't cascade-block anything else (only ciclos/módulos are protected by references, not the año académico row itself)",
+        "The draft row opened by academic-year-table-add-button has no independent Guardar — its name is only persisted together with the selection, by module-selection-save-button — only Cancelar is available on it, and cancelling discards the whole in-progress selection too"
       ],
       "dataNeeds": ["anos_academicos"],
       "acceptanceCriteria": [
         "Shows one row per existing año académico, with which one (if any) is 'en curso'",
+        "On load, the row marked 'en curso' is selected by default (none selected if none is current)",
         "Renaming a row to a name that already exists for this teacher is rejected, inline error shown",
         "Marking a different row 'en curso' un-marks the previous one",
         "Deleting the row marked 'en curso' is rejected and academic-year-delete-blocked-message becomes visible",
-        "Deleting a non-current row succeeds and removes it from the table"
+        "Deleting a non-current row succeeds and removes it from the table",
+        "Selecting a row reloads training-cycle-table to that year's ciclos and, after its default selection, module-table to that ciclo's módulos for this year",
+        "The draft row from academic-year-table-add-button shows only a name input and Cancelar, no Guardar",
+        "Cancelling the draft row discards the name and the in-progress módulo selection, returning training-cycle-table/module-table to the previously-selected año académico's normal filtered view"
       ]
     },
     {
       "elementId": "academic-year-table-add-button",
-      "behavior": "Inserts a new, blank, immediately-editable row into academic-year-table.",
-      "businessRules": ["The new row isn't persisted until its inline nombre is saved (same inline-edit flow as any other row)"],
+      "behavior": "Opens the draft row in academic-year-table and switches the screen into adding-year mode: training-cycle-table shows the complete unfiltered ciclo list (first one auto-selected), module-table hides, module-selection-table takes its place scoped to that ciclo.",
+      "businessRules": ["Nothing is persisted by this click alone — creation happens when module-selection-save-button is clicked"],
       "dataNeeds": [],
-      "acceptanceCriteria": ["Clicking it adds one new editable row to academic-year-table"]
+      "acceptanceCriteria": [
+        "Clicking it adds the draft row to academic-year-table",
+        "Clicking it switches training-cycle-table to its complete unfiltered list with the first ciclo selected",
+        "Clicking it hides module-table and shows module-selection-table scoped to the selected ciclo"
+      ]
     },
     {
       "elementId": "academic-year-delete-blocked-message",
@@ -150,26 +159,33 @@
     },
     {
       "elementId": "training-cycle-table",
-      "behavior": "Lists the teacher's ciclos, inline-editable (rename), with a delete action per row. Selecting a row (outside its inline-edit controls) is what module-cycle-select/module-table reflect.",
+      "behavior": "In normal mode (an existing año académico selected): lists only the ciclos with ≥1 módulo selected for that año académico, inline-editable (rename), with a delete action per row; first one selected by default, and selecting a different one reloads module-table. In adding-year/adding-cycle mode: lists the teacher's complete, unfiltered ciclo list instead (first one auto-selected), and selecting a different one swaps which ciclo's módulos module-selection-table shows, without discarding checks already made under another ciclo.",
       "businessRules": [
         "Ciclo nombre is unique per teacher — a duplicate rename/create is rejected server-side, inline error shown",
         "Deleting a ciclo that has any módulo referenced by any año académico's selection is rejected server-side (dependency-blocked deletion pattern) — training-cycle-delete-blocked-message names which año(s) académico(s) hold the reference",
-        "Deleting a ciclo with no referenced módulos succeeds and cascades to deleting its own módulos (there's no orphaned-módulo state — a módulo without a ciclo can't exist)"
+        "Deleting a ciclo with no referenced módulos succeeds and cascades to deleting its own módulos (there's no orphaned-módulo state — a módulo without a ciclo can't exist)",
+        "'Which ciclos the teacher teaches this year' is never asked separately in normal mode — it's derived from whichever ciclos have at least one checked módulo for the selected año académico"
       ],
-      "dataNeeds": ["ciclos"],
+      "dataNeeds": ["ciclos", "anos_academicos_modulos"],
       "acceptanceCriteria": [
-        "Shows one row per existing ciclo",
+        "Normal mode: shows only the ciclos with ≥1 módulo selected for the selected año académico, first one selected by default",
+        "Adding-year/adding-cycle mode: shows the teacher's complete ciclo list, first one selected by default",
         "Renaming a row to a name that already exists for this teacher is rejected, inline error shown",
         "Deleting a ciclo referenced (via its módulos) by some año académico is rejected and training-cycle-delete-blocked-message becomes visible, naming the referencing año(s) académico(s)",
-        "Deleting an unreferenced ciclo succeeds and removes it (and its módulos) from the table"
+        "Deleting an unreferenced ciclo succeeds and removes it (and its módulos) from the table",
+        "In normal mode, selecting a different row reloads module-table filtered to that ciclo's módulos for the selected año académico",
+        "In adding-year/adding-cycle mode, selecting a different row swaps module-selection-table's ciclo without losing checks made under the previous one"
       ]
     },
     {
       "elementId": "training-cycle-table-add-button",
-      "behavior": "Inserts a new, blank, immediately-editable row into training-cycle-table.",
+      "behavior": "Inserts a new, blank, immediately-editable row into training-cycle-table, persisted via its own Guardar as always (unlike academic-year-table-add-button's draft, a ciclo is a real independent entity). If saved while in normal mode with an existing año académico selected, the new ciclo becomes selected and module-table hides in favor of module-selection-table scoped to it (empty — see module-selection-add-button).",
       "businessRules": ["The new row isn't persisted until its inline nombre is saved"],
       "dataNeeds": [],
-      "acceptanceCriteria": ["Clicking it adds one new editable row to training-cycle-table"]
+      "acceptanceCriteria": [
+        "Clicking it adds one new editable row to training-cycle-table",
+        "Saving that row's name in normal mode selects the new ciclo and switches module-table off / module-selection-table on for it"
+      ]
     },
     {
       "elementId": "training-cycle-delete-blocked-message",
@@ -179,18 +195,8 @@
       "acceptanceCriteria": ["Is not visible on first load"]
     },
     {
-      "elementId": "module-cycle-select",
-      "behavior": "Chooses which ciclo's módulos module-table shows — a cascading select fed by training-cycle-table (see lib/patterns/cascading-select.md): changing it reloads module-table.",
-      "businessRules": ["Empty/no selection is valid (before the teacher has picked or created any ciclo)"],
-      "dataNeeds": ["ciclos"],
-      "acceptanceCriteria": [
-        "Lists every one of the teacher's ciclos as options",
-        "Changing it reloads module-table with the chosen ciclo's módulos"
-      ]
-    },
-    {
       "elementId": "module-table",
-      "behavior": "Lists the módulos of whichever ciclo is chosen in module-cycle-select, grouped/sorted by curso (1º/2º/3º), inline-editable (rename, change curso), with a delete action per row.",
+      "behavior": "Normal mode only: lists the módulos of the selected ciclo that are also selected for the selected año académico, grouped/sorted by curso (1º/2º/3º), inline-editable (rename, change curso), with a delete action per row. Hidden entirely during adding-year/adding-cycle mode, when module-selection-table takes its place.",
       "businessRules": [
         "Módulo nombre is unique within its (ciclo, curso) for this teacher — a duplicate rename/create is rejected server-side, inline error shown",
         "curso is one of 1, 2, 3 — no other value accepted",
@@ -198,10 +204,11 @@
         "Editing (rename or curso change) a módulo referenced by one or more años académicos does not save immediately — module-edit-confirm-modal opens first, naming the referencing año(s) académico(s); confirming proceeds with the save, cancelling reverts the row to its last saved values",
         "Editing a módulo with no references saves immediately, no modal"
       ],
-      "dataNeeds": ["modulos"],
+      "dataNeeds": ["modulos", "anos_academicos_modulos"],
       "acceptanceCriteria": [
-        "Shows nothing and prompts to pick a ciclo when module-cycle-select is empty",
-        "Shows one row per módulo of the chosen ciclo, grouped by curso, once a ciclo is chosen",
+        "Is hidden while adding-year or adding-cycle mode is active",
+        "Shows nothing and prompts to pick/create a ciclo when training-cycle-table has no selected row",
+        "Shows one row per módulo of the selected ciclo that's selected for the selected año académico, grouped by curso",
         "Renaming/re-cursoing a row to a (nombre, curso) that already exists in this ciclo for this teacher is rejected, inline error shown",
         "Deleting a módulo referenced by some año académico is rejected and module-delete-blocked-message becomes visible, naming the referencing año(s) académico(s)",
         "Deleting an unreferenced módulo succeeds and removes it from the table",
@@ -211,15 +218,16 @@
     },
     {
       "elementId": "module-table-add-button",
-      "behavior": "Inserts a new, blank, immediately-editable row (nombre + curso) into module-table, scoped to whichever ciclo is chosen in module-cycle-select.",
+      "behavior": "Normal mode only: inserts a new, blank, immediately-editable row (nombre + curso) into module-table, scoped to the selected ciclo; the created módulo is selected for the active año académico by default so it appears immediately in the filtered list.",
       "businessRules": [
-        "Disabled while module-cycle-select has no ciclo chosen — there's no ciclo to attach the new módulo to",
+        "Disabled while training-cycle-table has no ciclo selected — there's no ciclo to attach the new módulo to",
         "The new row isn't persisted until its inline nombre and curso are saved"
       ],
       "dataNeeds": [],
       "acceptanceCriteria": [
-        "Is disabled while no ciclo is chosen in module-cycle-select",
-        "Clicking it (once a ciclo is chosen) adds one new editable row to module-table"
+        "Is disabled while no ciclo is selected in training-cycle-table",
+        "Clicking it (once a ciclo is selected) adds one new editable row to module-table",
+        "The saved módulo is selected for the active año académico and remains visible in module-table's filtered list"
       ]
     },
     {
@@ -246,32 +254,60 @@
     },
     {
       "elementId": "module-selection-table",
-      "behavior": "For whichever año académico is selected in academic-year-table, shows every one of the teacher's módulos (across all their ciclos, grouped by ciclo then curso) with a checkbox reflecting whether it's part of that año académico's current selection. 'Which ciclos the teacher teaches this year' is never asked separately — it's just whichever ciclos have at least one checked módulo.",
+      "behavior": "Visible only in adding-year mode (academic-year-table-add-button) or adding-cycle mode (a new ciclo just created in normal mode). Shows the módulos of the ciclo currently selected in training-cycle-table (all cursos 1º/2º/3º), checkbox reflecting whether each is part of the in-progress, unsaved selection being built for the año académico in play. If that ciclo has no módulos yet, the table is fused with module-selection-add-button so the teacher can create módulos right there, each pre-checked.",
       "businessRules": [
-        "Prompts to pick an año académico first when academic-year-table has no selected row",
-        "Shows an empty-state prompting to create ciclos/módulos first when the teacher has none yet",
-        "Toggling a checkbox only changes in-progress, unsaved state — module-selection-save-button is what persists it"
+        "Scoped to one ciclo at a time (the one selected in training-cycle-table) — never a flat cross-ciclo table",
+        "Switching ciclo in training-cycle-table swaps which módulos are shown but keeps checks already made under other ciclos in the in-progress selection",
+        "Toggling a checkbox only changes in-progress, unsaved state — module-selection-save-button is what persists it",
+        "A ciclo with no módulos merges the checklist with module-selection-add-button; a ciclo with existing módulos still allows adding an extra one the same way — not mutually exclusive"
       ],
       "dataNeeds": ["modulos", "anos_academicos_modulos"],
       "acceptanceCriteria": [
-        "Prompts to pick an año académico when none is selected in academic-year-table",
-        "Once an año académico is selected, shows every módulo with its current selection state checked/unchecked accordingly",
-        "Toggling a checkbox doesn't persist anything by itself"
+        "Is hidden in normal mode",
+        "In adding-year/adding-cycle mode, shows the selected ciclo's módulos (1º/2º/3º) with their in-progress checked state",
+        "Switching to a different ciclo shows that ciclo's módulos without discarding checks made under the previous one",
+        "Toggling a checkbox doesn't persist anything by itself",
+        "A ciclo with zero módulos shows module-selection-add-button fused into the table instead of an empty list with no way forward"
+      ]
+    },
+    {
+      "elementId": "module-selection-add-button",
+      "behavior": "Visible whenever module-selection-table is open. Inserts a new, blank, immediately-editable row (nombre + curso 1º/2º/3º) into module-selection-table, scoped to the selected ciclo; once saved it's checked by default in the in-progress selection.",
+      "businessRules": ["Available regardless of whether the selected ciclo already has módulos or none yet"],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "Is visible whenever module-selection-table is visible",
+        "Clicking it adds one new editable row to module-selection-table, scoped to the selected ciclo",
+        "The newly created módulo is checked by default in the in-progress selection"
       ]
     },
     {
       "elementId": "module-selection-save-button",
-      "behavior": "Persists module-selection-table's current checkbox state as the selected año académico's full módulo selection (replacing whatever was selected before for that año académico).",
+      "behavior": "Visible only alongside module-selection-table. In adding-year mode: creates the año académico with the draft name from academic-year-table AND persists the in-progress módulo selection (including any módulos just created via module-selection-add-button) in one action. In adding-cycle mode: the año académico already exists — persists the in-progress selection only. Either way, shows module-selection-save-message with the outcome and, on success, returns the screen to normal mode with the affected año académico selected.",
       "businessRules": [
-        "Disabled while no año académico is selected in academic-year-table",
+        "Hidden in normal mode",
         "Disabled and showing a loading state while the request is in flight",
-        "A successful save is what future reads of 'ciclos/módulos for this año académico' (and module-table's delete-blocking checks) reflect"
+        "In adding-year mode, a duplicate año académico nombre fails the whole action (nothing is created or persisted) and module-selection-save-message shows the error, draft state preserved",
+        "A successful save is what future reads of 'ciclos/módulos for this año académico' (and module-table's/training-cycle-table's delete-blocking and filtering checks) reflect"
       ],
-      "dataNeeds": ["anos_academicos_modulos"],
+      "dataNeeds": ["anos_academicos", "anos_academicos_modulos"],
       "acceptanceCriteria": [
-        "Is disabled while no año académico is selected",
+        "Is hidden in normal mode",
         "Shows a loading state and is disabled from click until the response arrives",
-        "A successful save persists exactly the checkbox state module-selection-table had at the moment of clicking"
+        "Adding-year mode: a successful click creates the año académico and persists exactly the in-progress selection, then shows a success message and returns to normal mode with the new año académico selected",
+        "Adding-cycle mode: a successful click persists exactly the in-progress selection for the existing año académico, then shows a success message and returns to normal mode",
+        "A duplicate año académico nombre in adding-year mode shows an error message and keeps the draft (name + in-progress selection) intact"
+      ]
+    },
+    {
+      "elementId": "module-selection-save-message",
+      "behavior": "Hidden by default; shows the outcome of the last module-selection-save-button click.",
+      "businessRules": ["Not visible before any save attempt in the current adding-year/adding-cycle session"],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "Is not visible before a save attempt",
+        "Shows a success message after a successful save",
+        "Shows an error message after a failed save"
       ]
     }
   ],

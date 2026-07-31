@@ -39,6 +39,8 @@ interface AcademicYearApiService {
   remove(id: string): Promise<DeleteResult>;
   getSelection(id: string): Promise<string[]>;
   replaceSelection(id: string, moduleIds: string[]): Promise<{ outcome: 'success' } | { outcome: 'not-found' }>;
+  listTrainingCyclesForYear(id: string): Promise<TrainingCycle[]>;
+  listModulesForYearAndCycle(id: string, cycleId: string): Promise<ModuleRecord[]>;
 }
 
 interface TrainingCycle {
@@ -90,6 +92,8 @@ function fakeAcademicYearService(overrides: Partial<AcademicYearApiService> = {}
     remove: async () => ({ outcome: 'success' }),
     getSelection: async () => [],
     replaceSelection: async () => ({ outcome: 'success' }),
+    listTrainingCyclesForYear: async () => [],
+    listModulesForYearAndCycle: async () => [],
     ...overrides,
   };
 }
@@ -151,33 +155,9 @@ describe('elementId: academic-year-table', () => {
       }),
     });
 
-    expect(el.shadowRoot!.querySelector('[data-element-id="academic-year-table-row-ay1"]')).not.toBeNull();
+    expect((el.shadowRoot!.querySelector('[data-element-id="academic-year-table-row-ay1"]')) === null).toBe(false);
     const currentRow = el.shadowRoot!.querySelector('[data-element-id="academic-year-table-row-ay2"]')!;
     expect(currentRow.textContent).toContain('2026/2027');
-
-    el.remove();
-  });
-
-  it('adding a new row and saving a unique name calls create()', async () => {
-    const calls: { createdName: string | null } = { createdName: null };
-    const el = await mountView({
-      academicYear: fakeAcademicYearService({
-        create: async (name) => {
-          calls.createdName = name;
-          return { outcome: 'success', value: { id: 'ay-new', name, isCurrent: false } };
-        },
-      }),
-    });
-
-    el.shadowRoot!.querySelector<HTMLElement>('[data-element-id="academic-year-table-add-button"]')!.click();
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    const input = el.shadowRoot!.querySelector<HTMLInputElement>('[data-element-id="academic-year-table-row-new-name"]')!;
-    input.value = '2028/2029';
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-    el.shadowRoot!.querySelector<HTMLElement>('[data-element-id="academic-year-table-row-new-save"]')!.click();
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
-    expect(calls.createdName).toBe('2028/2029');
 
     el.remove();
   });
@@ -231,7 +211,7 @@ describe('elementId: academic-year-table', () => {
     el.shadowRoot!.querySelector<HTMLElement>('[data-element-id="academic-year-table-row-ay1-delete"]')!.click();
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(el.shadowRoot!.querySelector('[data-element-id="academic-year-table-row-ay1"]')).toBeNull();
+    expect((el.shadowRoot!.querySelector('[data-element-id="academic-year-table-row-ay1"]')) === null).toBe(true);
 
     el.remove();
   });
@@ -252,7 +232,7 @@ describe('elementId: academic-year-table', () => {
     el.shadowRoot!.querySelector<HTMLElement>('[data-element-id="academic-year-table-row-ay1-save"]')!.click();
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(el.shadowRoot!.querySelector('[data-element-id="academic-year-table-row-ay1"]')).not.toBeNull();
+    expect((el.shadowRoot!.querySelector('[data-element-id="academic-year-table-row-ay1"]')) === null).toBe(false);
     expect(el.shadowRoot!.textContent).toContain('Ya existe un año académico con ese nombre');
 
     el.remove();
@@ -283,6 +263,147 @@ describe('elementId: academic-year-table', () => {
   });
 });
 
+// Three-mode redesign (2026-07-30 reopen, see views/configuracion/use-cases.md UC-04): the
+// row marked current auto-selects on load, which cascades into training-cycle-table (see
+// training-cycle-management.test.ts) and, from there, into module-table
+// (module-management.test.ts). None of that cascading happens without a year actually being
+// selected, so these tests only check the entry point: which row ends up selected, and how
+// listTrainingCyclesForYear/listModulesForYearAndCycle get called from the initial load.
+describe('elementId: academic-year-table — default selection on load (UC-04)', () => {
+  it('the row marked current is selected by default on load', async () => {
+    const calls: { requestedYearId: string | null } = { requestedYearId: null };
+    const el = await mountView({
+      academicYear: fakeAcademicYearService({
+        list: async () => [
+          { id: 'ay1', name: '2025/2026', isCurrent: false },
+          { id: 'ay2', name: '2026/2027', isCurrent: true },
+        ],
+        listTrainingCyclesForYear: async (id) => {
+          calls.requestedYearId = id;
+          return [];
+        },
+      }),
+    });
+
+    expect(calls.requestedYearId).toBe('ay2');
+    expect(el.shadowRoot!.querySelector('[data-element-id="academic-year-table-row-ay2"]')!.className).toContain(
+      'bg-slate-100',
+    );
+
+    el.remove();
+  });
+
+  it('no row is selected on load when none is marked current', async () => {
+    const calls: { requestedYearId: string | null } = { requestedYearId: null };
+    const el = await mountView({
+      academicYear: fakeAcademicYearService({
+        list: async () => [{ id: 'ay1', name: '2025/2026', isCurrent: false }],
+        listTrainingCyclesForYear: async (id) => {
+          calls.requestedYearId = id;
+          return [];
+        },
+      }),
+    });
+
+    expect((calls.requestedYearId) === null).toBe(true);
+    expect(el.shadowRoot!.querySelector('[data-element-id="academic-year-table-row-ay1"]')!.className).not.toContain(
+      'bg-slate-100',
+    );
+
+    el.remove();
+  });
+});
+
+describe('elementId: academic-year-table — selecting a row cascades (UC-04)', () => {
+  it("selecting a row reloads training-cycle-table to that year's cycles, then, once a cycle auto-selects, module-table to that cycle's modules", async () => {
+    const calls: { cyclesForYear: string | null; modulesFor: [string, string] | null } = {
+      cyclesForYear: null,
+      modulesFor: null,
+    };
+    const el = await mountView({
+      academicYear: fakeAcademicYearService({
+        list: async () => [{ id: 'ay1', name: '2026/2027', isCurrent: false }],
+        listTrainingCyclesForYear: async (id) => {
+          calls.cyclesForYear = id;
+          return [{ id: 'c1', name: 'DAW' }];
+        },
+        listModulesForYearAndCycle: async (yearId, cycleId) => {
+          calls.modulesFor = [yearId, cycleId];
+          return [];
+        },
+      }),
+    });
+
+    el.shadowRoot!.querySelector<HTMLElement>('[data-element-id="academic-year-table-row-ay1"]')!.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(calls.cyclesForYear).toBe('ay1');
+    expect(calls.modulesFor).toEqual(['ay1', 'c1']);
+
+    el.remove();
+  });
+});
+
+describe('elementId: academic-year-table-add-button (UC-04 A4 — adding-year mode)', () => {
+  it('opens a draft row with only a name input and Cancelar, no independent save button', async () => {
+    const el = await mountView();
+
+    el.shadowRoot!.querySelector<HTMLElement>('[data-element-id="academic-year-table-add-button"]')!.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect((el.shadowRoot!.querySelector('[data-element-id="academic-year-table-row-new-name"]')) === null).toBe(false);
+    expect((el.shadowRoot!.querySelector('[data-element-id="academic-year-table-row-new-cancel"]')) === null).toBe(false);
+    expect((el.shadowRoot!.querySelector('[data-element-id="academic-year-table-row-new-save"]')) === null).toBe(true);
+
+    el.remove();
+  });
+
+  it('switches training-cycle-table to its complete unfiltered list, hides module-table, and shows module-selection-table scoped to the first cycle', async () => {
+    const el = await mountView({
+      trainingCycle: fakeTrainingCycleService({ list: async () => [{ id: 'c1', name: 'DAW' }, { id: 'c2', name: 'SMR' }] }),
+    });
+
+    el.shadowRoot!.querySelector<HTMLElement>('[data-element-id="academic-year-table-add-button"]')!.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect((el.shadowRoot!.querySelector('[data-element-id="training-cycle-table-row-c1"]')) === null).toBe(false);
+    expect((el.shadowRoot!.querySelector('[data-element-id="training-cycle-table-row-c2"]')) === null).toBe(false);
+    expect((el.shadowRoot!.querySelector('[data-element-id="module-table"]')) === null).toBe(true);
+    expect((el.shadowRoot!.querySelector('[data-element-id="module-selection-table"]')) === null).toBe(false);
+
+    el.remove();
+  });
+});
+
+describe('elementId: academic-year-table — cancelling the draft row (UC-04 A5)', () => {
+  it('discards the draft name and the in-progress selection, restoring the previously-selected year\'s normal filtered view', async () => {
+    const el = await mountView({
+      academicYear: fakeAcademicYearService({
+        list: async () => [{ id: 'ay1', name: '2026/2027', isCurrent: true }],
+        listTrainingCyclesForYear: async () => [{ id: 'c1', name: 'DAW' }],
+      }),
+    });
+
+    el.shadowRoot!.querySelector<HTMLElement>('[data-element-id="academic-year-table-add-button"]')!.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const draftInput = el.shadowRoot!.querySelector<HTMLInputElement>('[data-element-id="academic-year-table-row-new-name"]')!;
+    draftInput.value = '2030/2031';
+    draftInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+    el.shadowRoot!.querySelector<HTMLElement>('[data-element-id="academic-year-table-row-new-cancel"]')!.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect((el.shadowRoot!.querySelector('[data-element-id="academic-year-table-row-new-name"]')) === null).toBe(true);
+    expect((el.shadowRoot!.querySelector('[data-element-id="module-selection-table"]')) === null).toBe(true);
+    expect((el.shadowRoot!.querySelector('[data-element-id="module-table"]')) === null).toBe(false);
+    expect(el.shadowRoot!.querySelector('[data-element-id="academic-year-table-row-ay1"]')!.className).toContain(
+      'bg-slate-100',
+    );
+
+    el.remove();
+  });
+});
+
 describe('elementId: back-to-dashboard-link', () => {
   it('clicking back-to-dashboard-link navigates to /dashboard', async () => {
     const el = await mountView();
@@ -304,7 +425,7 @@ describe('elementId: academic-year-nav-link, teacher-nav-link', () => {
     expect(el.shadowRoot!.querySelector('[data-element-id="academic-year-nav-link"]')!.getAttribute('aria-current')).toBe(
       'page',
     );
-    expect(el.shadowRoot!.querySelector('[data-element-id="teacher-nav-link"]')!.getAttribute('aria-current')).toBeNull();
+    expect((el.shadowRoot!.querySelector('[data-element-id="teacher-nav-link"]')!.getAttribute('aria-current')) === null).toBe(true);
 
     el.remove();
   });

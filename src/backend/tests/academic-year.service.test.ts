@@ -264,3 +264,100 @@ describe('AcademicYearService — module selection', () => {
     expect(replaceCalled).toBe(false);
   });
 });
+
+// three-mode Año académico redesign (2026-07-30 reopen, see views/configuracion/use-cases.md
+// UC-04/UC-05): normal mode's training-cycle-table and module-table are always derived from
+// the selected year's module selection, never a stored cycle<->year relation — these two
+// methods are that derivation, reused by both new GET endpoints in api-contracts.md.
+describe('AcademicYearService — cascading lists for normal mode (UC-04, UC-05)', () => {
+  type ModuleWithCycleName = Module & { trainingCycleName: string };
+
+  const teacherModulesWithCycleName: ModuleWithCycleName[] = [
+    { id: 'm1', trainingCycleId: 'c1', course: 1, name: 'Programación', trainingCycleName: 'DAW' },
+    { id: 'm2', trainingCycleId: 'c1', course: 2, name: 'Bases de Datos', trainingCycleName: 'DAW' },
+    { id: 'm3', trainingCycleId: 'c2', course: 1, name: 'Redes', trainingCycleName: 'SMR' },
+  ];
+
+  describe('listSelectedTrainingCycles', () => {
+    it('returns only the cycles with at least one module selected for the year', async () => {
+      const service = new AcademicYearService(
+        yearRepositoryDouble({ findById: async (teacherId, id) => ({ id, teacherId, name: '2026/2027', isCurrent: false }) }),
+        selectionRepositoryDouble({ findModuleIdsForYear: async () => ['m1'] }),
+        moduleRepositoryDouble({ findAllForTeacher: async () => teacherModulesWithCycleName as never }),
+      );
+
+      const result = await service.listSelectedTrainingCycles('teacher-1', 'year-1');
+
+      expect(result).toEqual([{ id: 'c1', name: 'DAW' }]);
+    });
+
+    it('deduplicates a cycle appearing via more than one selected module', async () => {
+      const service = new AcademicYearService(
+        yearRepositoryDouble({ findById: async (teacherId, id) => ({ id, teacherId, name: '2026/2027', isCurrent: false }) }),
+        selectionRepositoryDouble({ findModuleIdsForYear: async () => ['m1', 'm2'] }),
+        moduleRepositoryDouble({ findAllForTeacher: async () => teacherModulesWithCycleName as never }),
+      );
+
+      const result = await service.listSelectedTrainingCycles('teacher-1', 'year-1');
+
+      expect(result).toEqual([{ id: 'c1', name: 'DAW' }]);
+    });
+
+    it('returns an empty list when nothing is selected for the year', async () => {
+      const service = new AcademicYearService(
+        yearRepositoryDouble({ findById: async (teacherId, id) => ({ id, teacherId, name: '2026/2027', isCurrent: false }) }),
+        selectionRepositoryDouble({ findModuleIdsForYear: async () => [] }),
+        moduleRepositoryDouble({ findAllForTeacher: async () => teacherModulesWithCycleName as never }),
+      );
+
+      expect(await service.listSelectedTrainingCycles('teacher-1', 'year-1')).toEqual([]);
+    });
+
+    it('returns null when the year does not belong to this teacher', async () => {
+      const service = new AcademicYearService(
+        yearRepositoryDouble({ findById: async () => null }),
+        selectionRepositoryDouble(),
+        moduleRepositoryDouble(),
+      );
+
+      expect(await service.listSelectedTrainingCycles('teacher-1', 'unknown-year')).toBeNull();
+    });
+  });
+
+  describe('listSelectedModulesForCycle', () => {
+    it("returns the given cycle's modules that are selected for the year, cycle name omitted", async () => {
+      const service = new AcademicYearService(
+        yearRepositoryDouble({ findById: async (teacherId, id) => ({ id, teacherId, name: '2026/2027', isCurrent: false }) }),
+        selectionRepositoryDouble({ findModuleIdsForYear: async () => ['m1', 'm3'] }),
+        moduleRepositoryDouble({ findAllForTeacher: async () => teacherModulesWithCycleName as never }),
+      );
+
+      const result = await service.listSelectedModulesForCycle('teacher-1', 'year-1', 'c1');
+
+      expect(result).toEqual([{ id: 'm1', trainingCycleId: 'c1', course: 1, name: 'Programación' }]);
+    });
+
+    it('excludes modules of the cycle that are not selected for the year', async () => {
+      const service = new AcademicYearService(
+        yearRepositoryDouble({ findById: async (teacherId, id) => ({ id, teacherId, name: '2026/2027', isCurrent: false }) }),
+        selectionRepositoryDouble({ findModuleIdsForYear: async () => ['m1'] }),
+        moduleRepositoryDouble({ findAllForTeacher: async () => teacherModulesWithCycleName as never }),
+      );
+
+      const result = await service.listSelectedModulesForCycle('teacher-1', 'year-1', 'c1');
+
+      expect(result).toEqual([{ id: 'm1', trainingCycleId: 'c1', course: 1, name: 'Programación' }]);
+      expect(result?.some((module: Module) => module.id === 'm2')).toBe(false);
+    });
+
+    it('returns null when the year does not belong to this teacher', async () => {
+      const service = new AcademicYearService(
+        yearRepositoryDouble({ findById: async () => null }),
+        selectionRepositoryDouble(),
+        moduleRepositoryDouble(),
+      );
+
+      expect(await service.listSelectedModulesForCycle('teacher-1', 'unknown-year', 'c1')).toBeNull();
+    });
+  });
+});

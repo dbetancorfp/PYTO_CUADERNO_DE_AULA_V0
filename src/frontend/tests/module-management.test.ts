@@ -1,8 +1,14 @@
-// elementId: module-cycle-select, module-table, module-table-add-button,
-// module-delete-blocked-message, module-edit-confirm-modal (see
-// views/configuracion/use-cases.md UC-06). Same component as
+// elementId: module-table, module-table-add-button, module-delete-blocked-message,
+// module-edit-confirm-modal (see views/configuracion/use-cases.md UC-06, rewritten
+// 2026-07-30 for the three-mode redesign). Same component as
 // academic-year-settings-view.test.ts (app-academic-year-settings-view) — see that file's
 // header comment for the shared inline-edit-row convention.
+//
+// `module-cycle-select` is removed (functional-spec.json's appOverview) —
+// training-cycle-table's own row click is what selects the cycle now; every test below
+// selects a cycle by clicking a training-cycle-table row instead of a <select>.
+// module-table is normal-mode only: hidden entirely during adding-year/adding-cycle mode
+// (module-selection-table takes its place, see module-selection.test.ts).
 import { describe, it, expect } from 'bun:test';
 import '../src/academic-year-settings-view';
 import type { AcademicYearSettingsView } from '../src/academic-year-settings-view';
@@ -15,14 +21,22 @@ interface SessionApiService {
 
 type WriteResult<T> = { outcome: 'success'; value: T } | { outcome: 'not-found' } | { outcome: 'duplicate-name' };
 
+interface AcademicYear {
+  id: string;
+  name: string;
+  isCurrent: boolean;
+}
+
 interface AcademicYearApiService {
-  list(): Promise<{ id: string; name: string; isCurrent: boolean }[]>;
-  create(name: string): Promise<WriteResult<{ id: string; name: string; isCurrent: boolean }>>;
-  rename(id: string, name: string): Promise<WriteResult<{ id: string; name: string; isCurrent: boolean }>>;
-  setCurrent(id: string): Promise<WriteResult<{ id: string; name: string; isCurrent: boolean }>>;
+  list(): Promise<AcademicYear[]>;
+  create(name: string): Promise<WriteResult<AcademicYear>>;
+  rename(id: string, name: string): Promise<WriteResult<AcademicYear>>;
+  setCurrent(id: string): Promise<WriteResult<AcademicYear>>;
   remove(id: string): Promise<{ outcome: 'success' } | { outcome: 'not-found' } | { outcome: 'is-current' }>;
   getSelection(id: string): Promise<string[]>;
   replaceSelection(id: string, moduleIds: string[]): Promise<{ outcome: 'success' } | { outcome: 'not-found' }>;
+  listTrainingCyclesForYear(id: string): Promise<TrainingCycle[]>;
+  listModulesForYearAndCycle(id: string, cycleId: string): Promise<ModuleRecord[]>;
 }
 
 interface TrainingCycle {
@@ -63,15 +77,18 @@ function fakeSessionService(): SessionApiService {
   return { getSession: async () => ({ authenticated: true, fullName: 'Ana García' }), logout: async () => {} };
 }
 
-function fakeAcademicYearService(): AcademicYearApiService {
+function fakeAcademicYearService(overrides: Partial<AcademicYearApiService> = {}): AcademicYearApiService {
   return {
-    list: async () => [],
+    list: async () => [{ id: 'ay1', name: '2026/2027', isCurrent: true }],
     create: async (name) => ({ outcome: 'success', value: { id: 'x', name, isCurrent: false } }),
     rename: async (id, name) => ({ outcome: 'success', value: { id, name, isCurrent: false } }),
     setCurrent: async (id) => ({ outcome: 'success', value: { id, name: 'X', isCurrent: true } }),
     remove: async () => ({ outcome: 'success' }),
     getSelection: async () => [],
     replaceSelection: async () => ({ outcome: 'success' }),
+    listTrainingCyclesForYear: async () => [{ id: 'c1', name: 'DAW' }],
+    listModulesForYearAndCycle: async () => [],
+    ...overrides,
   };
 }
 
@@ -96,54 +113,76 @@ function fakeModuleService(overrides: Partial<ModuleApiService> = {}): ModuleApi
   };
 }
 
-async function mountView(module?: ModuleApiService, trainingCycle?: TrainingCycleApiService): Promise<AcademicYearSettingsView> {
+async function mountView(overrides?: {
+  academicYear?: AcademicYearApiService;
+  trainingCycle?: TrainingCycleApiService;
+  module?: ModuleApiService;
+}): Promise<AcademicYearSettingsView> {
   const el = document.createElement('app-academic-year-settings-view') as AcademicYearSettingsView;
   el.sessionService = fakeSessionService();
-  el.academicYearService = fakeAcademicYearService();
-  el.trainingCycleService = trainingCycle ?? fakeTrainingCycleService();
-  el.moduleService = module ?? fakeModuleService();
+  el.academicYearService = overrides?.academicYear ?? fakeAcademicYearService();
+  el.trainingCycleService = overrides?.trainingCycle ?? fakeTrainingCycleService();
+  el.moduleService = overrides?.module ?? fakeModuleService();
   document.body.appendChild(el);
   await new Promise((resolve) => setTimeout(resolve, 0));
   return el;
 }
 
-describe('elementId: module-cycle-select', () => {
-  it('lists the teacher\'s training cycles as options', async () => {
-    const el = await mountView(undefined, fakeTrainingCycleService({ list: async () => [{ id: 'c1', name: 'DAW' }, { id: 'c2', name: 'SMR' }] }));
+describe('elementId: module-table — visibility and mode', () => {
+  it('is hidden while adding-year mode is active', async () => {
+    const el = await mountView();
 
-    const select = el.shadowRoot!.querySelector<HTMLSelectElement>('[data-element-id="module-cycle-select"]')!;
+    el.shadowRoot!.querySelector<HTMLElement>('[data-element-id="academic-year-table-add-button"]')!.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(Array.from(select.options).map((o) => o.value)).toEqual(expect.arrayContaining(['c1', 'c2']));
+    expect((el.shadowRoot!.querySelector('[data-element-id="module-table"]')) === null).toBe(true);
 
     el.remove();
   });
 
-  it('choosing a cycle reloads module-table with that cycle\'s modules', async () => {
-    const calls: { requestedCycleId: string | null } = { requestedCycleId: null };
-    const el = await mountView(
-      fakeModuleService({
-        listForCycle: async (cycleId) => {
-          calls.requestedCycleId = cycleId;
-          return [{ id: 'm1', trainingCycleId: cycleId, course: 1, name: 'Programación' }];
-        },
-      }),
-    );
+  it('is hidden while adding-cycle mode is active', async () => {
+    const el = await mountView();
 
-    const select = el.shadowRoot!.querySelector<HTMLSelectElement>('[data-element-id="module-cycle-select"]')!;
-    select.value = 'c1';
-    select.dispatchEvent(new Event('change', { bubbles: true }));
+    el.shadowRoot!.querySelector<HTMLElement>('[data-element-id="training-cycle-table-add-button"]')!.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const input = el.shadowRoot!.querySelector<HTMLInputElement>('[data-element-id="training-cycle-table-row-new-name"]')!;
+    input.value = 'SMR';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    el.shadowRoot!.querySelector<HTMLElement>('[data-element-id="training-cycle-table-row-new-save"]')!.click();
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(calls.requestedCycleId).toBe('c1');
-    expect(el.shadowRoot!.querySelector('[data-element-id="module-table-row-m1"]')).not.toBeNull();
+    expect((el.shadowRoot!.querySelector('[data-element-id="module-table"]')) === null).toBe(true);
+
+    el.remove();
+  });
+
+  it('shows nothing and prompts to pick/create a cycle when no cycle is selected', async () => {
+    const el = await mountView({ academicYear: fakeAcademicYearService({ listTrainingCyclesForYear: async () => [] }) });
+
+    expect(el.shadowRoot!.querySelector('[data-element-id="module-table"]')!.textContent).toBeTruthy();
+    expect((el.shadowRoot!.querySelector('[data-element-id="module-table-row-m1"]')) === null).toBe(true);
+
+    el.remove();
+  });
+
+  it("shows one row per module of the selected cycle that's selected for the selected academic year", async () => {
+    const el = await mountView({
+      academicYear: fakeAcademicYearService({
+        listModulesForYearAndCycle: async () => [{ id: 'm1', trainingCycleId: 'c1', course: 1, name: 'Programación' }],
+      }),
+    });
+
+    expect(el.shadowRoot!.querySelector('[data-element-id="module-table-row-m1"]')!.textContent).toContain(
+      'Programación',
+    );
 
     el.remove();
   });
 });
 
 describe('elementId: module-table-add-button', () => {
-  it('is disabled while no cycle is chosen', async () => {
-    const el = await mountView();
+  it('is disabled while no cycle is selected', async () => {
+    const el = await mountView({ academicYear: fakeAcademicYearService({ listTrainingCyclesForYear: async () => [] }) });
 
     const button = el.shadowRoot!.querySelector<HTMLButtonElement>('[data-element-id="module-table-add-button"]')!;
 
@@ -152,20 +191,25 @@ describe('elementId: module-table-add-button', () => {
     el.remove();
   });
 
-  it('adding a module with a unique (name, course) calls create() with the chosen cycle', async () => {
-    const calls: { createdWith: [string, string, number] | null } = { createdWith: null };
-    const el = await mountView(
-      fakeModuleService({
+  it('adding a row and saving a unique (name, course) persists it and selects it for the active academic year', async () => {
+    const calls: { createdWith: [string, string, number] | null; putWith: [string, string[]] | null } = {
+      createdWith: null,
+      putWith: null,
+    };
+    const el = await mountView({
+      module: fakeModuleService({
         create: async (cycleId, name, course) => {
           calls.createdWith = [cycleId, name, course];
           return { outcome: 'success', value: { id: 'm-new', trainingCycleId: cycleId, course, name } };
         },
       }),
-    );
-    const select = el.shadowRoot!.querySelector<HTMLSelectElement>('[data-element-id="module-cycle-select"]')!;
-    select.value = 'c1';
-    select.dispatchEvent(new Event('change', { bubbles: true }));
-    await new Promise((resolve) => setTimeout(resolve, 0));
+      academicYear: fakeAcademicYearService({
+        replaceSelection: async (id, moduleIds) => {
+          calls.putWith = [id, moduleIds];
+          return { outcome: 'success' };
+        },
+      }),
+    });
 
     el.shadowRoot!.querySelector<HTMLElement>('[data-element-id="module-table-add-button"]')!.click();
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -179,6 +223,8 @@ describe('elementId: module-table-add-button', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(calls.createdWith).toEqual(['c1', 'Programación', 1]);
+    expect(calls.putWith?.[0]).toBe('ay1');
+    expect(calls.putWith?.[1]).toContain('m-new');
 
     el.remove();
   });
@@ -186,23 +232,20 @@ describe('elementId: module-table-add-button', () => {
 
 describe('elementId: module-edit-confirm-modal', () => {
   async function mountWithOneModule(update: ModuleApiService['update']): Promise<AcademicYearSettingsView> {
-    const el = await mountView(
-      fakeModuleService({
-        listForCycle: async () => [{ id: 'm1', trainingCycleId: 'c1', course: 1, name: 'Programación' }],
+    return mountView({
+      module: fakeModuleService({
         update,
       }),
-    );
-    const select = el.shadowRoot!.querySelector<HTMLSelectElement>('[data-element-id="module-cycle-select"]')!;
-    select.value = 'c1';
-    select.dispatchEvent(new Event('change', { bubbles: true }));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    return el;
+      academicYear: fakeAcademicYearService({
+        listModulesForYearAndCycle: async () => [{ id: 'm1', trainingCycleId: 'c1', course: 1, name: 'Programación' }],
+      }),
+    });
   }
 
   it('is not visible on first load', async () => {
     const el = await mountView();
 
-    expect(el.shadowRoot!.querySelector('[data-element-id="module-edit-confirm-modal"]')).toBeNull();
+    expect((el.shadowRoot!.querySelector('[data-element-id="module-edit-confirm-modal"]')) === null).toBe(true);
 
     el.remove();
   });
@@ -222,7 +265,7 @@ describe('elementId: module-edit-confirm-modal', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     const modal = el.shadowRoot!.querySelector('[data-element-id="module-edit-confirm-modal"]');
-    expect(modal).not.toBeNull();
+    expect((modal) === null).toBe(false);
     expect(modal!.textContent).toContain('2026/2027');
 
     el.remove();
@@ -244,7 +287,7 @@ describe('elementId: module-edit-confirm-modal', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(updateCalled).toBe(true);
-    expect(el.shadowRoot!.querySelector('[data-element-id="module-edit-confirm-modal"]')).toBeNull();
+    expect((el.shadowRoot!.querySelector('[data-element-id="module-edit-confirm-modal"]')) === null).toBe(true);
 
     el.remove();
   });
@@ -272,7 +315,7 @@ describe('elementId: module-edit-confirm-modal', () => {
 
     expect(calls.updateCalls.length).toBe(2);
     expect(calls.updateCalls[1]![2]).toBe(true);
-    expect(el.shadowRoot!.querySelector('[data-element-id="module-edit-confirm-modal"]')).toBeNull();
+    expect((el.shadowRoot!.querySelector('[data-element-id="module-edit-confirm-modal"]')) === null).toBe(true);
 
     el.remove();
   });
@@ -298,9 +341,9 @@ describe('elementId: module-edit-confirm-modal', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(updateCallCount).toBe(1);
-    expect(el.shadowRoot!.querySelector('[data-element-id="module-edit-confirm-modal"]')).toBeNull();
+    expect((el.shadowRoot!.querySelector('[data-element-id="module-edit-confirm-modal"]')) === null).toBe(true);
     expect(el.shadowRoot!.querySelector('[data-element-id="module-table-row-m1"]')!.textContent).toContain('Programación');
-    expect(el.shadowRoot!.querySelector('[data-element-id="module-table-row-m1-name"]')).toBeNull();
+    expect((el.shadowRoot!.querySelector('[data-element-id="module-table-row-m1-name"]')) === null).toBe(true);
 
     el.remove();
   });
@@ -316,8 +359,8 @@ describe('elementId: module-edit-confirm-modal', () => {
     el.shadowRoot!.querySelector<HTMLElement>('[data-element-id="module-table-row-m1-save"]')!.click();
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(el.shadowRoot!.querySelector('[data-element-id="module-table-row-m1"]')).not.toBeNull();
-    expect(el.shadowRoot!.querySelector('[data-element-id="module-edit-confirm-modal"]')).toBeNull();
+    expect((el.shadowRoot!.querySelector('[data-element-id="module-table-row-m1"]')) === null).toBe(false);
+    expect((el.shadowRoot!.querySelector('[data-element-id="module-edit-confirm-modal"]')) === null).toBe(true);
     expect(el.shadowRoot!.textContent).toContain('Ya existe un módulo con ese nombre y curso en este ciclo');
 
     el.remove();
@@ -326,16 +369,14 @@ describe('elementId: module-edit-confirm-modal', () => {
 
 describe('elementId: module-delete-blocked-message', () => {
   it('shows when deleting a module referenced by an academic year', async () => {
-    const el = await mountView(
-      fakeModuleService({
-        listForCycle: async () => [{ id: 'm1', trainingCycleId: 'c1', course: 1, name: 'Programación' }],
+    const el = await mountView({
+      module: fakeModuleService({
         remove: async () => ({ outcome: 'has-dependents', academicYears: [{ id: 'ay1', name: '2026/2027' }] }),
       }),
-    );
-    const select = el.shadowRoot!.querySelector<HTMLSelectElement>('[data-element-id="module-cycle-select"]')!;
-    select.value = 'c1';
-    select.dispatchEvent(new Event('change', { bubbles: true }));
-    await new Promise((resolve) => setTimeout(resolve, 0));
+      academicYear: fakeAcademicYearService({
+        listModulesForYearAndCycle: async () => [{ id: 'm1', trainingCycleId: 'c1', course: 1, name: 'Programación' }],
+      }),
+    });
 
     el.shadowRoot!.querySelector<HTMLElement>('[data-element-id="module-table-row-m1-delete"]')!.click();
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -343,6 +384,22 @@ describe('elementId: module-delete-blocked-message', () => {
     expect(el.shadowRoot!.querySelector('[data-element-id="module-delete-blocked-message"]')!.textContent).toContain(
       '2026/2027',
     );
+
+    el.remove();
+  });
+
+  it('deleting an unreferenced module succeeds and it disappears from the table', async () => {
+    const el = await mountView({
+      module: fakeModuleService({ remove: async () => ({ outcome: 'success' }) }),
+      academicYear: fakeAcademicYearService({
+        listModulesForYearAndCycle: async () => [{ id: 'm1', trainingCycleId: 'c1', course: 1, name: 'Programación' }],
+      }),
+    });
+
+    el.shadowRoot!.querySelector<HTMLElement>('[data-element-id="module-table-row-m1-delete"]')!.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect((el.shadowRoot!.querySelector('[data-element-id="module-table-row-m1"]')) === null).toBe(true);
 
     el.remove();
   });

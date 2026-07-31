@@ -5,11 +5,13 @@ import { redirectTo } from './navigation';
 import { handleSettingsNavClick, renderSettingsNav } from './settings-nav';
 import type { SessionApiService } from './session-api-service';
 import type { TrainingCycle, TrainingCycleApiService } from './training-cycle-api-service';
-import type { ModuleApiService, ModuleRecord, ModuleWithCycleName } from './module-api-service';
+import type { ModuleApiService, ModuleRecord } from './module-api-service';
 import type { AcademicYear, AcademicYearApiService } from './academic-year-api-service';
 import type { AcademicYearRef } from './api-outcomes';
 
 const NEW_ROW_ID = 'new';
+
+type ScreenMode = 'normal' | 'adding-year' | 'adding-cycle';
 
 type RowActionKind = 'row' | 'edit' | 'cancel' | 'save' | 'delete' | 'set-current' | 'checkbox' | 'name' | 'course';
 
@@ -66,6 +68,22 @@ interface PendingModuleEdit {
  * and lib/patterns/crud-table-component.md / lib/patterns/cascading-select.md for the
  * shapes followed throughout. `teacher-nav-link`/`academic-year-nav-link` are shared with
  * `teacher-settings-view.ts` via the plain `renderSettingsNav` function.
+ *
+ * **Three modes** (reopened 2026-07-30, see functional-spec.json's `appOverview`):
+ * - `normal`: an existing academic year is selected. `training-cycle-table` shows only the
+ *   cycles with >=1 module selected for that year; `module-table` shows that cycle's
+ *   modules selected for the year; `module-selection-table` and its add/save controls are
+ *   not rendered at all.
+ * - `adding-year`: `academic-year-table-add-button` was clicked. `training-cycle-table`
+ *   shows the teacher's complete, unfiltered cycle list; `module-table` is replaced by
+ *   `module-selection-table`, which builds an in-progress selection
+ *   (`_selectedModuleIds`) that `module-selection-save-button` persists by creating the
+ *   academic year and replacing its selection in one user action (two sequential requests).
+ * - `adding-cycle`: entered when a brand-new cycle is saved via
+ *   `training-cycle-table-add-button` while an existing academic year was selected (not
+ *   already `adding-year`). Same `module-selection-table` takeover, scoped to the new
+ *   cycle; `module-selection-save-button` only replaces the selection — the academic year
+ *   already exists.
  */
 export class AcademicYearSettingsView extends HTMLElement {
   private _sessionService: SessionApiService | null = null;
@@ -76,31 +94,41 @@ export class AcademicYearSettingsView extends HTMLElement {
   private _authenticated = false;
   private _loaded = false;
 
-  private _academicYears: AcademicYear[] = [];
-  private _trainingCycles: TrainingCycle[] = [];
-  private _allModules: ModuleWithCycleName[] = [];
+  private _mode: ScreenMode = 'normal';
 
+  // Academic years
+  private _academicYears: AcademicYear[] = [];
+  private _selectedYearId: string | null = null;
   private _editingYearId: string | null = null;
-  private _addingYear = false;
   private _yearRowError: string | null = null;
   private _yearDeleteBlockedMessage: string | null = null;
 
+  // Training cycles — single table, content depends on `_mode` (year-filtered vs. complete)
+  private _trainingCycles: TrainingCycle[] = [];
+  private _selectedCycleId: string | null = null;
   private _editingCycleId: string | null = null;
-  private _addingCycle = false;
   private _cycleRowError: string | null = null;
   private _cycleDeleteBlockedMessage: string | null = null;
 
-  private _selectedCycleId: string | null = null;
-  private _cycleModules: ModuleRecord[] = [];
+  // module-table (normal mode only) — the selected cycle's modules selected for the
+  // selected academic year, plus the full persisted selection for that year (used to
+  // preserve other cycles' selections when module-table-add-button adds a module).
+  private _normalModeModules: ModuleRecord[] = [];
+  private _yearModuleSelection: Set<string> = new Set();
   private _editingModuleId: string | null = null;
   private _addingModule = false;
   private _moduleRowError: string | null = null;
   private _moduleDeleteBlockedMessage: string | null = null;
   private _pendingModuleEdit: PendingModuleEdit | null = null;
 
-  private _selectedYearId: string | null = null;
+  // module-selection-table (adding-year / adding-cycle modes only)
+  private _selectionCycleModules: ModuleRecord[] = [];
   private _selectedModuleIds: Set<string> = new Set();
+  private _addingSelectionModule = false;
+  private _selectionModuleRowError: string | null = null;
   private _selectionSaving = false;
+  private _selectionSaveMessage: string | null = null;
+  private _selectionSaveSuccess = false;
 
   private _disposables: Array<() => void> = [];
 
@@ -176,16 +204,17 @@ export class AcademicYearSettingsView extends HTMLElement {
     }
     this._authenticated = true;
 
-    const [academicYears, trainingCycles, allModules] = await Promise.all([
-      this.academicYearService.list(),
-      this.trainingCycleService.list(),
-      this.moduleService.listAll(),
-    ]);
-    this._academicYears = academicYears;
-    this._trainingCycles = trainingCycles;
-    this._allModules = allModules;
+    this._academicYears = await this.academicYearService.list();
     this._loaded = true;
+    const current = this._academicYears.find((year) => year.isCurrent) ?? null;
+    if (current !== null) {
+      this._selectedYearId = current.id;
+    }
     this._render();
+
+    if (current !== null) {
+      await this._loadNormalMode(current.id);
+    }
   }
 
   private _query<T extends Element>(elementId: string): T {
@@ -213,6 +242,9 @@ export class AcademicYearSettingsView extends HTMLElement {
       case 'module-table-add-button':
         this._startAddModule();
         return;
+      case 'module-selection-add-button':
+        this._startAddSelectionModule();
+        return;
       case 'module-selection-save-button':
         void this._saveSelection();
         return;
@@ -239,6 +271,11 @@ export class AcademicYearSettingsView extends HTMLElement {
     const moduleAction = parseRowAction(elementId, 'module-table');
     if (moduleAction) {
       void this._handleModuleRowAction(moduleAction);
+      return;
+    }
+    const selectionAction = parseRowAction(elementId, 'module-selection-table');
+    if (selectionAction && selectionAction.action !== 'checkbox') {
+      void this._handleSelectionModuleRowAction(selectionAction);
     }
   }
 
@@ -246,21 +283,6 @@ export class AcademicYearSettingsView extends HTMLElement {
     const target = (event.target as HTMLElement).closest<HTMLElement>('[data-element-id]');
     if (!target) return;
     const elementId = target.dataset.elementId!;
-
-    if (elementId === 'module-cycle-select') {
-      const value = (target as HTMLSelectElement).value;
-      this._selectedCycleId = value.length > 0 ? value : null;
-      this._addingModule = false;
-      this._editingModuleId = null;
-      this._moduleRowError = null;
-      if (this._selectedCycleId !== null) {
-        void this._loadModulesForCycle(this._selectedCycleId);
-      } else {
-        this._cycleModules = [];
-        this._render();
-      }
-      return;
-    }
 
     const selectionAction = parseRowAction(elementId, 'module-selection-table');
     if (selectionAction && selectionAction.action === 'checkbox') {
@@ -273,15 +295,19 @@ export class AcademicYearSettingsView extends HTMLElement {
   // ---------------------------------------------------------------------------------------
 
   private _startAddYear(): void {
-    this._addingYear = true;
+    this._mode = 'adding-year';
     this._editingYearId = NEW_ROW_ID;
     this._yearRowError = null;
+    this._selectedModuleIds = new Set();
+    this._selectionSaveMessage = null;
     this._render();
+    void this._loadAddingModeCycles();
   }
 
   private async _handleYearRowAction({ rowId, action }: RowAction): Promise<void> {
     switch (action) {
       case 'row':
+        if (rowId === NEW_ROW_ID) return;
         this._selectYear(rowId);
         return;
       case 'edit':
@@ -290,10 +316,7 @@ export class AcademicYearSettingsView extends HTMLElement {
         this._render();
         return;
       case 'cancel':
-        this._editingYearId = null;
-        this._addingYear = false;
-        this._yearRowError = null;
-        this._render();
+        await this._cancelYearRowEdit(rowId);
         return;
       case 'save':
         await this._saveYear(rowId);
@@ -311,26 +334,36 @@ export class AcademicYearSettingsView extends HTMLElement {
     }
   }
 
-  private _selectYear(id: string): void {
-    this._selectedYearId = id;
-    this._selectedModuleIds = new Set();
+  private async _cancelYearRowEdit(rowId: string): Promise<void> {
+    if (rowId === NEW_ROW_ID) {
+      this._mode = 'normal';
+      this._editingYearId = null;
+      this._yearRowError = null;
+      this._selectedModuleIds = new Set();
+      this._selectionSaveMessage = null;
+      this._render();
+      await this._loadNormalMode(this._selectedYearId);
+      return;
+    }
+    this._editingYearId = null;
+    this._yearRowError = null;
     this._render();
-    void this._loadSelection(id);
   }
 
-  private async _loadSelection(id: string): Promise<void> {
-    const moduleIds = await this.academicYearService.getSelection(id);
-    if (this._selectedYearId !== id) return;
-    this._selectedModuleIds = new Set(moduleIds);
+  private _selectYear(id: string): void {
+    this._selectedYearId = id;
+    this._mode = 'normal';
+    this._editingYearId = null;
     this._render();
+    void this._loadNormalMode(id);
   }
 
   private async _saveYear(rowId: string): Promise<void> {
+    if (rowId === NEW_ROW_ID) return; // no independent save for the adding-year draft — see module-selection-save-button
     const name = this._query<HTMLInputElement>(`academic-year-table-row-${rowId}-name`).value.trim();
     this._yearRowError = null;
 
-    const result =
-      rowId === NEW_ROW_ID ? await this.academicYearService.create(name) : await this.academicYearService.rename(rowId, name);
+    const result = await this.academicYearService.rename(rowId, name);
 
     if (result.outcome === 'duplicate-name') {
       this._yearRowError = 'Ya existe un año académico con ese nombre';
@@ -342,12 +375,7 @@ export class AcademicYearSettingsView extends HTMLElement {
       return;
     }
 
-    if (rowId === NEW_ROW_ID) {
-      this._academicYears = [...this._academicYears, result.value];
-      this._addingYear = false;
-    } else {
-      this._academicYears = this._academicYears.map((year) => (year.id === rowId ? result.value : year));
-    }
+    this._academicYears = this._academicYears.map((year) => (year.id === rowId ? result.value : year));
     this._editingYearId = null;
     this._render();
   }
@@ -369,7 +397,10 @@ export class AcademicYearSettingsView extends HTMLElement {
     this._academicYears = this._academicYears.filter((year) => year.id !== id);
     if (this._selectedYearId === id) {
       this._selectedYearId = null;
-      this._selectedModuleIds = new Set();
+      this._trainingCycles = [];
+      this._selectedCycleId = null;
+      this._normalModeModules = [];
+      this._yearModuleSelection = new Set();
     }
     this._render();
   }
@@ -385,11 +416,75 @@ export class AcademicYearSettingsView extends HTMLElement {
   }
 
   // ---------------------------------------------------------------------------------------
+  // Cascading loads
+  // ---------------------------------------------------------------------------------------
+
+  /** Normal mode: year-filtered training cycles, then that cycle's year-filtered modules. */
+  private async _loadNormalMode(yearId: string | null): Promise<void> {
+    if (yearId === null) {
+      this._trainingCycles = [];
+      this._selectedCycleId = null;
+      this._normalModeModules = [];
+      this._yearModuleSelection = new Set();
+      this._render();
+      return;
+    }
+
+    const [cycles, selection] = await Promise.all([
+      this.academicYearService.listTrainingCyclesForYear(yearId),
+      this.academicYearService.getSelection(yearId),
+    ]);
+    if (this._selectedYearId !== yearId || this._mode !== 'normal') return;
+
+    this._trainingCycles = cycles;
+    this._yearModuleSelection = new Set(selection);
+    this._selectedCycleId = cycles.length > 0 ? cycles[0]!.id : null;
+    this._render();
+
+    if (this._selectedCycleId !== null) {
+      await this._loadNormalModules(yearId, this._selectedCycleId);
+    } else {
+      this._normalModeModules = [];
+      this._render();
+    }
+  }
+
+  private async _loadNormalModules(yearId: string, cycleId: string): Promise<void> {
+    const modules = await this.academicYearService.listModulesForYearAndCycle(yearId, cycleId);
+    if (this._selectedYearId !== yearId || this._selectedCycleId !== cycleId || this._mode !== 'normal') return;
+    this._normalModeModules = modules;
+    this._render();
+  }
+
+  /** Adding-year / adding-cycle mode: complete unfiltered cycle list, then the selected cycle's modules. */
+  private async _loadAddingModeCycles(): Promise<void> {
+    const cycles = await this.trainingCycleService.list();
+    if (this._mode === 'normal') return;
+
+    this._trainingCycles = cycles;
+    this._selectedCycleId = cycles.length > 0 ? cycles[0]!.id : null;
+    this._render();
+
+    if (this._selectedCycleId !== null) {
+      await this._loadSelectionCycleModules(this._selectedCycleId);
+    } else {
+      this._selectionCycleModules = [];
+      this._render();
+    }
+  }
+
+  private async _loadSelectionCycleModules(cycleId: string): Promise<void> {
+    const modules = await this.moduleService.listForCycle(cycleId);
+    if (this._selectedCycleId !== cycleId) return;
+    this._selectionCycleModules = modules;
+    this._render();
+  }
+
+  // ---------------------------------------------------------------------------------------
   // Training cycles
   // ---------------------------------------------------------------------------------------
 
   private _startAddCycle(): void {
-    this._addingCycle = true;
     this._editingCycleId = NEW_ROW_ID;
     this._cycleRowError = null;
     this._render();
@@ -398,6 +493,7 @@ export class AcademicYearSettingsView extends HTMLElement {
   private async _handleCycleRowAction({ rowId, action }: RowAction): Promise<void> {
     switch (action) {
       case 'row':
+        if (rowId === NEW_ROW_ID) return;
         this._selectCycle(rowId);
         return;
       case 'edit':
@@ -407,7 +503,6 @@ export class AcademicYearSettingsView extends HTMLElement {
         return;
       case 'cancel':
         this._editingCycleId = null;
-        this._addingCycle = false;
         this._cycleRowError = null;
         this._render();
         return;
@@ -426,10 +521,24 @@ export class AcademicYearSettingsView extends HTMLElement {
 
   private _selectCycle(id: string): void {
     this._selectedCycleId = id;
-    this._addingModule = false;
-    this._editingModuleId = null;
-    this._moduleRowError = null;
-    void this._loadModulesForCycle(id);
+    this._editingCycleId = null;
+    this._cycleRowError = null;
+
+    if (this._mode === 'normal') {
+      this._addingModule = false;
+      this._editingModuleId = null;
+      this._moduleRowError = null;
+      this._render();
+      if (this._selectedYearId !== null) {
+        void this._loadNormalModules(this._selectedYearId, id);
+      }
+      return;
+    }
+
+    this._addingSelectionModule = false;
+    this._selectionModuleRowError = null;
+    this._render();
+    void this._loadSelectionCycleModules(id);
   }
 
   private async _saveCycle(rowId: string): Promise<void> {
@@ -449,14 +558,28 @@ export class AcademicYearSettingsView extends HTMLElement {
       return;
     }
 
-    if (rowId === NEW_ROW_ID) {
-      this._trainingCycles = [...this._trainingCycles, result.value];
-      this._addingCycle = false;
-    } else {
+    if (rowId !== NEW_ROW_ID) {
       this._trainingCycles = this._trainingCycles.map((cycle) => (cycle.id === rowId ? result.value : cycle));
+      this._editingCycleId = null;
+      this._render();
+      return;
     }
+
     this._editingCycleId = null;
+    const enteringAddingCycleMode = this._mode === 'normal';
+
+    if (!enteringAddingCycleMode) {
+      this._trainingCycles = [...this._trainingCycles, result.value];
+      this._render();
+      return;
+    }
+
+    this._mode = 'adding-cycle';
+    const cycles = await this.trainingCycleService.list();
+    this._trainingCycles = cycles;
+    this._selectedCycleId = result.value.id;
     this._render();
+    await this._loadSelectionCycleModules(result.value.id);
   }
 
   private async _deleteCycle(id: string): Promise<void> {
@@ -476,19 +599,15 @@ export class AcademicYearSettingsView extends HTMLElement {
     this._trainingCycles = this._trainingCycles.filter((cycle) => cycle.id !== id);
     if (this._selectedCycleId === id) {
       this._selectedCycleId = null;
-      this._cycleModules = [];
+      this._normalModeModules = [];
+      this._selectionCycleModules = [];
     }
     this._render();
   }
 
   // ---------------------------------------------------------------------------------------
-  // Modules
+  // Modules (normal mode — module-table)
   // ---------------------------------------------------------------------------------------
-
-  private async _loadModulesForCycle(cycleId: string): Promise<void> {
-    this._cycleModules = await this.moduleService.listForCycle(cycleId);
-    this._render();
-  }
 
   private _startAddModule(): void {
     if (this._selectedCycleId === null) return;
@@ -517,6 +636,7 @@ export class AcademicYearSettingsView extends HTMLElement {
       case 'delete':
         await this._deleteModule(rowId);
         return;
+      case 'row':
       case 'name':
       case 'course':
       default:
@@ -530,7 +650,7 @@ export class AcademicYearSettingsView extends HTMLElement {
     this._moduleRowError = null;
 
     if (rowId === NEW_ROW_ID) {
-      if (this._selectedCycleId === null) return;
+      if (this._selectedCycleId === null || this._selectedYearId === null) return;
       const result = await this.moduleService.create(this._selectedCycleId, name, course);
       if (result.outcome === 'duplicate-name') {
         this._moduleRowError = 'Ya existe un módulo con ese nombre y curso en este ciclo';
@@ -541,9 +661,14 @@ export class AcademicYearSettingsView extends HTMLElement {
         this._render();
         return;
       }
-      this._cycleModules = [...this._cycleModules, result.value];
+      this._normalModeModules = [...this._normalModeModules, result.value];
       this._addingModule = false;
       this._editingModuleId = null;
+      this._yearModuleSelection.add(result.value.id);
+      // Newly-created module is immediately selected for the active academic year, without
+      // dropping any module already selected under a different cycle — see
+      // views/configuracion/api-contracts.md's POST /api/training-cycles/:cycleId/modules.
+      await this.academicYearService.replaceSelection(this._selectedYearId, Array.from(this._yearModuleSelection));
       this._render();
       return;
     }
@@ -566,7 +691,7 @@ export class AcademicYearSettingsView extends HTMLElement {
       return;
     }
 
-    this._cycleModules = this._cycleModules.map((module) => (module.id === rowId ? result.value : module));
+    this._normalModeModules = this._normalModeModules.map((module) => (module.id === rowId ? result.value : module));
     this._editingModuleId = null;
     this._render();
   }
@@ -579,7 +704,7 @@ export class AcademicYearSettingsView extends HTMLElement {
     this._pendingModuleEdit = null;
 
     if (result.outcome === 'success') {
-      this._cycleModules = this._cycleModules.map((module) => (module.id === pending.id ? result.value : module));
+      this._normalModeModules = this._normalModeModules.map((module) => (module.id === pending.id ? result.value : module));
     }
     this._editingModuleId = null;
     this._render();
@@ -605,12 +730,12 @@ export class AcademicYearSettingsView extends HTMLElement {
       return;
     }
 
-    this._cycleModules = this._cycleModules.filter((module) => module.id !== id);
+    this._normalModeModules = this._normalModeModules.filter((module) => module.id !== id);
     this._render();
   }
 
   // ---------------------------------------------------------------------------------------
-  // Module selection
+  // Module selection (adding-year / adding-cycle modes — module-selection-table)
   // ---------------------------------------------------------------------------------------
 
   private _toggleModuleSelection(moduleId: string, checked: boolean): void {
@@ -622,15 +747,124 @@ export class AcademicYearSettingsView extends HTMLElement {
     this._render();
   }
 
+  private _startAddSelectionModule(): void {
+    if (this._selectedCycleId === null) return;
+    this._addingSelectionModule = true;
+    this._selectionModuleRowError = null;
+    this._render();
+  }
+
+  private async _handleSelectionModuleRowAction({ rowId, action }: RowAction): Promise<void> {
+    switch (action) {
+      case 'save':
+        await this._saveSelectionModule(rowId);
+        return;
+      case 'cancel':
+        this._addingSelectionModule = false;
+        this._selectionModuleRowError = null;
+        this._render();
+        return;
+      default:
+        return;
+    }
+  }
+
+  private async _saveSelectionModule(rowId: string): Promise<void> {
+    if (rowId !== NEW_ROW_ID || this._selectedCycleId === null) return;
+    const name = this._query<HTMLInputElement>(`module-selection-table-row-${rowId}-name`).value.trim();
+    const course = Number(this._query<HTMLSelectElement>(`module-selection-table-row-${rowId}-course`).value);
+    this._selectionModuleRowError = null;
+
+    const result = await this.moduleService.create(this._selectedCycleId, name, course);
+    if (result.outcome === 'duplicate-name') {
+      this._selectionModuleRowError = 'Ya existe un módulo con ese nombre y curso en este ciclo';
+      this._render();
+      return;
+    }
+    if (result.outcome === 'not-found') {
+      this._render();
+      return;
+    }
+
+    this._selectionCycleModules = [...this._selectionCycleModules, result.value];
+    this._selectedModuleIds.add(result.value.id);
+    this._addingSelectionModule = false;
+    this._render();
+  }
+
   private async _saveSelection(): Promise<void> {
-    if (this._selectedYearId === null) return;
+    if (this._mode === 'normal') return;
     this._selectionSaving = true;
+    this._selectionSaveMessage = null;
     this._render();
 
-    await this.academicYearService.replaceSelection(this._selectedYearId, Array.from(this._selectedModuleIds));
+    if (this._mode === 'adding-year') {
+      await this._saveAddingYearSelection();
+      return;
+    }
+    await this._saveAddingCycleSelection();
+  }
 
+  private async _saveAddingYearSelection(): Promise<void> {
+    const name = this._query<HTMLInputElement>(`academic-year-table-row-${NEW_ROW_ID}-name`).value.trim();
+    const createResult = await this.academicYearService.create(name);
+
+    if (createResult.outcome === 'duplicate-name') {
+      this._selectionSaving = false;
+      this._selectionSaveSuccess = false;
+      this._selectionSaveMessage = 'Ya existe un año académico con ese nombre';
+      this._render();
+      return;
+    }
+    if (createResult.outcome === 'not-found') {
+      this._selectionSaving = false;
+      this._selectionSaveSuccess = false;
+      this._selectionSaveMessage = 'No se pudo crear el año académico';
+      this._render();
+      return;
+    }
+
+    const newYear = createResult.value;
+    const replaceResult = await this.academicYearService.replaceSelection(newYear.id, Array.from(this._selectedModuleIds));
     this._selectionSaving = false;
-    this._render();
+    this._academicYears = [...this._academicYears, newYear];
+
+    if (replaceResult.outcome !== 'success') {
+      this._selectionSaveSuccess = false;
+      this._selectionSaveMessage =
+        'El año académico se creó, pero no se pudo guardar la selección de módulos. Selecciónalo de nuevo para reintentarlo.';
+      this._render();
+      return;
+    }
+
+    this._selectionSaveSuccess = true;
+    this._selectionSaveMessage = 'Año académico y selección de módulos guardados';
+    this._selectedModuleIds = new Set();
+    this._selectYear(newYear.id);
+  }
+
+  private async _saveAddingCycleSelection(): Promise<void> {
+    if (this._selectedYearId === null) {
+      this._selectionSaving = false;
+      this._render();
+      return;
+    }
+
+    const yearId = this._selectedYearId;
+    const replaceResult = await this.academicYearService.replaceSelection(yearId, Array.from(this._selectedModuleIds));
+    this._selectionSaving = false;
+
+    if (replaceResult.outcome !== 'success') {
+      this._selectionSaveSuccess = false;
+      this._selectionSaveMessage = 'No se pudo guardar la selección de módulos';
+      this._render();
+      return;
+    }
+
+    this._selectionSaveSuccess = true;
+    this._selectionSaveMessage = 'Selección de módulos guardada';
+    this._selectedModuleIds = new Set();
+    this._selectYear(yearId);
   }
 
   // ---------------------------------------------------------------------------------------
@@ -647,7 +881,8 @@ export class AcademicYearSettingsView extends HTMLElement {
       html`
         <div class="flex flex-col gap-8 p-4">
           ${renderSettingsNav('ano-academico')} ${this._renderAcademicYearSection()} ${this._renderTrainingCycleSection()}
-          ${this._renderModuleSection()} ${this._renderModuleSelectionSection()}
+          ${this._mode === 'normal' ? this._renderModuleSection() : this._renderModuleSelectionSection()}
+          ${this._renderModuleSelectionSaveMessage()}
         </div>
         ${this._renderModuleEditConfirmModal()}
       `,
@@ -657,7 +892,7 @@ export class AcademicYearSettingsView extends HTMLElement {
 
   private _renderAcademicYearSection(): TemplateResult {
     const rows = [...this._academicYears];
-    if (this._addingYear) {
+    if (this._editingYearId === NEW_ROW_ID) {
       rows.push({ id: NEW_ROW_ID, name: '', isCurrent: false });
     }
 
@@ -703,6 +938,7 @@ export class AcademicYearSettingsView extends HTMLElement {
 
   private _renderAcademicYearRow(year: AcademicYear): TemplateResult {
     if (this._editingYearId === year.id) {
+      const isDraft = year.id === NEW_ROW_ID;
       return html`
         <tr data-element-id="academic-year-table-row-${year.id}">
           <td>
@@ -715,13 +951,15 @@ export class AcademicYearSettingsView extends HTMLElement {
           </td>
           <td></td>
           <td class="flex gap-2">
-            <button
-              type="button"
-              class="${classesFor('button', 'primary', 'sm')}"
-              data-element-id="academic-year-table-row-${year.id}-save"
-            >
-              Guardar
-            </button>
+            ${isDraft
+              ? ''
+              : html`<button
+                  type="button"
+                  class="${classesFor('button', 'primary', 'sm')}"
+                  data-element-id="academic-year-table-row-${year.id}-save"
+                >
+                  Guardar
+                </button>`}
             <button
               type="button"
               class="${classesFor('button', 'ghost', 'sm')}"
@@ -774,7 +1012,7 @@ export class AcademicYearSettingsView extends HTMLElement {
 
   private _renderTrainingCycleSection(): TemplateResult {
     const rows = [...this._trainingCycles];
-    if (this._addingCycle) {
+    if (this._editingCycleId === NEW_ROW_ID) {
       rows.push({ id: NEW_ROW_ID, name: '' });
     }
 
@@ -880,7 +1118,7 @@ export class AcademicYearSettingsView extends HTMLElement {
   }
 
   private _renderModuleSection(): TemplateResult {
-    const rows: ModuleRecord[] = [...this._cycleModules].sort(
+    const rows: ModuleRecord[] = [...this._normalModeModules].sort(
       (a, b) => a.course - b.course || a.name.localeCompare(b.name),
     );
     if (this._addingModule && this._selectedCycleId !== null) {
@@ -900,15 +1138,6 @@ export class AcademicYearSettingsView extends HTMLElement {
             Añadir módulo
           </button>
         </div>
-
-        <select
-          class="${classesFor('select', undefined, 'md')}"
-          data-element-id="module-cycle-select"
-          .value=${this._selectedCycleId ?? ''}
-        >
-          <option value="">-- Selecciona un ciclo --</option>
-          ${this._trainingCycles.map((cycle) => html`<option value=${cycle.id}>${cycle.name}</option>`)}
-        </select>
 
         ${this._moduleDeleteBlockedMessage !== null
           ? html`<p
@@ -930,9 +1159,9 @@ export class AcademicYearSettingsView extends HTMLElement {
           </thead>
           <tbody>
             ${this._selectedCycleId === null
-              ? html`<tr><td colspan="3">Elige un ciclo para ver sus módulos.</td></tr>`
+              ? html`<tr><td colspan="3">Elige o crea un ciclo para ver sus módulos.</td></tr>`
               : rows.length === 0
-                ? html`<tr><td colspan="3">Este ciclo todavía no tiene módulos.</td></tr>`
+                ? html`<tr><td colspan="3">Este ciclo todavía no tiene módulos seleccionados para este año académico.</td></tr>`
                 : this._renderModuleRows(rows)}
           </tbody>
         </table>
@@ -1061,13 +1290,25 @@ export class AcademicYearSettingsView extends HTMLElement {
   private _renderModuleSelectionSection(): TemplateResult {
     return html`
       <section class="flex flex-col gap-2">
-        <h2 class="${classesFor('heading')}">Selección de módulos del año académico</h2>
+        <div class="flex items-center justify-between">
+          <h2 class="${classesFor('heading')}">Selección de módulos del año académico</h2>
+          <button
+            type="button"
+            class="${classesFor('button', 'secondary', 'sm')}"
+            data-element-id="module-selection-add-button"
+            ?disabled=${this._selectedCycleId === null}
+          >
+            Añadir módulo
+          </button>
+        </div>
+
         ${this._renderModuleSelectionTable()}
+
         <button
           type="button"
           class="${classesFor('submit-button', 'primary', 'md')}"
           data-element-id="module-selection-save-button"
-          ?disabled=${this._selectedYearId === null || this._selectionSaving}
+          ?disabled=${this._selectionSaving}
         >
           ${this._selectionSaving ? 'Guardando…' : 'Guardar selección'}
         </button>
@@ -1076,53 +1317,124 @@ export class AcademicYearSettingsView extends HTMLElement {
   }
 
   private _renderModuleSelectionTable(): TemplateResult {
-    if (this._selectedYearId === null) {
-      return html`<p data-element-id="module-selection-table">
-        Selecciona un año académico arriba para gestionar su selección de módulos.
-      </p>`;
-    }
-    if (this._allModules.length === 0) {
-      return html`<p data-element-id="module-selection-table">
-        Todavía no tienes ciclos ni módulos creados — créalos arriba antes de seleccionar módulos para este año.
-      </p>`;
-    }
-
-    const sorted = [...this._allModules].sort(
-      (a, b) =>
-        a.trainingCycleName.localeCompare(b.trainingCycleName) || a.course - b.course || a.name.localeCompare(b.name),
+    const rows: ModuleRecord[] = [...this._selectionCycleModules].sort(
+      (a, b) => a.course - b.course || a.name.localeCompare(b.name),
     );
+    if (this._addingSelectionModule && this._selectedCycleId !== null) {
+      rows.push({ id: NEW_ROW_ID, trainingCycleId: this._selectedCycleId, course: 1, name: '' });
+    }
 
     return html`
       <table class="${classesFor('table')}" data-element-id="module-selection-table">
         <thead>
           <tr>
-            <th>Ciclo</th>
             <th>Curso</th>
             <th>Módulo</th>
             <th>Seleccionado</th>
           </tr>
         </thead>
         <tbody>
-          ${sorted.map(
-            (module) => html`
-              <tr data-element-id="module-selection-table-row-${module.id}">
-                <td>${module.trainingCycleName}</td>
-                <td>${module.course}º</td>
-                <td>${module.name}</td>
-                <td>
-                  <input
-                    type="checkbox"
-                    class="${classesFor('checkbox')}"
-                    data-element-id="module-selection-table-row-${module.id}-checkbox"
-                    .checked=${this._selectedModuleIds.has(module.id)}
-                  />
-                </td>
-              </tr>
-            `,
-          )}
+          ${rows.length === 0
+            ? html`<tr><td colspan="3">Este ciclo todavía no tiene módulos — añade uno.</td></tr>`
+            : this._renderSelectionModuleRows(rows)}
         </tbody>
       </table>
     `;
+  }
+
+  private _renderSelectionModuleRows(rows: ModuleRecord[]): TemplateResult {
+    const rendered: TemplateResult[] = [];
+    let lastCourse: number | null = null;
+    for (const module of rows) {
+      if (module.id !== NEW_ROW_ID && module.course !== lastCourse) {
+        rendered.push(
+          html`<tr>
+            <td colspan="3" class="${classesFor('paragraph', undefined, 'sm')} pt-2 font-semibold">${module.course}º</td>
+          </tr>`,
+        );
+        lastCourse = module.course;
+      }
+      rendered.push(module.id === NEW_ROW_ID ? this._renderNewSelectionModuleRow(module) : this._renderSelectionModuleRow(module));
+    }
+    return html`${rendered}`;
+  }
+
+  private _renderSelectionModuleRow(module: ModuleRecord): TemplateResult {
+    return html`
+      <tr data-element-id="module-selection-table-row-${module.id}">
+        <td>${module.course}º</td>
+        <td>${module.name}</td>
+        <td>
+          <input
+            type="checkbox"
+            class="${classesFor('checkbox')}"
+            data-element-id="module-selection-table-row-${module.id}-checkbox"
+            .checked=${this._selectedModuleIds.has(module.id)}
+          />
+        </td>
+      </tr>
+    `;
+  }
+
+  private _renderNewSelectionModuleRow(module: ModuleRecord): TemplateResult {
+    return html`
+      <tr data-element-id="module-selection-table-row-new">
+        <td>
+          <select
+            class="${classesFor('select', undefined, 'md')}"
+            data-element-id="module-selection-table-row-new-course"
+            .value=${String(module.course)}
+          >
+            <option value="1">1º</option>
+            <option value="2">2º</option>
+            <option value="3">3º</option>
+          </select>
+        </td>
+        <td>
+          <input
+            class="${classesFor('text-input', undefined, 'md')}"
+            data-element-id="module-selection-table-row-new-name"
+            type="text"
+            .value=${module.name}
+          />
+        </td>
+        <td class="flex gap-2">
+          <button
+            type="button"
+            class="${classesFor('button', 'primary', 'sm')}"
+            data-element-id="module-selection-table-row-new-save"
+          >
+            Guardar
+          </button>
+          <button
+            type="button"
+            class="${classesFor('button', 'ghost', 'sm')}"
+            data-element-id="module-selection-table-row-new-cancel"
+          >
+            Cancelar
+          </button>
+        </td>
+      </tr>
+      ${this._selectionModuleRowError !== null
+        ? html`<tr><td colspan="3" class="${classesFor('paragraph', 'danger', 'sm')}">${this._selectionModuleRowError}</td></tr>`
+        : ''}
+    `;
+  }
+
+  private _renderModuleSelectionSaveMessage(): TemplateResult | string {
+    if (this._selectionSaveMessage === null) {
+      return '';
+    }
+    return html`<p
+      class="${classesFor('paragraph', this._selectionSaveSuccess ? undefined : 'danger', 'sm')} ${this
+        ._selectionSaveSuccess
+        ? 'text-green-700'
+        : ''}"
+      data-element-id="module-selection-save-message"
+      aria-live="assertive"
+    >
+      ${this._selectionSaveMessage}
+    </p>`;
   }
 }
 

@@ -29,26 +29,48 @@ Postgres and supports full CRUD.
 
 ### Section: Año académico
 
+The año académico is the anchor: selecting one drives what Ciclos and Módulos show below
+it, cascading exactly like a reactive filter. There is no separate, always-visible
+"selección" table — building a year's selection is something the teacher does inline,
+while adding that year (or a ciclo within it), not as a fourth permanent section.
+
 - **Lista de años académicos**: every año académico this teacher has ever created (e.g.
   "2026/2027", "2027/2028"), each showing whether it's the one marked "en curso". Create
   new (just a name/label — no start/end dates for now), rename, delete. Exactly one can be
   marked "en curso" at a time; marking a different one "en curso" un-marks the previous one.
   It's valid for **none** to be marked "en curso" (e.g. right after the teacher's very first
-  login, before they've set anything up).
-- **Ciclos**: the teacher's own list of ciclos formativos (e.g. "Desarrollo de Aplicaciones
-  Web"). Create, rename, delete.
-- **Módulos**: for each ciclo, its módulos profesionales, each tagged with which curso it
-  belongs to within that ciclo — 1º, 2º, or (some ciclos) 3º. Create, rename, change curso,
-  delete, all scoped to a ciclo.
-- **Selección del año académico**: for whichever año académico the teacher is looking at
-  (typically the one "en curso", but past years stay editable too — this is real CRUD, not
-  a frozen history), a way to pick which of the teacher's módulos apply that year. "Which
-  ciclos the teacher teaches this year" is never asked separately — it's just whichever
-  ciclos have at least one selected módulo that year; there's no standalone "select a ciclo
-  for this year" step.
-- If the teacher has no ciclos/módulos yet (new install, empty tables), the módulo-selection
-  area has nothing to show — the teacher has to create at least one ciclo and one módulo
-  under it first. This is a real, expected first-run state, not an error.
+  login, before they've set anything up). **Selected by default: whichever is "en curso"**
+  (none selected if none is current).
+- **Ciclos** (normal mode — an existing año académico is selected): shows only the ciclos
+  that have at least one módulo selected for that año académico — "which ciclos the teacher
+  teaches this year" is never asked separately, it's derived from that year's selection.
+  Selected by default: the first one in that filtered list. Create ciclo, rename, delete
+  still available on this list.
+- **Módulos** (normal mode): shows only the módulos of the selected ciclo that are also
+  selected for the selected año académico. Rename, change curso, delete still available.
+  There's no separate "pick a ciclo" dropdown here — clicking a row in Ciclos is what
+  drives this list.
+- **Adding a new año académico**: clicking "Añadir año académico" opens the name field (no
+  separate save for the name alone) and switches Ciclos/Módulos into "building a
+  selection" mode for this still-unsaved year: Ciclos shows the teacher's **complete**
+  ciclos list (nothing is selected for a brand-new year yet), first one selected by
+  default; Módulos is replaced by a checklist of that ciclo's módulos (1º/2º/3º) to pick
+  from — switching ciclo swaps which módulos are shown, but doesn't lose checks already
+  made under a different ciclo. One "Guardar selección" click creates the año académico
+  with the typed name **and** persists the accumulated selection together, then shows a
+  toast confirming success or failure. Cancelling discards the whole draft.
+- **Adding a new ciclo while an existing año académico is selected**: the new ciclo is
+  created and becomes the selected one for that año académico's context; Módulos switches
+  into the same checklist-building mode described above, scoped to this one ciclo.
+- **A ciclo with no módulos yet, while building a selection** (either flow above): the
+  checklist and "add módulo" merge into one table — the teacher creates a módulo (curso +
+  nombre) right there, it's checked by default, and "Guardar selección" persists the new
+  módulos and their selection together, with a success/failure toast. Once a ciclo already
+  has módulos, the checklist just lists them (creating an extra módulo inline is still
+  available, it's not mutually exclusive with picking from the existing ones).
+- If the teacher has no ciclos/módulos at all yet (first run), Ciclos/Módulos show an empty
+  state prompting to create one — same as today, just reachable via the "adding" flows
+  above instead of a permanent always-visible selection table.
 
 ## Behavior
 
