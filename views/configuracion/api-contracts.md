@@ -69,13 +69,40 @@ teacher is already authenticated, unlike Login's public endpoint.
 
 ### GET /api/training-cycles
 
-**Description**: Lists the signed-in teacher's training cycles.
-**Elements**: `training-cycle-table`, `module-cycle-select`
+**Description**: Lists the signed-in teacher's complete training cycle list, unfiltered.
+Used in adding-year/adding-cycle mode, where `training-cycle-table` shows every cycle
+regardless of any academic year's selection (see `GET
+/api/academic-years/:id/training-cycles` below for the normal-mode, year-filtered list).
+**Elements**: `training-cycle-table`
 
 #### Response 200
 ```json
 { "trainingCycles": [{ "id": "uuid", "name": "Desarrollo de Aplicaciones Web" }] }
 ```
+
+---
+
+### GET /api/academic-years/:id/training-cycles
+
+**Description**: Lists only the training cycles that have at least one module currently
+selected for this academic year (a derived join, `training_cycles` ⋈ `modules` ⋈
+`academic_year_modules` filtered by `academic_year_id`, `DISTINCT` on the cycle) — there's
+no stored cycle↔year relation, "which cycles a year has" is always this query. Used by
+`training-cycle-table` in normal mode.
+**Elements**: `training-cycle-table`
+
+#### Request
+- **Params**: `{ id: string }`
+
+#### Response 200
+```json
+{ "trainingCycles": [{ "id": "uuid", "name": "Desarrollo de Aplicaciones Web" }] }
+```
+
+#### Errors
+| Code | Condition |
+|------|-----------|
+| 404 | `id` doesn't match an academic year owned by this teacher |
 
 ---
 
@@ -149,8 +176,12 @@ No body.
 
 ### GET /api/training-cycles/:cycleId/modules
 
-**Description**: Lists the modules of one training cycle, grouped by `course`.
-**Elements**: `module-table`
+**Description**: Lists **all** modules of one training cycle, grouped by `course`, regardless
+of any academic year's selection. Used by `module-selection-table` (adding-year/adding-cycle
+mode) to build the checklist for a cycle that already has modules — see `GET
+/api/academic-years/:id/training-cycles/:cycleId/modules` below for `module-table`'s
+normal-mode, year-filtered list.
+**Elements**: `module-selection-table`
 
 #### Request
 - **Params**: `{ cycleId: string }`
@@ -167,10 +198,40 @@ No body.
 
 ---
 
+### GET /api/academic-years/:id/training-cycles/:cycleId/modules
+
+**Description**: Lists the modules of one training cycle that are also selected for this
+academic year, grouped by `course` (join `modules` ⋈ `academic_year_modules` filtered by
+both `training_cycle_id` and `academic_year_id`). Used by `module-table` in normal mode.
+**Elements**: `module-table`
+
+#### Request
+- **Params**: `{ id: string, cycleId: string }`
+
+#### Response 200
+```json
+{ "modules": [{ "id": "uuid", "trainingCycleId": "uuid", "course": 1, "name": "Programación" }] }
+```
+
+#### Errors
+| Code | Condition |
+|------|-----------|
+| 404 | `id` doesn't match an academic year, or `cycleId` doesn't match a training cycle, owned by this teacher |
+
+---
+
 ### POST /api/training-cycles/:cycleId/modules
 
-**Description**: Creates a module under a training cycle.
-**Elements**: `module-table-add-button`, `module-table`
+**Description**: Creates a module under a training cycle. Doesn't touch any academic year's
+selection by itself — a module is only ever added to `academic_year_modules` via `PUT
+/api/academic-years/:id/modules`. `module-table-add-button` (normal mode) and
+`module-selection-add-button` (adding-year/adding-cycle mode) both call this to create the
+row, then include its id the next time the selection is saved — for
+`module-table-add-button` specifically, the frontend calls the `PUT` immediately after, so
+the module is already selected for the active academic year by the time `module-table`
+re-renders.
+**Elements**: `module-table-add-button`, `module-table`, `module-selection-add-button`,
+`module-selection-table`
 
 #### Request
 - **Params**: `{ cycleId: string }`
@@ -240,10 +301,16 @@ No body.
 ### GET /api/modules
 
 **Description**: Lists **every** module the teacher has, across all training cycles, each
-including its cycle's id and name — the flat, cross-cycle shape
-`module-selection-table` needs (unlike the cycle-scoped `GET
-/api/training-cycles/:cycleId/modules` above, used by `module-table`).
-**Elements**: `module-selection-table`
+including its cycle's id and name. Not called by the frontend — no element on this screen
+shows a flat, cross-cycle module list; `module-selection-table` is always scoped to one
+cycle at a time (`GET /api/training-cycles/:cycleId/modules` above) and `module-table` is
+scoped to one cycle and one year (`GET
+/api/academic-years/:id/training-cycles/:cycleId/modules` below). This endpoint exists
+because `AcademicYearService.replaceSelection` needs it server-side, to verify every
+submitted `moduleIds` entry is owned by the teacher (see `PUT
+/api/academic-years/:id/modules` below) — exposed as a route mainly for completeness/testing,
+not part of any UI flow.
+**Elements**: none
 
 #### Response 200
 ```json
@@ -273,8 +340,17 @@ including its cycle's id and name — the flat, cross-cycle shape
 ### POST /api/academic-years
 
 **Description**: Creates an academic year. Never marked current on creation — the teacher
-marks one current via `PATCH`.
-**Elements**: `academic-year-table-add-button`, `academic-year-table`
+marks one current via `PATCH`. In adding-year mode (UC-04's A4), `module-selection-save-button`
+calls this first with the draft name, then immediately calls `PUT
+/api/academic-years/:id/modules` with the accumulated selection — two sequential requests
+behind what the teacher experiences as one click, no single combined endpoint.
+If this `POST` succeeds but the following `PUT` fails (network drop, not a validation error —
+`moduleIds` are already known-good ids), the academic year is left created with an empty
+selection rather than the whole action rolling back — confirmed, no rollback.
+`module-selection-save-message` still shows an error and the draft's checkboxes stay as they
+were, but the year now exists and is selectable from `academic-year-table` on retry.
+**Elements**: `academic-year-table-add-button`, `academic-year-table`,
+`module-selection-save-button`
 
 #### Request
 - **Body**: `{ name: string }`
@@ -368,8 +444,12 @@ No body.
 
 **Description**: Replaces this academic year's module selection with exactly the submitted
 set — any previously-selected module not included is removed from the selection (the module
-itself, and its training cycle, are untouched; only the join-table rows change).
-**Elements**: `module-selection-save-button`, `module-selection-table`
+itself, and its training cycle, are untouched; only the join-table rows change). In
+adding-year mode this is the second of the two sequential calls behind
+`module-selection-save-button`'s one click (see `POST /api/academic-years` above); in
+adding-cycle mode it's the only call.
+**Elements**: `module-selection-save-button`, `module-selection-table`,
+`module-selection-save-message`
 
 #### Request
 - **Params**: `{ id: string }`

@@ -91,6 +91,28 @@ export function academicYearRouter(
     res.status(204).send();
   });
 
+  router.get('/:id/training-cycles', async (req: Request<{ id: string }>, res: Response) => {
+    const trainingCycles = await academicYearService.listSelectedTrainingCycles(res.locals.teacherId as string, req.params.id);
+    if (trainingCycles === null) {
+      res.status(404).json({ message: 'Academic year not found' });
+      return;
+    }
+    res.status(200).json({ trainingCycles });
+  });
+
+  router.get('/:id/training-cycles/:cycleId/modules', async (req: Request<{ id: string; cycleId: string }>, res: Response) => {
+    const modules = await academicYearService.listSelectedModulesForCycle(
+      res.locals.teacherId as string,
+      req.params.id,
+      req.params.cycleId,
+    );
+    if (modules === null) {
+      res.status(404).json({ message: 'Academic year not found' });
+      return;
+    }
+    res.status(200).json({ modules });
+  });
+
   router.get('/:id/modules', async (req: Request<{ id: string }>, res: Response) => {
     const moduleIds = await academicYearService.getSelection(res.locals.teacherId as string, req.params.id);
     if (moduleIds === null) {

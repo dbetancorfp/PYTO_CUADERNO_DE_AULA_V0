@@ -4,7 +4,15 @@
 import { DomainError } from '../errors/domain-error';
 import type { AcademicYear, AcademicYearRepository } from '../repositories/academic-year.repository';
 import type { AcademicYearModuleRepository } from '../repositories/academic-year-module.repository';
-import type { ModuleRepository } from '../repositories/module.repository';
+import type { Module, ModuleRepository } from '../repositories/module.repository';
+
+/** The `{id, name}` shape `training-cycle-table` needs in normal mode — deliberately not
+ * the full `TrainingCycle` (no `teacherId`, an ownership detail never serialized to the
+ * client; see api-contracts.md's `GET /api/academic-years/:id/training-cycles`). */
+export interface SelectedTrainingCycle {
+  id: string;
+  name: string;
+}
 
 export class AcademicYearService {
   constructor(
@@ -77,5 +85,39 @@ export class AcademicYearService {
 
     await this.academicYearModuleRepository.replaceSelection(id, moduleIds);
     return moduleIds;
+  }
+
+  /** Returns `null` when `id` doesn't match a year owned by `teacherId`. Otherwise, the
+   * deduplicated list of cycles that have at least one module currently selected for this
+   * year — normal mode never stores a cycle↔year relation, this derivation is always
+   * recomputed from the module selection (see use-cases.md UC-04/UC-05). */
+  async listSelectedTrainingCycles(teacherId: string, id: string): Promise<SelectedTrainingCycle[] | null> {
+    const year = await this.academicYearRepository.findById(teacherId, id);
+    if (!year) return null;
+
+    const selectedModuleIds = new Set(await this.academicYearModuleRepository.findModuleIdsForYear(id));
+    const teacherModules = await this.moduleRepository.findAllForTeacher(teacherId);
+
+    const cyclesById = new Map<string, SelectedTrainingCycle>();
+    for (const module of teacherModules) {
+      if (!selectedModuleIds.has(module.id)) continue;
+      cyclesById.set(module.trainingCycleId, { id: module.trainingCycleId, name: module.trainingCycleName });
+    }
+    return [...cyclesById.values()];
+  }
+
+  /** Returns `null` when `id` doesn't match a year owned by `teacherId`. Otherwise, the
+   * subset of `cycleId`'s modules that are also selected for this year (see
+   * use-cases.md UC-04/UC-05). */
+  async listSelectedModulesForCycle(teacherId: string, id: string, cycleId: string): Promise<Module[] | null> {
+    const year = await this.academicYearRepository.findById(teacherId, id);
+    if (!year) return null;
+
+    const selectedModuleIds = new Set(await this.academicYearModuleRepository.findModuleIdsForYear(id));
+    const teacherModules = await this.moduleRepository.findAllForTeacher(teacherId);
+
+    return teacherModules
+      .filter((module) => module.trainingCycleId === cycleId && selectedModuleIds.has(module.id))
+      .map(({ id: moduleId, trainingCycleId, course, name }) => ({ id: moduleId, trainingCycleId, course, name }));
   }
 }
