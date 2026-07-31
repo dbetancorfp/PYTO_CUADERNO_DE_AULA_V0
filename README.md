@@ -48,16 +48,19 @@ server to start.
 bun install
 ```
 
+Port 3000 tends to already be taken locally (e.g. by Gitea) — the examples below use 3050
+(same port the `e2e` script already uses in `package.json`).
+
 ### Option A — in-memory backend (no database needed)
 
 Fastest way to run the app locally; data resets every time the process restarts.
 
 ```bash
 bun run build        # compiles src/frontend/src → dist (JS) + Tailwind CSS
-bun run src/backend/src/index.ts
+PORT=3050 bun run src/backend/src/index.ts
 ```
 
-Open http://localhost:3000.
+Open http://localhost:3050.
 
 ### Option B — real PostgreSQL backend
 
@@ -67,10 +70,10 @@ Open http://localhost:3000.
    ```bash
    bun run build
    set -a && source .env && set +a
-   DATA_BACKEND=postgres PORT=3000 bun run src/backend/src/index.ts
+   DATA_BACKEND=postgres PORT=3050 bun run src/backend/src/index.ts
    ```
 
-Open http://localhost:3000.
+Open http://localhost:3050.
 
 ### Iterating on the frontend
 
