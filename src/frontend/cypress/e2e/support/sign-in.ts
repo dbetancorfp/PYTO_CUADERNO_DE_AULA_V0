@@ -1,5 +1,5 @@
 /// <reference types="cypress" />
-// Shared sign-in helper for every Configuración spec (UC-01 through UC-07 all require an
+// Shared sign-in helper for every Configuración spec (UC-01 through UC-09 all require an
 // authenticated session). Not a *.cy.ts file itself, so cypress.config.ts's specPattern
 // never picks it up as a spec on its own — imported by the specs that need it, same
 // no-supportFile convention Login/Dashboard's own specs already use (each spec is
@@ -13,9 +13,9 @@ export function signInAsE2eUser(): void {
   cy.url().should('include', '/dashboard');
 }
 
-// academic_years.name is VARCHAR(20) (see views/configuracion/schema-changes.sql) — keep
-// generated fixture names short and unique. training_cycles.name/modules.name are
-// VARCHAR(200), unaffected by this constraint.
+// Short, timestamp-unique name generator for both the real catalog_training_cycles table
+// (UC-04/UC-05, Postgres-persisted, unique per teacher) and Año académico's local-state-only
+// entities (UC-06..UC-09, 2026-08-04 redesign — see academic-year-settings-view.ts).
 export function uniqueAcademicYearName(tag: string): string {
   return `${tag} ${Date.now() % 1000000}`;
 }

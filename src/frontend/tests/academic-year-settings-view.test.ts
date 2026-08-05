@@ -1,6 +1,7 @@
-// elementId: academic-year-nav-link, teacher-nav-link, academic-year-table,
-// academic-year-table-add-button, academic-year-delete-blocked-message (see
-// views/configuracion/use-cases.md UC-03/UC-04). New component, doesn't exist yet.
+// elementId: academic-year-nav-link, teacher-nav-link, training-catalog-nav-link,
+// academic-year-table, academic-year-table-add-button, academic-year-delete-blocked-message
+// (see views/configuracion/use-cases.md UC-03/UC-04). New component, doesn't exist yet.
+// training-catalog-nav-link added 2026-08-04 — UC-03 now covers three settings screens.
 //
 // Shared inline-edit-row convention for every CRUD table in this view (per
 // lib/patterns/crud-table-component.md), used identically across this file and
@@ -418,14 +419,15 @@ describe('elementId: back-to-dashboard-link', () => {
   });
 });
 
-describe('elementId: academic-year-nav-link, teacher-nav-link', () => {
-  it('academic-year-nav-link is active and teacher-nav-link is inactive on this screen', async () => {
+describe('elementId: academic-year-nav-link, teacher-nav-link, training-catalog-nav-link', () => {
+  it('academic-year-nav-link is active and the other two are inactive on this screen', async () => {
     const el = await mountView();
 
     expect(el.shadowRoot!.querySelector('[data-element-id="academic-year-nav-link"]')!.getAttribute('aria-current')).toBe(
       'page',
     );
     expect((el.shadowRoot!.querySelector('[data-element-id="teacher-nav-link"]')!.getAttribute('aria-current')) === null).toBe(true);
+    expect((el.shadowRoot!.querySelector('[data-element-id="training-catalog-nav-link"]')!.getAttribute('aria-current')) === null).toBe(true);
 
     el.remove();
   });
@@ -437,6 +439,18 @@ describe('elementId: academic-year-nav-link, teacher-nav-link', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(window.location.pathname).toBe('/configuracion/profesor');
+
+    window.history.pushState({}, '', '/configuracion/ano-academico');
+    el.remove();
+  });
+
+  it('clicking training-catalog-nav-link navigates to /configuracion/ciclos-modulos', async () => {
+    const el = await mountView();
+
+    el.shadowRoot!.querySelector<HTMLElement>('[data-element-id="training-catalog-nav-link"]')!.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(window.location.pathname).toBe('/configuracion/ciclos-modulos');
 
     window.history.pushState({}, '', '/configuracion/ano-academico');
     el.remove();

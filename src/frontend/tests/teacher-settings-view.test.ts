@@ -1,8 +1,9 @@
-// elementId: teacher-nav-link, academic-year-nav-link, teacher-full-name-input,
-// teacher-save-name-button, teacher-name-save-message, teacher-current-password-input,
-// teacher-new-password-input, teacher-repeat-password-input, teacher-save-password-button,
-// teacher-password-save-message (see views/configuracion/use-cases.md UC-01/UC-02/UC-03).
-// New component, doesn't exist yet.
+// elementId: teacher-nav-link, training-catalog-nav-link, academic-year-nav-link,
+// teacher-full-name-input, teacher-save-name-button, teacher-name-save-message,
+// teacher-current-password-input, teacher-new-password-input, teacher-repeat-password-input,
+// teacher-save-password-button, teacher-password-save-message (see
+// views/configuracion/use-cases.md UC-01/UC-02/UC-03). New component, doesn't exist yet.
+// training-catalog-nav-link added 2026-08-04 — UC-03 now covers three settings screens.
 //
 // Reuses SessionApiService (already defined for Dashboard, src/frontend/src/session-api-service.ts)
 // for the auth gate + name pre-fill, via a `sessionService` property — same DIP shape as
@@ -214,16 +215,30 @@ describe('elementId: back-to-dashboard-link', () => {
   });
 });
 
-describe('elementId: teacher-nav-link, academic-year-nav-link', () => {
-  it('teacher-nav-link is active and academic-year-nav-link is inactive on this screen', async () => {
+describe('elementId: teacher-nav-link, training-catalog-nav-link, academic-year-nav-link', () => {
+  it('teacher-nav-link is active and the other two are inactive on this screen', async () => {
     const el = await mountView();
 
     const teacherLink = el.shadowRoot!.querySelector('[data-element-id="teacher-nav-link"]')!;
+    const catalogLink = el.shadowRoot!.querySelector('[data-element-id="training-catalog-nav-link"]')!;
     const yearLink = el.shadowRoot!.querySelector('[data-element-id="academic-year-nav-link"]')!;
 
     expect(teacherLink.getAttribute('aria-current')).toBe('page');
+    expect(catalogLink.getAttribute('aria-current')).toBeNull();
     expect(yearLink.getAttribute('aria-current')).toBeNull();
 
+    el.remove();
+  });
+
+  it('clicking training-catalog-nav-link navigates to /configuracion/ciclos-modulos', async () => {
+    const el = await mountView();
+
+    el.shadowRoot!.querySelector<HTMLElement>('[data-element-id="training-catalog-nav-link"]')!.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(window.location.pathname).toBe('/configuracion/ciclos-modulos');
+
+    window.history.pushState({}, '', '/configuracion/profesor');
     el.remove();
   });
 

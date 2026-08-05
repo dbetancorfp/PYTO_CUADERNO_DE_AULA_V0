@@ -40,27 +40,58 @@ async function bootstrap(): Promise<void> {
     return;
   }
 
-  if (window.location.pathname === '/configuracion/ano-academico') {
+  if (window.location.pathname === '/configuracion/ciclos-modulos') {
     const [
       { HttpSessionApiService },
-      { HttpTrainingCycleApiService },
-      { HttpModuleApiService },
-      { HttpAcademicYearApiService },
+      { HttpCatalogTrainingCycleApiService },
+      { HttpCatalogModuleApiService },
+      { TrainingCatalogSettingsView },
+    ] = await Promise.all([
+      import('./http-session-api-service'),
+      import('./http-catalog-training-cycle-api-service'),
+      import('./http-catalog-module-api-service'),
+      import('./training-catalog-settings-view'),
+    ]);
+    const trainingCatalogSettingsView = document.createElement('app-training-catalog-settings-view') as InstanceType<
+      typeof TrainingCatalogSettingsView
+    >;
+    trainingCatalogSettingsView.sessionService = new HttpSessionApiService();
+    trainingCatalogSettingsView.trainingCycleService = new HttpCatalogTrainingCycleApiService();
+    trainingCatalogSettingsView.moduleService = new HttpCatalogModuleApiService();
+    document.body.appendChild(trainingCatalogSettingsView);
+    return;
+  }
+
+  if (window.location.pathname === '/configuracion/ano-academico') {
+    // NOT WIRED (2026-08-04 redesign) — this screen's former tables (training_cycles,
+    // modules, academic_years, academic_year_modules) were dropped and are not recreated in
+    // this pass (see views/configuracion/functional-spec.json's "NOT WIRED" elementSpecs).
+    // `LocalAcademicYearStore` backs all three services with a single, page-lifetime-scoped
+    // in-memory instance — no fetch call, nothing persists across a reload. A future view
+    // rebuilds this screen's real data layer.
+    const [
+      { HttpSessionApiService },
+      { LocalAcademicYearStore },
+      { LocalTrainingCycleApiService },
+      { LocalModuleApiService },
+      { LocalAcademicYearApiService },
       { AcademicYearSettingsView },
     ] = await Promise.all([
       import('./http-session-api-service'),
-      import('./http-training-cycle-api-service'),
-      import('./http-module-api-service'),
-      import('./http-academic-year-api-service'),
+      import('./local-academic-year-store'),
+      import('./local-training-cycle-api-service'),
+      import('./local-module-api-service'),
+      import('./local-academic-year-api-service'),
       import('./academic-year-settings-view'),
     ]);
     const academicYearSettingsView = document.createElement('app-academic-year-settings-view') as InstanceType<
       typeof AcademicYearSettingsView
     >;
+    const store = new LocalAcademicYearStore();
     academicYearSettingsView.sessionService = new HttpSessionApiService();
-    academicYearSettingsView.trainingCycleService = new HttpTrainingCycleApiService();
-    academicYearSettingsView.moduleService = new HttpModuleApiService();
-    academicYearSettingsView.academicYearService = new HttpAcademicYearApiService();
+    academicYearSettingsView.trainingCycleService = new LocalTrainingCycleApiService(store);
+    academicYearSettingsView.moduleService = new LocalModuleApiService(store);
+    academicYearSettingsView.academicYearService = new LocalAcademicYearApiService(store);
     document.body.appendChild(academicYearSettingsView);
     return;
   }

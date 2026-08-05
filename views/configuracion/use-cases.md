@@ -1,5 +1,10 @@
 # Use Cases — Configuración
 
+Rewritten from scratch 2026-08-04 for the full view redesign: Ciclos/Módulos owns two
+brand-new, standalone tables (`catalog_training_cycles`, `catalog_modules`); Año académico's
+former tables were dropped and are not recreated in this pass — its use cases below describe
+local-component-state behavior only, no network calls.
+
 ## UC-01: Edit the teacher's name
 
 **Primary actor**: Any signed-in teacher, on `/configuracion/profesor`
@@ -59,8 +64,7 @@
 - **A1 — Client-side validation fails** (any field empty, or repeat doesn't match new): inline
   error(s) shown; no request sent.
 - **A2 — Current password doesn't match**: server responds with an error; no lockout or
-  attempt-tracking here (the teacher is already authenticated — this isn't Login's public,
-  unauthenticated endpoint). `teacher-password-save-message` shows an error; fields are not
+  attempt-tracking here. `teacher-password-save-message` shows an error; fields are not
   cleared.
 
 ### Postconditions
@@ -74,8 +78,7 @@
 - [x] Shows an inline error and does not submit if the repeat doesn't match the new password
 - [ ] Shows a loading state and is disabled from click until the response arrives
 - [x] On success: shows success in `teacher-password-save-message`, clears all three fields
-- [x] On a current-password mismatch: shows an error in `teacher-password-save-message`,
-      without indicating anything else about the account
+- [x] On a current-password mismatch: shows an error in `teacher-password-save-message`
 
 ---
 
@@ -83,19 +86,20 @@
 
 **Primary actor**: Any signed-in teacher
 **Preconditions**: Valid session
-**Elements**: `back-to-dashboard-link`, `teacher-nav-link`, `academic-year-nav-link`
+**Elements**: `back-to-dashboard-link`, `teacher-nav-link`, `training-catalog-nav-link`,
+`academic-year-nav-link`
 
 ### Main flow
 
-1. Teacher is on one of the two settings screens.
-2. Teacher clicks the nav link for the other screen.
+1. Teacher is on one of the three settings screens.
+2. Teacher clicks the nav link for another screen.
 3. The app navigates there.
 
 ### Alternative flows
 
 - **A1 — Clicking the link for the screen already active**: no-op, no navigation.
 - **A2 — Teacher clicks `back-to-dashboard-link`**: the app navigates to `/dashboard`,
-  regardless of which of the two settings screens is currently active.
+  regardless of which of the three settings screens is currently active.
 
 ### Postconditions
 
@@ -103,278 +107,247 @@
 
 ### Acceptance criteria
 
-- [x] `teacher-nav-link` shows an active state on `/configuracion/profesor`, inactive on
-      `/configuracion/ano-academico`
-- [x] `academic-year-nav-link` shows an active state on `/configuracion/ano-academico`,
-      inactive on `/configuracion/profesor`
-- [x] Clicking `academic-year-nav-link` from `/configuracion/profesor` navigates to
-      `/configuracion/ano-academico`
-- [x] Clicking `teacher-nav-link` from `/configuracion/ano-academico` navigates to
-      `/configuracion/profesor`
-- [x] `back-to-dashboard-link` is present on both `/configuracion/profesor` and
-      `/configuracion/ano-academico`
+- [x] Each nav link shows an active state on its own screen, inactive on the other two
+- [x] Clicking any nav link from either other screen navigates to its route
+- [x] `back-to-dashboard-link` is present on all three settings screens
 - [x] Clicking `back-to-dashboard-link` navigates to `/dashboard`
 
 ---
 
-## UC-04: Manage academic years
+## UC-04: Manage catalog training cycles
+
+**Primary actor**: Any signed-in teacher, on `/configuracion/ciclos-modulos`
+**Preconditions**: Valid session
+**Elements**: `catalog-training-cycle-table`, `catalog-training-cycle-table-add-button`
+
+### Main flow
+
+1. `catalog-training-cycle-table` lists every training cycle the teacher has created in
+   `catalog_training_cycles` — a standalone catalog, no filtering by anything. First row
+   selected by default on load.
+2. Selecting a different row reloads `catalog-module-table` filtered to that cycle's modules
+   (see UC-05).
+3. Teacher clicks `catalog-training-cycle-table-add-button`; a new blank, inline-editable row
+   appears; typing a name and saving persists it immediately.
+
+### Alternative flows
+
+- **A1 — Duplicate name**: rejected, inline error on the row.
+- **A2 — Delete a cycle**: always succeeds — `catalog_modules`' FK to
+  `catalog_training_cycles` is `ON DELETE CASCADE`, so the cycle's modules are deleted along
+  with it. There is no dependency-blocked deletion in this screen — nothing else references
+  this catalog.
+
+### Postconditions
+
+- On A1: no change. On main flow/A2: `catalog_training_cycles` (and, for A2, its now-deleted
+  `catalog_modules` rows) reflects the change.
+
+### Acceptance criteria
+
+- [x] Shows every training cycle the teacher has created
+- [x] First row is selected by default on load
+- [x] Adding a row and saving a unique name persists it
+- [ ] Saving a duplicate name is rejected, inline error shown
+- [x] Deleting a cycle always succeeds and removes its modules too, unconditionally
+- [x] Selecting a different row reloads `catalog-module-table` filtered to that cycle's
+      modules
+
+---
+
+## UC-05: Manage modules within a catalog training cycle
+
+**Primary actor**: Any signed-in teacher, on `/configuracion/ciclos-modulos`
+**Preconditions**: Valid session; a training cycle is selected in
+`catalog-training-cycle-table` (see UC-04)
+**Elements**: `catalog-module-table`, `catalog-module-table-add-button`
+
+### Main flow
+
+1. `catalog-module-table` shows every module of the selected cycle in `catalog_modules`,
+   grouped by course (1º/2º).
+2. Teacher clicks `catalog-module-table-add-button`; a new blank, inline-editable row (name +
+   course) appears, scoped to the selected cycle.
+3. Teacher fills name + course and it saves.
+
+### Alternative flows
+
+- **A1 — No cycle selected in `catalog-training-cycle-table`**: `catalog-module-table`
+  prompts to pick/create one; `catalog-module-table-add-button` is disabled.
+- **A2 — Duplicate (name, course) within the cycle**: rejected, inline error on the row.
+- **A3 — Delete a module**: always succeeds — nothing references this catalog.
+- **A4 — Edit (rename or change course) a module**: always saves immediately — no
+  confirmation modal, unlike Año académico's old `module-edit-confirm-modal`; nothing
+  references a catalog module to warn about.
+
+### Postconditions
+
+- On A1/A2: no change. On main flow/A3/A4: `catalog_modules` reflects the change.
+
+### Acceptance criteria
+
+- [x] Shows nothing and prompts to pick/create a cycle when
+      `catalog-training-cycle-table` has no selected row
+- [x] Shows one row per module of the selected cycle, grouped by course
+- [x] `catalog-module-table-add-button` is disabled while
+      `catalog-training-cycle-table` has no cycle selected
+- [x] Adding a row and saving a unique (name, course) within the cycle persists it
+- [x] Saving a duplicate (name, course) within the cycle is rejected, inline error shown
+- [x] Deleting a module always succeeds, unconditionally
+- [x] Editing a module always saves immediately, no modal, regardless of anything else in
+      the system
+
+---
+
+## UC-06: Manage academic years (local state — not wired)
 
 **Primary actor**: Any signed-in teacher, on `/configuracion/ano-academico`
 **Preconditions**: Valid session
 **Elements**: `academic-year-table`, `academic-year-table-add-button`,
 `academic-year-delete-blocked-message`
 
+**This screen's data layer was removed in the 2026-08-04 redesign.** Every step below
+operates on the component's own in-memory state — no HTTP request, no persistence across a
+page reload. The UI and interactions are otherwise unchanged from the previous design.
+
 ### Main flow
 
-1. `academic-year-table` lists every academic year the teacher has created, one column
-   showing which (if any) is marked current. The row marked current is selected by default
-   on load (none selected if none is current).
-2. Selecting a row cascades: `training-cycle-table` reloads filtered to that year's cycles
-   (see UC-05), then, once it auto-selects its first row, `module-table` reloads filtered to
-   that cycle's modules for this year (see UC-06).
-3. Teacher marks a row current — the previously-current row (if any) is un-marked.
+1. `academic-year-table` lists every academic year added during the current session, one
+   column showing which (if any) is marked current.
+2. Selecting a row cascades locally: `training-cycle-table` updates to that year's cycles
+   (see UC-07), then `module-table` to that cycle's modules for this year (see UC-08).
+3. Teacher marks a row current — the previously-current row (if any) is un-marked, in local
+   state.
 
 ### Alternative flows
 
-- **A1 — Duplicate name**: saving a name that already exists for this teacher is rejected;
-  inline error on the row.
-- **A2 — Delete the row marked current**: rejected server-side (dependency-blocked deletion);
+- **A1 — Duplicate name**: rejected against local state; inline error on the row.
+- **A2 — Delete the row marked current**: rejected (local-state check);
   `academic-year-delete-blocked-message` becomes visible.
-- **A3 — Delete a non-current row**: succeeds, row removed. No other blocking rule applies to
-  an academic year's own deletion.
-- **A4 — Add a new academic year**: clicking `academic-year-table-add-button` opens a blank
-  row with only a name input — **no per-row save**. This switches the whole screen into
-  "adding-year" mode: `training-cycle-table` shows the complete, unfiltered cycle list
-  instead of the current selection's filtered one (see UC-05's A-flow), `module-table` hides,
-  and `module-selection-table` takes its place (see UC-07). The draft's name is only
-  persisted together with the selection, by `module-selection-save-button` — there's no way
-  to save the name alone.
-- **A5 — Cancel while adding a new academic year**: clicking the draft row's Cancelar
-  discards the typed name and the whole in-progress module selection, and returns
-  `training-cycle-table`/`module-table` to whichever academic year was selected before A4.
+- **A3 — Delete a non-current row**: succeeds locally.
+- **A4 — Add a new academic year**: opens a blank draft row, switches
+  `training-cycle-table`/`module-table`/`module-selection-table` into adding-year mode, all
+  local.
+- **A5 — Cancel while adding**: discards the local draft.
 
 ### Postconditions
 
-- On A1: no row added/renamed. On A2: the row remains, marked current, unchanged. On main
-  flow / A3: `academic_years` reflects the change. On A4/A5: nothing is persisted — creation
-  only happens via UC-07's combined save.
+- Nothing persists past a page reload — this is intentional for this pass.
 
 ### Acceptance criteria
 
-- [x] Shows one row per existing academic year, with which one (if any) is current
-- [x] On load, the row marked current is selected by default (none selected if none is
-      current)
-- [x] Saving a duplicate name is rejected, inline error shown
-- [x] Marking a row current un-marks whichever was current before
-- [x] Deleting the row marked current is rejected, `academic-year-delete-blocked-message`
+- [ ] Shows one row per academic year added this session, with which (if any) is current
+- [ ] Saving a duplicate name is rejected, inline error shown
+- [ ] Marking a row current un-marks whichever was current before
+- [ ] Deleting the row marked current is rejected, `academic-year-delete-blocked-message`
       becomes visible
-- [x] Deleting a non-current row succeeds
-- [x] Selecting a row reloads `training-cycle-table` to that year's cycles and, after its
-      default selection, `module-table` to that cycle's modules for this year
-- [x] `academic-year-table-add-button` opens a draft row with only a name input and Cancelar,
-      no independent save button
-- [x] Opening the draft row switches `training-cycle-table` to its complete unfiltered list,
-      hides `module-table`, and shows `module-selection-table` scoped to the first cycle
-- [x] Cancelling the draft row discards the name and the in-progress selection, restoring the
-      previously-selected academic year's normal filtered view
+- [ ] Deleting a non-current row succeeds
+- [ ] No interaction on this element makes a network request
 
 ---
 
-## UC-05: Manage training cycles
+## UC-07: Manage training cycles (local state — not wired)
 
 **Primary actor**: Any signed-in teacher, on `/configuracion/ano-academico`
 **Preconditions**: Valid session
 **Elements**: `training-cycle-table`, `training-cycle-table-add-button`,
 `training-cycle-delete-blocked-message`
 
+**Not wired** — see UC-06.
+
 ### Main flow
 
-1. **Normal mode** (an existing academic year selected, see UC-04): `training-cycle-table`
-   lists only the cycles with ≥1 module selected for that academic year — "which cycles the
-   teacher teaches this year" is never asked separately, it's derived from the year's
-   selection. The first one is selected by default.
-2. Selecting a different row reloads `module-table` filtered to that cycle's modules for the
-   active academic year (see UC-06).
-3. Teacher clicks `training-cycle-table-add-button`; a new blank, inline-editable row
-   appears; typing a name and saving persists it immediately (a cycle is a real,
-   independent entity, unlike UC-04's draft academic year).
+1. Normal mode: `training-cycle-table` shows local-state cycles with ≥1 module locally
+   selected for the active academic year.
+2. Adding-year/adding-cycle mode: shows the complete local-state cycle list instead.
+3. Teacher clicks `training-cycle-table-add-button`; a new row is added to local state.
 
 ### Alternative flows
 
-- **A1 — Duplicate name**: rejected, inline error on the row.
-- **A2 — Delete a cycle with a module referenced by some academic year's selection**:
-  rejected server-side; `training-cycle-delete-blocked-message` names the referencing academic
-  year(s).
-- **A3 — Delete a cycle with no referenced modules**: succeeds; its own modules (all
-  unreferenced, by definition of A2 not applying) are deleted along with it.
-- **A4 — Adding-year or adding-cycle mode is active** (UC-04's A4, or A5 below):
-  `training-cycle-table` shows the teacher's **complete**, unfiltered cycle list instead of
-  the year-filtered one, first one selected by default. Selecting a different row swaps
-  which cycle's modules `module-selection-table` shows (UC-07), without discarding checks
-  already made under another cycle.
-- **A5 — Add a new cycle while an existing academic year is selected (not already
-  adding-year)**: saving `training-cycle-table-add-button`'s draft row creates the cycle and
-  selects it in this academic year's context; `module-table` hides and `module-selection-table`
-  takes its place, scoped to the new (empty) cycle — same take-over as UC-04's A4, but the
-  academic year itself already exists (see UC-07).
+- **A1 — Duplicate name**: rejected against local state.
+- **A2 — Delete a cycle with a locally-referenced module**: rejected;
+  `training-cycle-delete-blocked-message` shown.
 
 ### Postconditions
 
-- On A1/A2: no change. On main flow/A3: `training_cycles` (and, for A3, its now-deleted
-  `modules` rows) reflects the change. On A5: `training_cycles` gains the new row; nothing
-  in `academic_year_modules` yet (that's UC-07's job).
+- Local state only, no persistence.
 
 ### Acceptance criteria
 
-- [x] Normal mode shows only the cycles with ≥1 module selected for the selected academic
-      year, first one selected by default
-- [x] Adding-year/adding-cycle mode shows the teacher's complete cycle list, first one
-      selected by default
-- [x] Adding a row and saving a unique name persists it
-- [x] Saving a duplicate name is rejected, inline error shown
-- [x] Deleting a cycle referenced (via its modules) by some academic year is rejected,
-      `training-cycle-delete-blocked-message` becomes visible naming the academic year(s)
-- [x] Deleting an unreferenced cycle succeeds and removes its modules too
-- [x] In normal mode, selecting a different row reloads `module-table` filtered to that
-      cycle's modules for the selected academic year
-- [x] In adding-year/adding-cycle mode, selecting a different row swaps
-      `module-selection-table`'s cycle without losing checks made under the previous one
-- [x] Saving a new cycle's name while an existing academic year is selected (not
-      adding-year) selects it and switches `module-table` off / `module-selection-table` on
+- [ ] Normal mode shows only local-state cycles with ≥1 selected module for the selected
+      academic year
+- [ ] Adding-year/adding-cycle mode shows the complete local-state cycle list
+- [ ] No interaction on this element makes a network request
 
 ---
 
-## UC-06: Manage modules within a training cycle
+## UC-08: Manage modules within a training cycle (local state — not wired)
 
 **Primary actor**: Any signed-in teacher, on `/configuracion/ano-academico`
-**Preconditions**: Valid session; at least one training cycle selected (see UC-05); normal
-mode (neither adding-year nor adding-cycle active — see UC-04/UC-05's alternative flows)
+**Preconditions**: Valid session; a training cycle selected (UC-07); normal mode
 **Elements**: `module-table`, `module-table-add-button`, `module-delete-blocked-message`,
 `module-edit-confirm-modal`
 
+**Not wired** — see UC-06.
+
 ### Main flow
 
-1. `module-table` shows the modules of the selected cycle that are also selected for the
-   selected academic year, grouped by course (1º/2º/3º).
-2. Teacher clicks `module-table-add-button`; a new blank, inline-editable row (name + course)
-   appears, scoped to the selected cycle.
-3. Teacher fills name + course and it saves; the new module is selected for the active
-   academic year by default, so it stays visible in this filtered list.
+1. `module-table` shows local-state modules of the selected cycle, selected for the active
+   academic year, grouped by course.
+2. Teacher clicks `module-table-add-button`; a new row is added to local state.
 
 ### Alternative flows
 
-- **A1 — Adding-year or adding-cycle mode is active**: `module-table` is hidden entirely;
-  `module-selection-table` takes its place (see UC-07).
-- **A2 — No cycle selected in `training-cycle-table`**: `module-table` prompts to pick/create
-  one; `module-table-add-button` is disabled.
-- **A3 — Duplicate (name, course) within the cycle**: rejected, inline error on the row.
-- **A4 — Delete a module referenced by some academic year's selection**: rejected
-  server-side; `module-delete-blocked-message` names the referencing academic year(s).
-- **A5 — Delete an unreferenced module**: succeeds.
-- **A6 — Edit (rename or change course) a module referenced by one or more academic years**:
-  `module-edit-confirm-modal` opens instead of saving immediately, naming the referencing
-  academic year(s). Confirming proceeds with the save; cancelling reverts the row.
-- **A7 — Edit an unreferenced module**: saves immediately, no modal.
+- **A1 — Adding-year/adding-cycle mode active**: `module-table` hidden;
+  `module-selection-table` takes its place (UC-09).
+- **A2 — Delete a locally-referenced module**: rejected; `module-delete-blocked-message`
+  shown.
+- **A3 — Edit a locally-referenced module**: `module-edit-confirm-modal` opens instead of
+  saving immediately.
 
 ### Postconditions
 
-- On A2/A3/A4: no change. On A6 confirmed / main flow / A5 / A7: `modules` reflects the
-  change (and, for the main flow's new module, `academic_year_modules` gains one row too).
+- Local state only, no persistence.
 
 ### Acceptance criteria
 
-- [x] Is hidden while adding-year or adding-cycle mode is active
-- [x] Shows nothing and prompts to pick/create a cycle when `training-cycle-table` has no
-      selected row
-- [x] Shows one row per module of the selected cycle that's selected for the selected
-      academic year, grouped by course
-- [x] `module-table-add-button` is disabled while `training-cycle-table` has no cycle
-      selected
-- [x] Adding a row and saving a unique (name, course) within the cycle persists it and
-      selects it for the active academic year
-- [x] Saving a duplicate (name, course) within the cycle is rejected, inline error shown
-- [x] Deleting a module referenced by some academic year is rejected,
-      `module-delete-blocked-message` becomes visible naming the academic year(s)
-- [x] Deleting an unreferenced module succeeds
-- [x] Editing a referenced module opens `module-edit-confirm-modal` instead of saving
-      immediately, naming the referencing academic year(s)
-- [x] Confirming in `module-edit-confirm-modal` persists the edit
-- [x] Cancelling in `module-edit-confirm-modal` reverts the row to its last saved values
-- [x] Editing an unreferenced module saves immediately, no modal
+- [ ] Is hidden while adding-year or adding-cycle mode is active
+- [ ] Editing a locally-referenced module opens `module-edit-confirm-modal`
+- [ ] No interaction on this element makes a network request
 
 ---
 
-## UC-07: Build and save an academic year's module selection
+## UC-09: Build and commit an academic year's module selection (local state — not wired)
 
 **Primary actor**: Any signed-in teacher, on `/configuracion/ano-academico`
-**Preconditions**: Valid session; adding-year mode (UC-04's A4) or adding-cycle mode (UC-05's
-A5) is active
+**Preconditions**: Valid session; adding-year or adding-cycle mode active
 **Elements**: `module-selection-table`, `module-selection-add-button`,
 `module-selection-save-button`, `module-selection-save-message`
 
+**Not wired** — see UC-06.
+
 ### Main flow
 
-1. `module-selection-table` shows the modules of whichever cycle is currently selected in
-   `training-cycle-table` (all courses 1º/2º/3º), checkbox reflecting whether each is part of
-   the in-progress, unsaved selection being built.
-2. Teacher toggles checkboxes; switching to a different cycle in `training-cycle-table`
-   swaps which modules are shown, but keeps checks already made under other cycles (see
-   UC-05's A4).
-3. Teacher clicks `module-selection-save-button`.
-4. **Adding-year mode**: the server creates the academic year with the draft name from
-   `academic-year-table` (UC-04's A4) and, in the same action, replaces its selection in
-   `academic_year_modules` with exactly the accumulated checkbox state (including any modules
-   just created in step 5 below).
-   **Adding-cycle mode**: the academic year already exists — only the replace-selection call
-   happens.
-5. `module-selection-save-message` shows the outcome; on success, the screen returns to
-   normal mode with the affected academic year selected.
+1. `module-selection-table` shows the locally-selected cycle's modules with in-progress
+   checked state.
+2. Teacher toggles checkboxes — local, unsaved state only.
+3. Teacher clicks `module-selection-save-button`; the in-progress selection is committed into
+   local state (academic-year-table/module-table update accordingly). No network request.
+4. `module-selection-save-message` shows a success outcome; screen returns to normal mode.
 
 ### Alternative flows
 
-- **A1 — Selected cycle has no modules yet**: `module-selection-table` merges with
-  `module-selection-add-button` — teacher clicks it to insert a new blank, inline-editable
-  row (name + course) scoped to the selected cycle; once filled in, it's checked by default
-  in the in-progress selection. Available even when the cycle already has modules (not
-  mutually exclusive with picking from existing ones).
-- **A2 — Adding-year mode, duplicate academic year name**: the whole save fails — nothing is
-  created or persisted; `module-selection-save-message` shows the error, the draft name and
-  in-progress selection stay intact.
-- **A3 — Save request in flight**: `module-selection-save-button` shows a loading state and
-  is disabled until the response arrives.
-- **A4 — Adding-year mode, the year is created but persisting the selection then fails**:
-  creating the academic year and replacing its selection are two sequential requests behind
-  the one click (see `api-contracts.md`'s `POST /api/academic-years`); if the first succeeds
-  and the second fails, the academic year is left created with an empty selection rather than
-  the whole action rolling back (confirmed — no rollback). `module-selection-save-message`
-  shows an error; the year is now selectable from `academic-year-table` on retry.
+- **A1 — Selected cycle has no local-state modules yet**: `module-selection-add-button`
+  fuses into the table.
 
 ### Postconditions
 
-- On main flow (adding-year): `academic_years` gains the new row; `academic_year_modules` for
-  it exactly matches what was checked at save time (including newly-created modules).
-- On main flow (adding-cycle): `academic_year_modules` for the existing academic year exactly
-  matches what was checked at save time; any previously-selected module not re-checked is
-  removed from the selection (not deleted from `modules` itself).
-- On A2: no change to `academic_years` or `academic_year_modules`.
+- Local state only, no persistence past a page reload.
 
 ### Acceptance criteria
 
-- [x] Is hidden in normal mode (see UC-04/UC-05 main flows)
-- [x] Shows the selected cycle's modules (1º/2º/3º) with their in-progress checked state
-- [x] Toggling a checkbox doesn't persist anything by itself
-- [x] Switching cycle shows that cycle's modules without discarding checks made under the
-      previous one
-- [x] A cycle with zero modules shows `module-selection-add-button` fused into the table
-- [x] `module-selection-add-button` is available regardless of whether the selected cycle
-      already has modules
-- [x] A newly-added module via `module-selection-add-button` is checked by default
-- [x] `module-selection-save-button` shows a loading state and is disabled from click until
-      the response arrives
-- [x] Adding-year mode: a successful save creates the academic year and persists exactly the
-      in-progress selection, then shows a success message and returns to normal mode with the
-      new academic year selected
-- [x] Adding-cycle mode: a successful save persists exactly the in-progress selection for the
-      existing academic year, then shows a success message and returns to normal mode
-- [x] Adding-year mode: a duplicate academic year name shows an error message and keeps the
-      draft (name + in-progress selection) intact
+- [ ] Is hidden in normal mode
+- [ ] Toggling a checkbox doesn't persist anything by itself
+- [ ] A click on `module-selection-save-button` commits local state and shows
+      `module-selection-save-message`
+- [ ] No interaction on this element makes a network request
