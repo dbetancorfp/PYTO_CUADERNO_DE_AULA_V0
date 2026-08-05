@@ -1,9 +1,12 @@
 // Frontend-side contract for `academic-year-table`/`module-selection-table` (Año académico
-// screen), consumed by `academic-year-settings-view.ts`. Implements the
-// `/api/academic-years` and `/api/academic-years/:id/modules` endpoints described in
-// views/configuracion/api-contracts.md — this file only declares the shape the component
-// depends on (DIP); the real HTTP client lives in `http-academic-year-api-service.ts`,
-// assembled at bootstrap in `main.ts`.
+// screen), consumed by `academic-year-settings-view.ts`. This file only declares the shape
+// the component depends on (DIP).
+//
+// **2026-08-04 redesign**: this screen has no backend in this pass — its former endpoints
+// (`/api/academic-years`, `/api/academic-years/:id/modules`) and tables were dropped (see
+// views/configuracion/functional-spec.json's "NOT WIRED" elementSpecs). The concrete
+// implementation wired at bootstrap in `main.ts` is now `local-academic-year-api-service.ts`,
+// an in-memory-only stub — the old `http-academic-year-api-service.ts` was removed.
 import type { DeleteCurrentBlockedResult, WriteResult } from './api-outcomes';
 import type { TrainingCycle } from './training-cycle-api-service';
 import type { ModuleRecord } from './module-api-service';

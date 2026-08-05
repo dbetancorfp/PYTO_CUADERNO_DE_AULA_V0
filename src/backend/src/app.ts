@@ -6,35 +6,27 @@ import cookieParser from 'cookie-parser';
 import express, { type Express } from 'express';
 import { createPgClient } from './db/pg-client';
 import type { SqlExecutor } from './db/sql-executor';
-import { InMemoryAcademicYearModuleRepository } from './repositories/in-memory/in-memory-academic-year-module.repository';
-import { InMemoryAcademicYearRepository } from './repositories/in-memory/in-memory-academic-year.repository';
-import { ConfiguracionStore } from './repositories/in-memory/configuracion-store';
-import { InMemoryModuleRepository } from './repositories/in-memory/in-memory-module.repository';
+import { CatalogStore } from './repositories/in-memory/catalog-store';
+import { InMemoryCatalogModuleRepository } from './repositories/in-memory/in-memory-catalog-module.repository';
+import { InMemoryCatalogTrainingCycleRepository } from './repositories/in-memory/in-memory-catalog-training-cycle.repository';
 import { InMemorySessionRepository } from './repositories/in-memory/in-memory-session.repository';
-import { InMemoryTrainingCycleRepository } from './repositories/in-memory/in-memory-training-cycle.repository';
 import { InMemoryUserRepository } from './repositories/in-memory/in-memory-user.repository';
-import { PgAcademicYearModuleRepository } from './repositories/postgres/pg-academic-year-module.repository';
-import { PgAcademicYearRepository } from './repositories/postgres/pg-academic-year.repository';
-import { PgModuleRepository } from './repositories/postgres/pg-module.repository';
-import { PgTrainingCycleRepository } from './repositories/postgres/pg-training-cycle.repository';
+import { PgCatalogModuleRepository } from './repositories/postgres/pg-catalog-module.repository';
+import { PgCatalogTrainingCycleRepository } from './repositories/postgres/pg-catalog-training-cycle.repository';
 import { PgUserRepository } from './repositories/postgres/pg-user.repository';
-import type { AcademicYearModuleRepository } from './repositories/academic-year-module.repository';
-import type { AcademicYearRepository } from './repositories/academic-year.repository';
-import type { ModuleRepository } from './repositories/module.repository';
-import type { TrainingCycleRepository } from './repositories/training-cycle.repository';
+import type { CatalogModuleRepository } from './repositories/catalog-module.repository';
+import type { CatalogTrainingCycleRepository } from './repositories/catalog-training-cycle.repository';
 import type { User, UserRepository } from './repositories/user.repository';
-import { academicYearRouter } from './routes/academic-year.routes';
 import { authRouter } from './routes/auth.routes';
+import { catalogCycleModulesRouter, catalogModuleRouter } from './routes/catalog-module.routes';
+import { catalogTrainingCycleRouter } from './routes/catalog-training-cycle.routes';
 import { domainErrorHandler } from './routes/error';
-import { cycleModulesRouter, moduleRouter } from './routes/module.routes';
 import { teacherSettingsRouter } from './routes/teacher-settings.routes';
-import { trainingCycleRouter } from './routes/training-cycle.routes';
-import { AcademicYearService } from './services/academic-year.service';
 import { AuthService } from './services/auth.service';
-import { ModuleService } from './services/module.service';
+import { CatalogModuleService } from './services/catalog-module.service';
+import { CatalogTrainingCycleService } from './services/catalog-training-cycle.service';
 import { SessionService } from './services/session.service';
 import { TeacherSettingsService } from './services/teacher-settings.service';
-import { TrainingCycleService } from './services/training-cycle.service';
 
 export interface AppDeps {
   backend: 'memory' | 'postgres';
@@ -46,24 +38,20 @@ export interface AppDeps {
 
 interface Repositories {
   userRepository: UserRepository;
-  trainingCycleRepository: TrainingCycleRepository;
-  moduleRepository: ModuleRepository;
-  academicYearRepository: AcademicYearRepository;
-  academicYearModuleRepository: AcademicYearModuleRepository;
+  catalogTrainingCycleRepository: CatalogTrainingCycleRepository;
+  catalogModuleRepository: CatalogModuleRepository;
 }
 
 function buildRepositories(deps: AppDeps): Repositories {
   if (deps.backend === 'memory') {
-    // Configuración's four entities share one in-process store so their cross-table
-    // dependency checks (a cycle/module referenced by an academic year's selection) work —
-    // see repositories/in-memory/configuracion-store.ts.
-    const store = new ConfiguracionStore();
+    // The catalog's two entities share one in-process store purely so deleting a cycle can
+    // cascade-delete its modules — see repositories/in-memory/catalog-store.ts. No
+    // cross-table dependency checks (unlike the old, now-dropped Configuración tables).
+    const store = new CatalogStore();
     return {
       userRepository: new InMemoryUserRepository(deps.seedUsers ?? []),
-      trainingCycleRepository: new InMemoryTrainingCycleRepository(store),
-      moduleRepository: new InMemoryModuleRepository(store),
-      academicYearRepository: new InMemoryAcademicYearRepository(store),
-      academicYearModuleRepository: new InMemoryAcademicYearModuleRepository(store),
+      catalogTrainingCycleRepository: new InMemoryCatalogTrainingCycleRepository(store),
+      catalogModuleRepository: new InMemoryCatalogModuleRepository(store),
     };
   }
 
@@ -76,44 +64,33 @@ function buildRepositories(deps: AppDeps): Repositories {
   const sql: SqlExecutor = createPgClient(databaseUrl);
   return {
     userRepository: new PgUserRepository(sql),
-    trainingCycleRepository: new PgTrainingCycleRepository(sql),
-    moduleRepository: new PgModuleRepository(sql),
-    academicYearRepository: new PgAcademicYearRepository(sql),
-    academicYearModuleRepository: new PgAcademicYearModuleRepository(sql),
+    catalogTrainingCycleRepository: new PgCatalogTrainingCycleRepository(sql),
+    catalogModuleRepository: new PgCatalogModuleRepository(sql),
   };
 }
 
 export function createApp(deps: AppDeps): Express {
-  const {
-    userRepository,
-    trainingCycleRepository,
-    moduleRepository,
-    academicYearRepository,
-    academicYearModuleRepository,
-  } = buildRepositories(deps);
+  const { userRepository, catalogTrainingCycleRepository, catalogModuleRepository } = buildRepositories(deps);
 
   const authService = new AuthService(userRepository);
   // One InMemorySessionRepository per app instance, same lifetime as the Express app — not
   // per-request (see views/login/description_login.md's Session section).
   const sessionService = new SessionService(new InMemorySessionRepository());
   const teacherSettingsService = new TeacherSettingsService(userRepository);
-  const trainingCycleService = new TrainingCycleService(trainingCycleRepository);
-  const moduleService = new ModuleService(moduleRepository, trainingCycleRepository);
-  const academicYearService = new AcademicYearService(
-    academicYearRepository,
-    academicYearModuleRepository,
-    moduleRepository,
-  );
+  const catalogTrainingCycleService = new CatalogTrainingCycleService(catalogTrainingCycleRepository);
+  const catalogModuleService = new CatalogModuleService(catalogModuleRepository, catalogTrainingCycleRepository);
 
   const app = express();
   app.use(express.json());
   app.use(cookieParser());
   app.use('/api/auth', authRouter(authService, sessionService));
   app.use('/api/teacher', teacherSettingsRouter(teacherSettingsService, sessionService));
-  app.use('/api/training-cycles/:cycleId/modules', cycleModulesRouter(moduleService, sessionService));
-  app.use('/api/training-cycles', trainingCycleRouter(trainingCycleService, sessionService));
-  app.use('/api/modules', moduleRouter(moduleService, sessionService));
-  app.use('/api/academic-years', academicYearRouter(academicYearService, sessionService));
+  app.use(
+    '/api/catalog/training-cycles/:cycleId/modules',
+    catalogCycleModulesRouter(catalogModuleService, sessionService),
+  );
+  app.use('/api/catalog/training-cycles', catalogTrainingCycleRouter(catalogTrainingCycleService, sessionService));
+  app.use('/api/catalog/modules', catalogModuleRouter(catalogModuleService, sessionService));
 
   const frontendDist = path.join(import.meta.dir, '..', '..', 'frontend', 'dist');
   const frontendIndex = path.join(import.meta.dir, '..', '..', 'frontend', 'index.html');
@@ -121,6 +98,7 @@ export function createApp(deps: AppDeps): Express {
   app.get('/login', (_req, res) => res.sendFile(frontendIndex));
   app.get('/dashboard', (_req, res) => res.sendFile(frontendIndex));
   app.get('/configuracion/profesor', (_req, res) => res.sendFile(frontendIndex));
+  app.get('/configuracion/ciclos-modulos', (_req, res) => res.sendFile(frontendIndex));
   app.get('/configuracion/ano-academico', (_req, res) => res.sendFile(frontendIndex));
 
   // Must be the LAST app.use(...) — Express 5 auto-forwards exceptions from async route

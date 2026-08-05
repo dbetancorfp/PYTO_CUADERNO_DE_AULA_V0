@@ -1,15 +1,20 @@
-// Shared nav markup for `teacher-nav-link`/`academic-year-nav-link`, rendered identically
-// on both Configuración screens (see views/configuracion/ui-spec.json's screen notes and
-// use-cases.md UC-03) via one plain function, never a nested custom element — per
-// CLAUDE.md's "no nested Shadow DOM" allowance for sharing behavior via plain functions.
+// Shared nav markup for `teacher-nav-link`/`training-catalog-nav-link`/
+// `academic-year-nav-link`, rendered identically on all three Configuración screens (see
+// views/configuracion/ui-spec.json's screen notes and use-cases.md UC-03) via one plain
+// function, never a nested custom element — per CLAUDE.md's "no nested Shadow DOM"
+// allowance for sharing behavior via plain functions.
+//
+// `training-catalog-nav-link` added 2026-08-04 for the Ciclos/Módulos redesign — it sits
+// between `teacher-nav-link` and `academic-year-nav-link` in `NAV_LINKS`' order, per
+// functional-spec.json's acceptance criteria for that elementId.
 import { html, nothing, type TemplateResult } from 'lit-html';
 import { classesFor } from './styles/classes-for';
 import { redirectTo } from './navigation';
 
-export type SettingsScreen = 'profesor' | 'ano-academico';
+export type SettingsScreen = 'profesor' | 'ciclos-modulos' | 'ano-academico';
 
 interface NavLinkDef {
-  elementId: 'teacher-nav-link' | 'academic-year-nav-link';
+  elementId: 'teacher-nav-link' | 'training-catalog-nav-link' | 'academic-year-nav-link';
   screen: SettingsScreen;
   label: string;
   route: string;
@@ -17,6 +22,12 @@ interface NavLinkDef {
 
 const NAV_LINKS: readonly NavLinkDef[] = [
   { elementId: 'teacher-nav-link', screen: 'profesor', label: 'Profesor', route: '/configuracion/profesor' },
+  {
+    elementId: 'training-catalog-nav-link',
+    screen: 'ciclos-modulos',
+    label: 'Ciclos/Módulos',
+    route: '/configuracion/ciclos-modulos',
+  },
   {
     elementId: 'academic-year-nav-link',
     screen: 'ano-academico',

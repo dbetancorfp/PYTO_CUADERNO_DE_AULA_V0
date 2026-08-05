@@ -2,13 +2,19 @@
 
 Reached from the Dashboard's navbar `settings-menu` icon, which today is an explicitly
 disabled placeholder (see `views/dashboard/description_dashboard.md`) — this view is what
-makes it real. Two sections: **Profesor** (the signed-in teacher's own name and password)
-and **Año académico** (the school-year setup: which ciclos formativos and módulos
-profesionales the teacher teaches, and which year is the current one).
+makes it real. Three sections, in this order: **Profesor** (the signed-in teacher's own
+name and password), **Ciclos/Módulos** (master CRUD over the teacher's catalog of ciclos
+formativos and módulos profesionales, seeded from the official BOC curricula), and
+**Año académico** (the school-year setup screen — UI only for now, see below).
 
 Domain: Formación Profesional (Canarias). Everything here belongs to the signed-in teacher
-— there's no shared/global catalog, no other-teacher visibility. All of it persists to
-Postgres and supports full CRUD.
+— there's no shared/global catalog, no other-teacher visibility.
+
+**Redesign note (2026-08-04)**: the tables that used to back Año académico
+(`training_cycles`, `modules`, `academic_years`, `academic_year_modules`) have been dropped.
+Ciclos/Módulos is **not** a new UI surface over those tables — it owns its own, brand-new
+pair, decoupled from anything year-related. Año académico's own data layer is out of scope
+for this pass (see its section below).
 
 ## What the user sees
 
@@ -26,89 +32,74 @@ Postgres and supports full CRUD.
   (the user is already authenticated; lockout exists to stop unauthenticated guessing,
   which doesn't apply here).
 - Email is not shown or editable here — out of scope.
+- Unaffected by the redesign — keep as already built.
 
-### Section: Año académico
+### Section: Ciclos/Módulos
 
-The año académico is the anchor: selecting one drives what Ciclos and Módulos show below
-it, cascading exactly like a reactive filter. There is no separate, always-visible
-"selección" table — building a year's selection is something the teacher does inline,
-while adding that year (or a ciclo within it), not as a fourth permanent section.
+Master data management for the teacher's own catalog of ciclos formativos and módulos
+profesionales — a brand-new pair of tables (`catalog_training_cycles`, `catalog_modules`),
+independent of años académicos: no FK to any year-related table, no
+"selected for this year" concept at all. It's a reference catalog the teacher browses and
+edits, seeded initially from Canarias' official BOC curricula (Desarrollo de Aplicaciones
+Multiplataforma and Desarrollo de Aplicaciones Web, both cursos 1º/2º) — that seeding is a
+one-off data load, not a UI feature of this view.
 
-- **Lista de años académicos**: every año académico this teacher has ever created (e.g.
-  "2026/2027", "2027/2028"), each showing whether it's the one marked "en curso". Create
-  new (just a name/label — no start/end dates for now), rename, delete. Exactly one can be
-  marked "en curso" at a time; marking a different one "en curso" un-marks the previous one.
-  It's valid for **none** to be marked "en curso" (e.g. right after the teacher's very first
-  login, before they've set anything up). **Selected by default: whichever is "en curso"**
-  (none selected if none is current).
-- **Ciclos** (normal mode — an existing año académico is selected): shows only the ciclos
-  that have at least one módulo selected for that año académico — "which ciclos the teacher
-  teaches this year" is never asked separately, it's derived from that year's selection.
-  Selected by default: the first one in that filtered list. Create ciclo, rename, delete
-  still available on this list.
-- **Módulos** (normal mode): shows only the módulos of the selected ciclo that are also
-  selected for the selected año académico. Rename, change curso, delete still available.
-  There's no separate "pick a ciclo" dropdown here — clicking a row in Ciclos is what
-  drives this list.
-- **Adding a new año académico**: clicking "Añadir año académico" opens the name field (no
-  separate save for the name alone) and switches Ciclos/Módulos into "building a
-  selection" mode for this still-unsaved year: Ciclos shows the teacher's **complete**
-  ciclos list (nothing is selected for a brand-new year yet), first one selected by
-  default; Módulos is replaced by a checklist of that ciclo's módulos (1º/2º/3º) to pick
-  from — switching ciclo swaps which módulos are shown, but doesn't lose checks already
-  made under a different ciclo. One "Guardar selección" click creates the año académico
-  with the typed name **and** persists the accumulated selection together, then shows a
-  toast confirming success or failure. Cancelling discards the whole draft.
-- **Adding a new ciclo while an existing año académico is selected**: the new ciclo is
-  created and becomes the selected one for that año académico's context; Módulos switches
-  into the same checklist-building mode described above, scoped to this one ciclo.
-- **A ciclo with no módulos yet, while building a selection** (either flow above): the
-  checklist and "add módulo" merge into one table — the teacher creates a módulo (curso +
-  nombre) right there, it's checked by default, and "Guardar selección" persists the new
-  módulos and their selection together, with a success/failure toast. Once a ciclo already
-  has módulos, the checklist just lists them (creating an extra módulo inline is still
-  available, it's not mutually exclusive with picking from the existing ones).
-- If the teacher has no ciclos/módulos at all yet (first run), Ciclos/Módulos show an empty
-  state prompting to create one — same as today, just reachable via the "adding" flows
-  above instead of a permanent always-visible selection table.
+- **Ciclos list**: every ciclo formativo this teacher has created (e.g. "Desarrollo de
+  Aplicaciones Multiplataforma", "Desarrollo de Aplicaciones Web"). Create new (name only),
+  rename, delete. Selecting a ciclo drives the Módulos list below it (master/detail).
+- **Módulos list** (scoped to the selected ciclo): each módulo's curso (1º/2º) and nombre.
+  Create new (curso + nombre), rename, change curso, delete.
+- Uniqueness, scoped to the signed-in teacher: ciclo names unique; módulo names unique
+  within their (ciclo, curso).
+- Deleting a ciclo cascades to deleting its módulos — no other table references this
+  catalog, so there's no dependency-blocked-deletion case here (unlike the old
+  training_cycles/modules pair, which was blocked by academic_year_modules).
+- If the teacher has no ciclos yet, an empty state prompts to create the first one.
+
+### Section: Año académico — UI only, not wired, for this pass
+
+Keep the screen's existing visual layout and components (`academic-year-table`,
+`training-cycle-table`, `module-table`, the three-mode adding-year/adding-cycle/normal
+behavior) exactly as already designed — don't redesign the UI. But its backing tables
+(`training_cycles`, `modules`, `academic_years`, `academic_year_modules`) are gone, and this
+pass doesn't recreate them: the screen renders, but isn't wired to a working backend. No new
+API contracts, no new schema, no new tests for this section's data behavior in this pass —
+it's a placeholder until a future view rebuilds its data layer (possibly on top of the new
+catalog tables, possibly its own — undecided, out of scope here).
 
 ## Behavior
 
 - Reaching `/configuracion` requires a valid session, same gate as Dashboard: no session →
   redirect to `/login`.
-- **Uniqueness**, all scoped to the signed-in teacher: ciclo names are unique; módulo names
-  are unique within their (ciclo, curso); año académico names are unique.
-- **Deleting a ciclo or módulo that's referenced by any año académico's selection (past or
-  current) is blocked** — the teacher has to remove it from that year's selection first.
-  Show a clear message naming which año(s) académico(s) are holding the reference.
-- **Deleting the año académico currently marked "en curso" is blocked**, same reasoning —
-  the teacher has to mark a different one "en curso" (or explicitly have none marked) before
-  deleting it.
-- **Editing a módulo that's already selected in one or more años académicos is allowed**
-  (renaming it or changing its curso doesn't remove it from any selection), but must show a
-  confirmation message first — a real modal (its own `modal`-type element inside this view's
-  Shadow DOM, not a native `confirm()` dialog) naming which año(s) académico(s) reference it,
-  which the teacher has to confirm before the edit saves. Editing a ciclo's name has no such
-  warning — the reference lives on the módulo, not the ciclo.
-- Every create/edit/delete across ciclos, módulos, años académicos, and the year selection
-  persists immediately to Postgres — this is real CRUD, not a client-side draft the teacher
-  has to separately "publish."
+- Ciclos/Módulos: every create/edit/delete persists immediately to Postgres — real CRUD, no
+  client-side draft/publish step.
+- Año académico: no persistence behavior in scope for this pass (see above).
 
 ## Data
 
-- New tables needed (all scoped by a foreign key to the signed-in teacher's `users` row):
-  `ciclos` (nombre), `modulos` (ciclo, curso [1/2/3], nombre), `anos_academicos` (nombre,
-  is_current), and a join between `anos_academicos` and `modulos` recording that year's
-  selection.
-- Reuses `users.full_name` (already exists, from Login's session-gap reopen) for the
-  Profesor section's name field, and `users.password_hash` (via the same `Bun.password`
-  verify/hash flow Login already uses) for the password-change flow.
+- **New tables** (Ciclos/Módulos only), scoped by a foreign key to the signed-in teacher's
+  `users` row:
+  - `catalog_training_cycles`: `id`, `teacher_id`, `name`, unique per teacher.
+  - `catalog_modules`: `id`, `catalog_training_cycle_id` (FK, `ON DELETE CASCADE`), `course`
+    (1 or 2), `name`, unique within (`catalog_training_cycle_id`, `course`, `name`).
+  - No FK to `users`/`academic_years`/anything else beyond the two above — a standalone
+    catalog.
+- Reuses `users.full_name`/`users.password_hash` for Profesor, unchanged.
+- Año académico's former tables are dropped and not recreated in this pass.
+
+## Initial data load (Ciclos/Módulos)
+
+Two official BOC PDFs already in `documentation/` — `desarrollo_aplicaciones_multiplataformas.pdf`
+(DAM) and `desarrollo_aplicaciones_web.pdf` (DAW) — list each ciclo's módulos per curso. This
+data gets loaded directly into `catalog_training_cycles`/`catalog_modules` for the
+`e2e-valid-user@example.com` teacher account, as a one-off step outside the UI (not a
+"cargar datos" button in this view) — no código MEC column, name + curso only, matching the
+schema above.
 
 ## Out of scope
 
-- Start/end dates on an año académico — just a name/label for now.
 - Multi-teacher management (creating other teacher accounts, roles/permissions) — this
   view only ever touches the signed-in teacher's own data.
-- Anything that actually *uses* the año-académico/ciclo/módulo setup (Listado de alumnos,
-  Diario, Criterios de evaluación, etc.) — those are separate, future views. This view only
-  builds the configuration they'll eventually read.
+- Año académico's data layer (see its section above) — future work.
+- Anything that actually *uses* the ciclo/módulo catalog (Listado de alumnos, Diario,
+  Criterios de evaluación, etc.) — those are separate, future views.

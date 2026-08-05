@@ -1,36 +1,48 @@
 {
-  "appOverview": "Configuración is reached from Dashboard's settings-menu (which stops being a disabled placeholder) and is two separate top-level views, not one: app-teacher-settings-view (/configuracion/profesor — edit the signed-in teacher's full name; change password with current-password confirmation) and app-academic-year-settings-view (/configuracion/ano-academico — full CRUD on ciclos formativos, on their módulos profesionales — each tagged with a curso 1º/2º/3º — and on años académicos; plus, per año académico, which of the teacher's módulos apply that year). Each has its own Shadow DOM (CLAUDE.md's 'no nested Shadow DOM' rule) and is reached by a plain nav link (teacher-nav-link / academic-year-nav-link) rendered identically on both screens via one shared function, not a shared nested component. Everything is scoped to the signed-in teacher and persists immediately to Postgres — no draft/publish step. Every table in the Año académico screen follows lib/patterns/crud-table-component.md: inline editing, dependency-blocked deletion decided server-side. The one deliberate exception to that pattern's 'never a modal' rule is module-edit-confirm-modal, a save-time confirmation gate (not an edit-interaction modal) for editing a módulo already selected by one or more años académicos. **Reopened 2026-07-30**: the Año académico screen now has three modes instead of four always-visible sections — normal mode (selecting a año académico cascades to a filtered training-cycle-table then a filtered module-table, both derived from that year's módulo selection; module-selection-table/module-selection-save-button are hidden), adding-year mode (academic-year-table-add-button — training-cycle-table shows the full list, module-selection-table replaces module-table, one Guardar selección both creates the year and persists the selection), and adding-cycle mode (a new ciclo created in normal mode — same module-selection-table takeover, scoped to it, persisting only the selection since the año académico already exists). module-cycle-select is removed — training-cycle-table's own row click already selects the ciclo.",
+  "appOverview": "Configuración is reached from Dashboard's settings-menu (which stops being a disabled placeholder) and is three separate top-level views: app-teacher-settings-view (/configuracion/profesor — edit the signed-in teacher's full name; change password), app-training-catalog-settings-view (/configuracion/ciclos-modulos — master CRUD over a brand-new, standalone catalog of ciclos formativos and módulos profesionales, seeded from the official BOC curricula), and app-academic-year-settings-view (/configuracion/ano-academico — UI ONLY as of the 2026-08-04 redesign, see below). Each has its own Shadow DOM and is reached by a plain nav link (teacher-nav-link / training-catalog-nav-link / academic-year-nav-link) rendered identically on all three screens via one shared function. **Redesign 2026-08-04**: the tables that used to back Año académico (training_cycles, modules, academic_years, academic_year_modules) were dropped. Ciclos/Módulos does NOT reuse or replace them — it owns two brand-new tables (catalog_training_cycles, catalog_modules) with zero relation to años académicos, so there is no dependency-blocked deletion in that screen (cascade delete only) and no edit-confirmation modal (nothing references a catalog módulo to warn about). Año académico's UI and components are kept exactly as previously designed — same tables, same three-mode behavior (normal/adding-year/adding-cycle), same elementIds — but this pass gives it no working backend: requirement-architect generates no api-contracts.md entries or schema-changes.sql for it, tdd-engineer writes no test asserting real HTTP/persistence for it, and frontend-implementer wires it to a local-state-only stub so the screen renders and every interaction still works visually, without talking to a server. This is a deliberate, temporary state — a future view rebuilds Año académico's real data layer.",
   "elementSpecs": [
     {
       "elementId": "back-to-dashboard-link",
-      "behavior": "Navigates to /dashboard. Rendered on both settings screens, sharing the same elementId and markup via one plain function, never a nested custom element.",
+      "behavior": "Navigates to /dashboard. Rendered on all three settings screens, sharing the same elementId and markup via one plain function, never a nested custom element.",
       "businessRules": ["Always navigates to /dashboard when clicked, regardless of which settings screen is active"],
       "dataNeeds": [],
       "acceptanceCriteria": [
-        "Present on /configuracion/profesor and on /configuracion/ano-academico",
+        "Present on /configuracion/profesor, /configuracion/ciclos-modulos and /configuracion/ano-academico",
         "Clicking it navigates to /dashboard"
       ]
     },
     {
       "elementId": "teacher-nav-link",
-      "behavior": "Navigates to /configuracion/profesor. Rendered on both settings screens, sharing the same elementId and markup via one plain function, never a nested custom element.",
+      "behavior": "Navigates to /configuracion/profesor. Rendered on all three settings screens, sharing the same elementId and markup via one plain function.",
       "businessRules": ["Shows an active state when the current route is /configuracion/profesor, inactive otherwise", "Clicking it while already on /configuracion/profesor is a no-op"],
       "dataNeeds": [],
       "acceptanceCriteria": [
         "Shows an active visual state on /configuracion/profesor",
-        "Shows an inactive visual state on /configuracion/ano-academico",
-        "Clicking it from /configuracion/ano-academico navigates to /configuracion/profesor"
+        "Shows an inactive visual state on /configuracion/ciclos-modulos and on /configuracion/ano-academico",
+        "Clicking it from either other screen navigates to /configuracion/profesor"
+      ]
+    },
+    {
+      "elementId": "training-catalog-nav-link",
+      "behavior": "Navigates to /configuracion/ciclos-modulos. Rendered on all three settings screens, sharing the same elementId and markup via one plain function.",
+      "businessRules": ["Shows an active state when the current route is /configuracion/ciclos-modulos, inactive otherwise", "Clicking it while already on /configuracion/ciclos-modulos is a no-op"],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "Shows an active visual state on /configuracion/ciclos-modulos",
+        "Shows an inactive visual state on /configuracion/profesor and on /configuracion/ano-academico",
+        "Clicking it from either other screen navigates to /configuracion/ciclos-modulos",
+        "Appears between teacher-nav-link and academic-year-nav-link in the rendered nav order"
       ]
     },
     {
       "elementId": "academic-year-nav-link",
-      "behavior": "Navigates to /configuracion/ano-academico. Rendered on both settings screens, sharing the same elementId and markup via one plain function, never a nested custom element.",
+      "behavior": "Navigates to /configuracion/ano-academico. Rendered on all three settings screens, sharing the same elementId and markup via one plain function.",
       "businessRules": ["Shows an active state when the current route is /configuracion/ano-academico, inactive otherwise", "Clicking it while already on /configuracion/ano-academico is a no-op"],
       "dataNeeds": [],
       "acceptanceCriteria": [
         "Shows an active visual state on /configuracion/ano-academico",
-        "Shows an inactive visual state on /configuracion/profesor",
-        "Clicking it from /configuracion/profesor navigates to /configuracion/ano-academico"
+        "Shows an inactive visual state on /configuracion/profesor and on /configuracion/ciclos-modulos",
+        "Clicking it from either other screen navigates to /configuracion/ano-academico"
       ]
     },
     {
@@ -48,7 +60,7 @@
       "behavior": "Validates teacher-full-name-input client-side, then PATCHes the teacher's full_name.",
       "businessRules": [
         "Disabled and showing a loading state while the request is in flight",
-        "On success: teacher-name-save-message shows a success state; the new name is what Dashboard's welcome-message shows on next load (session-guard resolves users.full_name, unchanged mechanism from Login/Dashboard)",
+        "On success: teacher-name-save-message shows a success state",
         "On failure: teacher-name-save-message shows an error state"
       ],
       "dataNeeds": ["users.full_name"],
@@ -68,7 +80,7 @@
     },
     {
       "elementId": "teacher-current-password-input",
-      "behavior": "Free-text (masked) field for the teacher's current password, required to authorize a password change.",
+      "behavior": "Free-text (masked) field for the teacher's current password.",
       "businessRules": ["Required: submitting empty shows an inline validation message and sends no request"],
       "dataNeeds": [],
       "acceptanceCriteria": ["Shows an inline error and does not submit if left empty"]
@@ -85,7 +97,7 @@
       "behavior": "Free-text (masked) field that must match teacher-new-password-input before submit is allowed.",
       "businessRules": [
         "Required: submitting empty shows an inline validation message and sends no request",
-        "Must match teacher-new-password-input's current value at submit time, or shows an inline validation message and sends no request"
+        "Must match teacher-new-password-input's current value at submit time"
       ],
       "dataNeeds": [],
       "acceptanceCriteria": [
@@ -95,11 +107,11 @@
     },
     {
       "elementId": "teacher-save-password-button",
-      "behavior": "Validates all three password fields client-side, then PATCHes with the current and new password. The server re-verifies the current password (Bun.password.verify against users.password_hash, same mechanism Login's AuthService already uses) before accepting the new one.",
+      "behavior": "Validates all three password fields client-side, then PATCHes with the current and new password.",
       "businessRules": [
         "Disabled and showing a loading state while the request is in flight",
         "On success: teacher-password-save-message shows a success state; all three fields clear",
-        "On failure because the current password doesn't match: teacher-password-save-message shows an error, without revealing anything else about the account (no lockout/attempt-tracking here — the teacher is already authenticated, unlike Login's public endpoint)"
+        "On failure because the current password doesn't match: teacher-password-save-message shows an error"
       ],
       "dataNeeds": ["users.password_hash"],
       "acceptanceCriteria": [
@@ -117,208 +129,197 @@
       "acceptanceCriteria": ["Is not visible on first load"]
     },
     {
-      "elementId": "academic-year-table",
-      "behavior": "Lists every año académico the teacher has created, inline-editable (rename), with an action per row to mark it 'en curso' and one to delete it. The row marked 'en curso' is selected by default on load. Selecting a row cascades: reloads training-cycle-table filtered to that year's ciclos, then (once it auto-selects its first row) module-table filtered to that ciclo's módulos for this year. Clicking academic-year-table-add-button opens a draft row (name only, no per-row Guardar) and switches training-cycle-table/module-table/module-selection-table into adding-year mode.",
+      "elementId": "catalog-training-cycle-table",
+      "behavior": "Lists every training cycle the teacher has created in the new catalog_training_cycles table — the complete catalog, with no year-related filtering of any kind (there is nothing to filter by, this catalog has no relation to academic years). First row selected by default on load. Selecting a row reloads catalog-module-table filtered to that cycle's modules.",
       "businessRules": [
-        "Año académico nombre is unique per teacher — a duplicate rename/create is rejected server-side and the row's inline error shows why",
-        "Marking a row 'en curso' un-marks whichever row was previously current (exactly one current at a time, or none)",
-        "Deleting the row currently marked 'en curso' is rejected server-side (dependency-blocked deletion pattern) — academic-year-delete-blocked-message shows the rejection",
-        "Deleting a non-current año académico is unrestricted — it doesn't cascade-block anything else (only ciclos/módulos are protected by references, not the año académico row itself)",
-        "The draft row opened by academic-year-table-add-button has no independent Guardar — its name is only persisted together with the selection, by module-selection-save-button — only Cancelar is available on it, and cancelling discards the whole in-progress selection too"
+        "Ciclo nombre is unique per teacher — a duplicate rename/create is rejected server-side, inline error shown",
+        "Deleting a ciclo always succeeds and cascades to deleting its módulos (catalog_modules' FK is ON DELETE CASCADE) — there is no dependency-blocked deletion in this screen, unlike the old training-cycle-table"
       ],
-      "dataNeeds": ["anos_academicos"],
+      "dataNeeds": ["catalog_training_cycles"],
       "acceptanceCriteria": [
-        "Shows one row per existing año académico, with which one (if any) is 'en curso'",
-        "On load, the row marked 'en curso' is selected by default (none selected if none is current)",
+        "Shows every training cycle the teacher has created",
+        "First row is selected by default on load",
         "Renaming a row to a name that already exists for this teacher is rejected, inline error shown",
+        "Deleting a cycle succeeds unconditionally and removes it (and its modules) from the table",
+        "Selecting a different row reloads catalog-module-table filtered to that cycle's modules"
+      ]
+    },
+    {
+      "elementId": "catalog-training-cycle-table-add-button",
+      "behavior": "Inserts a new, blank, immediately-editable row into catalog-training-cycle-table, persisted via its own Guardar. Saving it selects the new cycle and reloads catalog-module-table (empty).",
+      "businessRules": ["The new row isn't persisted until its inline nombre is saved"],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "Clicking it adds one new editable row to catalog-training-cycle-table",
+        "Saving that row's name selects the new cycle and reloads catalog-module-table, empty"
+      ]
+    },
+    {
+      "elementId": "catalog-module-table",
+      "behavior": "Lists every module of the selected cycle in the new catalog_modules table, grouped/sorted by course (1º/2º), inline-editable.",
+      "businessRules": [
+        "Módulo nombre is unique within its (ciclo, curso) for this teacher — a duplicate rename/create is rejected server-side, inline error shown",
+        "curso is one of 1, 2 — no other value accepted (the seeded BOC curricula only go up to 2º)",
+        "Deleting a módulo always succeeds — there is no dependency-blocked deletion in this screen, unlike the old module-table",
+        "Editing (rename or curso change) always saves immediately — no confirmation modal, unlike the old module-table's module-edit-confirm-modal (nothing references a catalog módulo to warn about)"
+      ],
+      "dataNeeds": ["catalog_modules"],
+      "acceptanceCriteria": [
+        "Shows nothing and prompts to pick/create a cycle when catalog-training-cycle-table has no selected row",
+        "Shows one row per module of the selected cycle, grouped by course",
+        "Renaming/re-coursing a row to a (nombre, curso) that already exists in this cycle for this teacher is rejected, inline error shown",
+        "Deleting a module succeeds unconditionally and removes it from the table",
+        "Editing a module saves immediately, no modal, regardless of anything else in the system"
+      ]
+    },
+    {
+      "elementId": "catalog-module-table-add-button",
+      "behavior": "Inserts a new, blank, immediately-editable row (nombre + curso) into catalog-module-table, scoped to the selected cycle.",
+      "businessRules": [
+        "Disabled while catalog-training-cycle-table has no cycle selected",
+        "The new row isn't persisted until its inline nombre and curso are saved"
+      ],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "Is disabled while no cycle is selected in catalog-training-cycle-table",
+        "Clicking it (once a cycle is selected) adds one new editable row to catalog-module-table"
+      ]
+    },
+    {
+      "elementId": "academic-year-table",
+      "behavior": "NOT WIRED (2026-08-04 redesign). Same UI/interactions as before, but operates on local component state only — no HTTP call, no persistence across a page reload. Lists academic years created in the current session; marking one 'en_curso' un-marks whichever was current before; selecting a row updates training-cycle-table/module-table from local state.",
+      "businessRules": [
+        "Duplicate nombre within the current local-state list is rejected, inline error shown",
+        "Marking a row 'en curso' un-marks whichever row was previously current in local state",
+        "Deleting the row marked 'en curso' is rejected (local-state check), academic-year-delete-blocked-message shown",
+        "The draft row from academic-year-table-add-button has no independent Guardar — only Cancelar, same as before"
+      ],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "Shows one row per año académico added during the current session",
+        "Renaming a row to a name that duplicates another row already in local state is rejected, inline error shown",
         "Marking a different row 'en curso' un-marks the previous one",
         "Deleting the row marked 'en curso' is rejected and academic-year-delete-blocked-message becomes visible",
-        "Deleting a non-current row succeeds and removes it from the table",
-        "Selecting a row reloads training-cycle-table to that year's ciclos and, after its default selection, module-table to that ciclo's módulos for this year",
-        "The draft row from academic-year-table-add-button shows only a name input and Cancelar, no Guardar",
-        "Cancelling the draft row discards the name and the in-progress módulo selection, returning training-cycle-table/module-table to the previously-selected año académico's normal filtered view"
+        "Deleting a non-current row succeeds locally",
+        "No network request is made by any interaction on this element"
       ]
     },
     {
       "elementId": "academic-year-table-add-button",
-      "behavior": "Opens the draft row in academic-year-table and switches the screen into adding-year mode: training-cycle-table shows the complete unfiltered ciclo list (first one auto-selected), module-table hides, module-selection-table takes its place scoped to that ciclo.",
-      "businessRules": ["Nothing is persisted by this click alone — creation happens when module-selection-save-button is clicked"],
+      "behavior": "NOT WIRED. Opens the draft row in academic-year-table (local state only).",
+      "businessRules": ["Nothing is sent to a server by this click"],
       "dataNeeds": [],
       "acceptanceCriteria": [
         "Clicking it adds the draft row to academic-year-table",
-        "Clicking it switches training-cycle-table to its complete unfiltered list with the first ciclo selected",
-        "Clicking it hides module-table and shows module-selection-table scoped to the selected ciclo"
+        "Clicking it switches training-cycle-table to its complete local-state list",
+        "No network request is made"
       ]
     },
     {
       "elementId": "academic-year-delete-blocked-message",
-      "behavior": "Hidden by default; shows when the last delete attempt on academic-year-table targeted the row marked 'en curso'.",
+      "behavior": "NOT WIRED. Hidden by default; shows when the last local delete attempt targeted the row marked 'en curso'.",
       "businessRules": ["Not visible on first load or before any blocked delete attempt"],
       "dataNeeds": [],
       "acceptanceCriteria": ["Is not visible on first load"]
     },
     {
       "elementId": "training-cycle-table",
-      "behavior": "In normal mode (an existing año académico selected): lists only the ciclos with ≥1 módulo selected for that año académico, inline-editable (rename), with a delete action per row; first one selected by default, and selecting a different one reloads module-table. In adding-year/adding-cycle mode: lists the teacher's complete, unfiltered ciclo list instead (first one auto-selected), and selecting a different one swaps which ciclo's módulos module-selection-table shows, without discarding checks already made under another ciclo.",
+      "behavior": "NOT WIRED. Same UI/modes as before (normal vs adding-year/adding-cycle), operating on local component state only.",
       "businessRules": [
-        "Ciclo nombre is unique per teacher — a duplicate rename/create is rejected server-side, inline error shown",
-        "Deleting a ciclo that has any módulo referenced by any año académico's selection is rejected server-side (dependency-blocked deletion pattern) — training-cycle-delete-blocked-message names which año(s) académico(s) hold the reference",
-        "Deleting a ciclo with no referenced módulos succeeds and cascades to deleting its own módulos (there's no orphaned-módulo state — a módulo without a ciclo can't exist)",
-        "'Which ciclos the teacher teaches this year' is never asked separately in normal mode — it's derived from whichever ciclos have at least one checked módulo for the selected año académico"
+        "Duplicate nombre within local state is rejected, inline error shown",
+        "Deleting a cycle with a locally-selected módulo is rejected (local-state check), training-cycle-delete-blocked-message shown"
       ],
-      "dataNeeds": ["ciclos", "anos_academicos_modulos"],
+      "dataNeeds": [],
       "acceptanceCriteria": [
-        "Normal mode: shows only the ciclos with ≥1 módulo selected for the selected año académico, first one selected by default",
-        "Adding-year/adding-cycle mode: shows the teacher's complete ciclo list, first one selected by default",
-        "Renaming a row to a name that already exists for this teacher is rejected, inline error shown",
-        "Deleting a ciclo referenced (via its módulos) by some año académico is rejected and training-cycle-delete-blocked-message becomes visible, naming the referencing año(s) académico(s)",
-        "Deleting an unreferenced ciclo succeeds and removes it (and its módulos) from the table",
-        "In normal mode, selecting a different row reloads module-table filtered to that ciclo's módulos for the selected año académico",
-        "In adding-year/adding-cycle mode, selecting a different row swaps module-selection-table's ciclo without losing checks made under the previous one"
+        "Normal mode shows only local-state cycles with ≥1 selected módulo for the selected año académico",
+        "Adding-year/adding-cycle mode shows the complete local-state cycle list",
+        "No network request is made by any interaction on this element"
       ]
     },
     {
       "elementId": "training-cycle-table-add-button",
-      "behavior": "Inserts a new, blank, immediately-editable row into training-cycle-table, persisted via its own Guardar as always (unlike academic-year-table-add-button's draft, a ciclo is a real independent entity). If saved while in normal mode with an existing año académico selected, the new ciclo becomes selected and module-table hides in favor of module-selection-table scoped to it (empty — see module-selection-add-button).",
-      "businessRules": ["The new row isn't persisted until its inline nombre is saved"],
+      "behavior": "NOT WIRED. Inserts a new row into training-cycle-table (local state only).",
+      "businessRules": ["Nothing is sent to a server by this click"],
       "dataNeeds": [],
-      "acceptanceCriteria": [
-        "Clicking it adds one new editable row to training-cycle-table",
-        "Saving that row's name in normal mode selects the new ciclo and switches module-table off / module-selection-table on for it"
-      ]
+      "acceptanceCriteria": ["Clicking it adds one new editable row to training-cycle-table", "No network request is made"]
     },
     {
       "elementId": "training-cycle-delete-blocked-message",
-      "behavior": "Hidden by default; shows when the last delete attempt on training-cycle-table was rejected for having referenced módulos.",
+      "behavior": "NOT WIRED. Hidden by default; shows when the last local delete attempt was blocked.",
       "businessRules": ["Not visible on first load or before any blocked delete attempt"],
       "dataNeeds": [],
       "acceptanceCriteria": ["Is not visible on first load"]
     },
     {
       "elementId": "module-table",
-      "behavior": "Normal mode only: lists the módulos of the selected ciclo that are also selected for the selected año académico, grouped/sorted by curso (1º/2º/3º), inline-editable (rename, change curso), with a delete action per row. Hidden entirely during adding-year/adding-cycle mode, when module-selection-table takes its place.",
+      "behavior": "NOT WIRED. Same UI as before, local state only.",
       "businessRules": [
-        "Módulo nombre is unique within its (ciclo, curso) for this teacher — a duplicate rename/create is rejected server-side, inline error shown",
-        "curso is one of 1, 2, 3 — no other value accepted",
-        "Deleting a módulo referenced by any año académico's selection is rejected server-side (dependency-blocked deletion pattern) — module-delete-blocked-message names which año(s) académico(s) hold the reference",
-        "Editing (rename or curso change) a módulo referenced by one or more años académicos does not save immediately — module-edit-confirm-modal opens first, naming the referencing año(s) académico(s); confirming proceeds with the save, cancelling reverts the row to its last saved values",
-        "Editing a módulo with no references saves immediately, no modal"
+        "Duplicate (nombre, curso) within the cycle in local state is rejected, inline error shown",
+        "Editing a locally-referenced módulo opens module-edit-confirm-modal instead of saving immediately"
       ],
-      "dataNeeds": ["modulos", "anos_academicos_modulos"],
+      "dataNeeds": [],
       "acceptanceCriteria": [
         "Is hidden while adding-year or adding-cycle mode is active",
-        "Shows nothing and prompts to pick/create a ciclo when training-cycle-table has no selected row",
-        "Shows one row per módulo of the selected ciclo that's selected for the selected año académico, grouped by curso",
-        "Renaming/re-cursoing a row to a (nombre, curso) that already exists in this ciclo for this teacher is rejected, inline error shown",
-        "Deleting a módulo referenced by some año académico is rejected and module-delete-blocked-message becomes visible, naming the referencing año(s) académico(s)",
-        "Deleting an unreferenced módulo succeeds and removes it from the table",
-        "Editing a referenced módulo opens module-edit-confirm-modal instead of saving immediately",
-        "Editing an unreferenced módulo saves immediately, no modal"
+        "Shows local-state módulos of the selected cycle grouped by course",
+        "No network request is made by any interaction on this element"
       ]
     },
     {
       "elementId": "module-table-add-button",
-      "behavior": "Normal mode only: inserts a new, blank, immediately-editable row (nombre + curso) into module-table, scoped to the selected ciclo; the created módulo is selected for the active año académico by default so it appears immediately in the filtered list.",
-      "businessRules": [
-        "Disabled while training-cycle-table has no ciclo selected — there's no ciclo to attach the new módulo to",
-        "The new row isn't persisted until its inline nombre and curso are saved"
-      ],
+      "behavior": "NOT WIRED. Inserts a new row into module-table (local state only).",
+      "businessRules": ["Disabled while training-cycle-table has no cycle selected"],
       "dataNeeds": [],
-      "acceptanceCriteria": [
-        "Is disabled while no ciclo is selected in training-cycle-table",
-        "Clicking it (once a ciclo is selected) adds one new editable row to module-table",
-        "The saved módulo is selected for the active año académico and remains visible in module-table's filtered list"
-      ]
+      "acceptanceCriteria": ["Is disabled while no cycle is selected", "Clicking it adds one new editable row", "No network request is made"]
     },
     {
       "elementId": "module-delete-blocked-message",
-      "behavior": "Hidden by default; shows when the last delete attempt on module-table was rejected for being referenced.",
+      "behavior": "NOT WIRED. Hidden by default; shows when the last local delete attempt was blocked.",
       "businessRules": ["Not visible on first load or before any blocked delete attempt"],
       "dataNeeds": [],
       "acceptanceCriteria": ["Is not visible on first load"]
     },
     {
       "elementId": "module-edit-confirm-modal",
-      "behavior": "Opens only when the teacher tries to save an inline edit (rename or curso change, not delete) to a módulo that's part of one or more años académicos' selections. Names which año(s) académico(s) reference it. Confirmar proceeds with the save; Cancelar discards it, reverting module-table's row to its last saved values.",
-      "businessRules": [
-        "Never opens for a módulo with zero references — those edits save immediately",
-        "Never opens for a delete attempt — that's module-delete-blocked-message's job (a rejection, not a confirmable action)"
-      ],
-      "dataNeeds": ["anos_academicos_modulos"],
-      "acceptanceCriteria": [
-        "Is not visible on first load",
-        "Opens when saving an inline edit to a referenced módulo, naming the referencing año(s) académico(s)",
-        "Confirmar closes it and the edit is persisted",
-        "Cancelar closes it and module-table's row reverts to its last saved nombre/curso"
-      ]
+      "behavior": "NOT WIRED. Opens when editing a módulo referenced by local in-progress selections.",
+      "businessRules": ["Never opens for a módulo with zero local references"],
+      "dataNeeds": [],
+      "acceptanceCriteria": ["Is not visible on first load", "Confirmar/Cancelar operate on local state only, no network request"]
     },
     {
       "elementId": "module-selection-table",
-      "behavior": "Visible only in adding-year mode (academic-year-table-add-button) or adding-cycle mode (a new ciclo just created in normal mode). Shows the módulos of the ciclo currently selected in training-cycle-table (all cursos 1º/2º/3º), checkbox reflecting whether each is part of the in-progress, unsaved selection being built for the año académico in play. If that ciclo has no módulos yet, the table is fused with module-selection-add-button so the teacher can create módulos right there, each pre-checked.",
-      "businessRules": [
-        "Scoped to one ciclo at a time (the one selected in training-cycle-table) — never a flat cross-ciclo table",
-        "Switching ciclo in training-cycle-table swaps which módulos are shown but keeps checks already made under other ciclos in the in-progress selection",
-        "Toggling a checkbox only changes in-progress, unsaved state — module-selection-save-button is what persists it",
-        "A ciclo with no módulos merges the checklist with module-selection-add-button; a ciclo with existing módulos still allows adding an extra one the same way — not mutually exclusive"
-      ],
-      "dataNeeds": ["modulos", "anos_academicos_modulos"],
-      "acceptanceCriteria": [
-        "Is hidden in normal mode",
-        "In adding-year/adding-cycle mode, shows the selected ciclo's módulos (1º/2º/3º) with their in-progress checked state",
-        "Switching to a different ciclo shows that ciclo's módulos without discarding checks made under the previous one",
-        "Toggling a checkbox doesn't persist anything by itself",
-        "A ciclo with zero módulos shows module-selection-add-button fused into the table instead of an empty list with no way forward"
-      ]
+      "behavior": "NOT WIRED. Same UI as before, local state only.",
+      "businessRules": ["Toggling a checkbox only changes local, unsaved in-progress state"],
+      "dataNeeds": [],
+      "acceptanceCriteria": ["Is hidden in normal mode", "Shows the selected cycle's local-state módulos with in-progress checked state"]
     },
     {
       "elementId": "module-selection-add-button",
-      "behavior": "Visible whenever module-selection-table is open. Inserts a new, blank, immediately-editable row (nombre + curso 1º/2º/3º) into module-selection-table, scoped to the selected ciclo; once saved it's checked by default in the in-progress selection.",
-      "businessRules": ["Available regardless of whether the selected ciclo already has módulos or none yet"],
+      "behavior": "NOT WIRED. Inserts a new row into module-selection-table (local state only).",
+      "businessRules": ["Available regardless of whether the selected cycle already has local-state módulos"],
       "dataNeeds": [],
-      "acceptanceCriteria": [
-        "Is visible whenever module-selection-table is visible",
-        "Clicking it adds one new editable row to module-selection-table, scoped to the selected ciclo",
-        "The newly created módulo is checked by default in the in-progress selection"
-      ]
+      "acceptanceCriteria": ["Is visible whenever module-selection-table is visible", "Clicking it adds one new editable row"]
     },
     {
       "elementId": "module-selection-save-button",
-      "behavior": "Visible only alongside module-selection-table. In adding-year mode: creates the año académico with the draft name from academic-year-table AND persists the in-progress módulo selection (including any módulos just created via module-selection-add-button) in one action. In adding-cycle mode: the año académico already exists — persists the in-progress selection only. Either way, shows module-selection-save-message with the outcome and, on success, returns the screen to normal mode with the affected año académico selected.",
-      "businessRules": [
-        "Hidden in normal mode",
-        "Disabled and showing a loading state while the request is in flight",
-        "In adding-year mode, a duplicate año académico nombre fails the whole action (nothing is created or persisted) and module-selection-save-message shows the error, draft state preserved",
-        "A successful save is what future reads of 'ciclos/módulos for this año académico' (and module-table's/training-cycle-table's delete-blocking and filtering checks) reflect"
-      ],
-      "dataNeeds": ["anos_academicos", "anos_academicos_modulos"],
-      "acceptanceCriteria": [
-        "Is hidden in normal mode",
-        "Shows a loading state and is disabled from click until the response arrives",
-        "Adding-year mode: a successful click creates the año académico and persists exactly the in-progress selection, then shows a success message and returns to normal mode with the new año académico selected",
-        "Adding-cycle mode: a successful click persists exactly the in-progress selection for the existing año académico, then shows a success message and returns to normal mode",
-        "A duplicate año académico nombre in adding-year mode shows an error message and keeps the draft (name + in-progress selection) intact"
-      ]
+      "behavior": "NOT WIRED. Commits the in-progress local selection into academic-year-table/module-table's local state — no HTTP call.",
+      "businessRules": ["Hidden in normal mode", "Never sends a network request"],
+      "dataNeeds": [],
+      "acceptanceCriteria": ["Is hidden in normal mode", "A click commits the local selection and shows module-selection-save-message", "No network request is made"]
     },
     {
       "elementId": "module-selection-save-message",
-      "behavior": "Hidden by default; shows the outcome of the last module-selection-save-button click.",
-      "businessRules": ["Not visible before any save attempt in the current adding-year/adding-cycle session"],
+      "behavior": "NOT WIRED. Hidden by default; shows the outcome of the last local commit.",
+      "businessRules": ["Not visible before any save attempt in the current session"],
       "dataNeeds": [],
-      "acceptanceCriteria": [
-        "Is not visible before a save attempt",
-        "Shows a success message after a successful save",
-        "Shows an error message after a failed save"
-      ]
+      "acceptanceCriteria": ["Is not visible before a save attempt"]
     }
   ],
   "globalRules": [
-    "This is two separate top-level custom elements (app-teacher-settings-view, app-academic-year-settings-view), each its own Shadow DOM, each its own route — never one nested inside the other, and never a shared component nesting either of them. Shared nav markup (teacher-nav-link/academic-year-nav-link) comes from one plain function called by both, per CLAUDE.md's Web Components rules",
-    "Both screens require a valid session — no session redirects to /login, same gate as Dashboard",
-    "Everything (ciclos, módulos, años académicos, their selections) is scoped to the signed-in teacher only — no cross-teacher visibility, no admin/shared catalog",
-    "Every table follows lib/patterns/crud-table-component.md: inline editing (never a separate edit form/modal — the one exception is module-edit-confirm-modal, a save-time confirmation gate, not an edit-interaction modal), and dependency-blocked deletion decided server-side (the component only requests a delete, the service decides and responds with success or a named reason)",
-    "Uniqueness, all scoped per teacher: ciclo nombre; módulo nombre within its (ciclo, curso); año académico nombre",
-    "Exactly one año académico can be marked 'en curso' at a time, or none — never more than one",
-    "Deleting the año académico marked 'en curso' is blocked; deleting a ciclo or módulo referenced by any año académico's selection (past or current) is blocked",
-    "There are no start/end dates on an año académico — just its nombre — out of scope for this view"
+    "This is three separate top-level custom elements (app-teacher-settings-view, app-training-catalog-settings-view, app-academic-year-settings-view), each its own Shadow DOM, each its own route. Shared nav markup (teacher-nav-link/training-catalog-nav-link/academic-year-nav-link) comes from one plain function called by all three",
+    "All three screens require a valid session — no session redirects to /login, same gate as Dashboard",
+    "Ciclos/Módulos (app-training-catalog-settings-view) owns two brand-new tables, catalog_training_cycles and catalog_modules, with no FK relation to any other table beyond users — no dependency-blocked deletion, no edit-confirmation modal, unlike the old training_cycles/modules pair",
+    "Uniqueness in Ciclos/Módulos, scoped per teacher: ciclo nombre; módulo nombre within its (ciclo, curso)",
+    "Año académico (app-academic-year-settings-view) is UI ONLY as of 2026-08-04: its former tables (training_cycles, modules, academic_years, academic_year_modules) were dropped and are not recreated in this pass. Every element on this screen operates on local component state only — no HTTP requests, no persistence across reload. This is temporary; a future view rebuilds its real data layer",
+    "requirement-architect generates no api-contracts.md entries and no schema-changes.sql for academic-year-settings-screen's elements in this pass; tdd-engineer writes no test asserting a network call or cross-reload persistence for them"
   ]
 }
