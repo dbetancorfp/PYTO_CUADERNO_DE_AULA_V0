@@ -1,5 +1,5 @@
 {
-  "appOverview": "Configuración is reached from Dashboard's settings-menu (which stops being a disabled placeholder) and is three separate top-level views: app-teacher-settings-view (/configuracion/profesor — edit the signed-in teacher's full name; change password), app-training-catalog-settings-view (/configuracion/ciclos-modulos — master CRUD over a brand-new, standalone catalog of ciclos formativos and módulos profesionales, seeded from the official BOC curricula), and app-academic-year-settings-view (/configuracion/ano-academico — UI ONLY as of the 2026-08-04 redesign, see below). Each has its own Shadow DOM and is reached by a plain nav link (teacher-nav-link / training-catalog-nav-link / academic-year-nav-link) rendered identically on all three screens via one shared function. **Redesign 2026-08-04**: the tables that used to back Año académico (training_cycles, modules, academic_years, academic_year_modules) were dropped. Ciclos/Módulos does NOT reuse or replace them — it owns two brand-new tables (catalog_training_cycles, catalog_modules) with zero relation to años académicos, so there is no dependency-blocked deletion in that screen (cascade delete only) and no edit-confirmation modal (nothing references a catalog módulo to warn about). Año académico's UI and components are kept exactly as previously designed — same tables, same three-mode behavior (normal/adding-year/adding-cycle), same elementIds — but this pass gives it no working backend: requirement-architect generates no api-contracts.md entries or schema-changes.sql for it, tdd-engineer writes no test asserting real HTTP/persistence for it, and frontend-implementer wires it to a local-state-only stub so the screen renders and every interaction still works visually, without talking to a server. This is a deliberate, temporary state — a future view rebuilds Año académico's real data layer.",
+  "appOverview": "Configuración is reached from Dashboard's settings-menu (which stops being a disabled placeholder) and is three separate top-level views: app-teacher-settings-view (/configuracion/profesor — edit the signed-in teacher's full name; change password), app-training-catalog-settings-view (/configuracion/ciclos-modulos — master CRUD over a brand-new, standalone catalog of ciclos formativos and módulos profesionales, seeded from the official BOC curricula), and app-academic-year-settings-view (/configuracion/ano-academico — UI ONLY as of the 2026-08-04 redesign, see below). Each has its own Shadow DOM and is reached by a plain nav link (teacher-nav-link / training-catalog-nav-link / academic-year-nav-link) rendered identically on all three screens via one shared function. **Redesign 2026-08-04**: the tables that used to back Año académico (training_cycles, modules, academic_years, academic_year_modules) were dropped. Ciclos/Módulos does NOT reuse or replace them — it owns two brand-new tables (catalog_cycles, catalog_modules) with zero relation to años académicos, so there is no dependency-blocked deletion in that screen (cascade delete only) and no edit-confirmation modal (nothing references a catalog módulo to warn about). Año académico's UI and components are kept exactly as previously designed — same tables, same three-mode behavior (normal/adding-year/adding-cycle), same elementIds — but this pass gives it no working backend: requirement-architect generates no api-contracts.md entries or schema-changes.sql for it, tdd-engineer writes no test asserting real HTTP/persistence for it, and frontend-implementer wires it to a local-state-only stub so the screen renders and every interaction still works visually, without talking to a server. This is a deliberate, temporary state — a future view rebuilds Año académico's real data layer.",
   "elementSpecs": [
     {
       "elementId": "back-to-dashboard-link",
@@ -130,16 +130,16 @@
     },
     {
       "elementId": "catalog-training-cycle-table",
-      "behavior": "Lists every training cycle the teacher has created in the new catalog_training_cycles table — the complete catalog, with no year-related filtering of any kind (there is nothing to filter by, this catalog has no relation to academic years). First row selected by default on load. Selecting a row reloads catalog-module-table filtered to that cycle's modules.",
+      "behavior": "Lists every training cycle in the shared, global catalog_cycles table — the complete catalog, with no year-related filtering of any kind (there is nothing to filter by, this catalog has no relation to academic years). First row selected by default on load. Selecting a row reloads catalog-module-table filtered to that cycle's modules.",
       "businessRules": [
         "Ciclo nombre is unique per teacher — a duplicate rename/create is rejected server-side, inline error shown",
         "Deleting a ciclo always succeeds and cascades to deleting its módulos (catalog_modules' FK is ON DELETE CASCADE) — there is no dependency-blocked deletion in this screen, unlike the old training-cycle-table"
       ],
-      "dataNeeds": ["catalog_training_cycles"],
+      "dataNeeds": ["catalog_cycles"],
       "acceptanceCriteria": [
-        "Shows every training cycle the teacher has created",
+        "Shows every training cycle in the shared catalog",
         "First row is selected by default on load",
-        "Renaming a row to a name that already exists for this teacher is rejected, inline error shown",
+        "Renaming a row to a name that already exists is rejected, inline error shown",
         "Deleting a cycle succeeds unconditionally and removes it (and its modules) from the table",
         "Selecting a different row reloads catalog-module-table filtered to that cycle's modules"
       ]
@@ -158,7 +158,7 @@
       "elementId": "catalog-module-table",
       "behavior": "Lists every module of the selected cycle in the new catalog_modules table, grouped/sorted by course (1º/2º), inline-editable.",
       "businessRules": [
-        "Módulo nombre is unique within its (ciclo, curso) for this teacher — a duplicate rename/create is rejected server-side, inline error shown",
+        "Módulo nombre is unique within its (ciclo, curso) — a duplicate rename/create is rejected server-side, inline error shown",
         "curso is one of 1, 2 — no other value accepted (the seeded BOC curricula only go up to 2º)",
         "Deleting a módulo always succeeds — there is no dependency-blocked deletion in this screen, unlike the old module-table",
         "Editing (rename or curso change) always saves immediately — no confirmation modal, unlike the old module-table's module-edit-confirm-modal (nothing references a catalog módulo to warn about)"
@@ -167,7 +167,7 @@
       "acceptanceCriteria": [
         "Shows nothing and prompts to pick/create a cycle when catalog-training-cycle-table has no selected row",
         "Shows one row per module of the selected cycle, grouped by course",
-        "Renaming/re-coursing a row to a (nombre, curso) that already exists in this cycle for this teacher is rejected, inline error shown",
+        "Renaming/re-coursing a row to a (nombre, curso) that already exists in this cycle is rejected, inline error shown",
         "Deleting a module succeeds unconditionally and removes it from the table",
         "Editing a module saves immediately, no modal, regardless of anything else in the system"
       ]
@@ -317,7 +317,7 @@
   "globalRules": [
     "This is three separate top-level custom elements (app-teacher-settings-view, app-training-catalog-settings-view, app-academic-year-settings-view), each its own Shadow DOM, each its own route. Shared nav markup (teacher-nav-link/training-catalog-nav-link/academic-year-nav-link) comes from one plain function called by all three",
     "All three screens require a valid session — no session redirects to /login, same gate as Dashboard",
-    "Ciclos/Módulos (app-training-catalog-settings-view) owns two brand-new tables, catalog_training_cycles and catalog_modules, with no FK relation to any other table beyond users — no dependency-blocked deletion, no edit-confirmation modal, unlike the old training_cycles/modules pair",
+    "Ciclos/Módulos (app-training-catalog-settings-view) owns two brand-new tables, catalog_cycles and catalog_modules, with no FK relation to any other table beyond users — no dependency-blocked deletion, no edit-confirmation modal, unlike the old training_cycles/modules pair",
     "Uniqueness in Ciclos/Módulos, scoped per teacher: ciclo nombre; módulo nombre within its (ciclo, curso)",
     "Año académico (app-academic-year-settings-view) is UI ONLY as of 2026-08-04: its former tables (training_cycles, modules, academic_years, academic_year_modules) were dropped and are not recreated in this pass. Every element on this screen operates on local component state only — no HTTP requests, no persistence across reload. This is temporary; a future view rebuilds its real data layer",
     "requirement-architect generates no api-contracts.md entries and no schema-changes.sql for academic-year-settings-screen's elements in this pass; tdd-engineer writes no test asserting a network call or cross-reload persistence for them"

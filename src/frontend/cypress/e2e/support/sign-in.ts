@@ -13,7 +13,7 @@ export function signInAsE2eUser(): void {
   cy.url().should('include', '/dashboard');
 }
 
-// Short, timestamp-unique name generator for both the real catalog_training_cycles table
+// Short, timestamp-unique name generator for both the real catalog_cycles table
 // (UC-04/UC-05, Postgres-persisted, unique per teacher) and Año académico's local-state-only
 // entities (UC-06..UC-09, 2026-08-04 redesign — see academic-year-settings-view.ts).
 export function uniqueAcademicYearName(tag: string): string {

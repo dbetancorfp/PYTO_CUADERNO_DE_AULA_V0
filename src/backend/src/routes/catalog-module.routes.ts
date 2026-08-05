@@ -28,7 +28,7 @@ export function catalogCycleModulesRouter(
   router.use(requireAuth(sessionService));
 
   router.get('/', async (req: Request<{ cycleId: string }>, res: Response) => {
-    const modules = await catalogModuleService.listForCycle(res.locals.teacherId as string, req.params.cycleId);
+    const modules = await catalogModuleService.listForCycle(req.params.cycleId);
     if (modules === null) {
       res.status(404).json({ message: 'Training cycle not found' });
       return;
@@ -44,12 +44,7 @@ export function catalogCycleModulesRouter(
       return;
     }
 
-    const module = await catalogModuleService.create(
-      res.locals.teacherId as string,
-      req.params.cycleId,
-      name,
-      courseResult.data,
-    );
+    const module = await catalogModuleService.create(req.params.cycleId, name, courseResult.data);
     if (module === null) {
       res.status(404).json({ message: 'Training cycle not found' });
       return;
@@ -88,7 +83,7 @@ export function catalogModuleRouter(
       changes.course = courseResult.data;
     }
 
-    const module = await catalogModuleService.update(res.locals.teacherId as string, req.params.id, changes);
+    const module = await catalogModuleService.update(req.params.id, changes);
     if (module === null) {
       res.status(404).json({ message: 'Module not found' });
       return;
@@ -97,7 +92,7 @@ export function catalogModuleRouter(
   });
 
   router.delete('/:id', async (req: Request<{ id: string }>, res: Response) => {
-    const result = await catalogModuleService.delete(res.locals.teacherId as string, req.params.id);
+    const result = await catalogModuleService.delete(req.params.id);
     if (result === null) {
       res.status(404).json({ message: 'Module not found' });
       return;

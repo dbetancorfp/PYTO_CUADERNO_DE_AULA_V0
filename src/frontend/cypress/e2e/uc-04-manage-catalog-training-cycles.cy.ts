@@ -2,7 +2,7 @@
 // UC-04: Manage catalog training cycles
 //
 // New for the 2026-08-04 redesign: catalog-training-cycle-table is backed by the brand-new,
-// standalone catalog_training_cycles table (GET/POST/PATCH/DELETE
+// standalone catalog_cycles table (GET/POST/PATCH/DELETE
 // /api/catalog/training-cycles) — no relation to any año académico. Deletion always
 // succeeds and cascades to the cycle's modules (catalog_modules' FK is ON DELETE CASCADE),
 // unlike the old, now-dropped training_cycles table's dependency-blocked deletion.

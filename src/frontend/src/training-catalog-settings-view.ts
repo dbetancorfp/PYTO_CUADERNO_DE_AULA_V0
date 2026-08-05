@@ -24,7 +24,7 @@ const DUPLICATE_MODULE_NAME_MESSAGE = 'Ya existe un módulo con ese nombre y cur
  * follow. `teacher-nav-link`/`training-catalog-nav-link`/`academic-year-nav-link` are
  * shared with the other two settings screens via the plain `renderSettingsNav` function.
  *
- * **2026-08-04 redesign**: `catalog_training_cycles`/`catalog_modules` are brand-new,
+ * **2026-08-04 redesign**: `catalog_cycles`/`catalog_modules` are brand-new,
  * standalone tables with no relation to años académicos — nothing references this catalog,
  * so deletion is never dependency-blocked (cascade delete only) and editing a module always
  * saves immediately (no confirmation modal), unlike the old training_cycles/modules pair

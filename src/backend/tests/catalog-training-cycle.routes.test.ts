@@ -2,7 +2,7 @@
 // (HTTP contract side of UC-04 — see views/configuracion/api-contracts.md GET/POST
 // /api/catalog/training-cycles, PATCH/DELETE /api/catalog/training-cycles/:id). New routes,
 // don't exist yet — expected 404s until backend-implementer adds them. No HAS_DEPENDENTS
-// case here — catalog_training_cycles has no FK relation to anything year-related, deletion
+// case here — catalog_cycles has no FK relation to anything year-related, deletion
 // is unconditional (unlike the old, now-dropped training_cycles table).
 import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
 import type { Server } from 'node:http';

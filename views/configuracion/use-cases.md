@@ -1,7 +1,7 @@
 # Use Cases — Configuración
 
 Rewritten from scratch 2026-08-04 for the full view redesign: Ciclos/Módulos owns two
-brand-new, standalone tables (`catalog_training_cycles`, `catalog_modules`); Año académico's
+brand-new, standalone tables (`catalog_cycles`, `catalog_modules`); Año académico's
 former tables were dropped and are not recreated in this pass — its use cases below describe
 local-component-state behavior only, no network calls.
 
@@ -122,9 +122,9 @@ local-component-state behavior only, no network calls.
 
 ### Main flow
 
-1. `catalog-training-cycle-table` lists every training cycle the teacher has created in
-   `catalog_training_cycles` — a standalone catalog, no filtering by anything. First row
-   selected by default on load.
+1. `catalog-training-cycle-table` lists every training cycle in `catalog_cycles` — a
+   standalone, shared catalog (not scoped per teacher, see `api-contracts.md`), no filtering
+   by anything. First row selected by default on load.
 2. Selecting a different row reloads `catalog-module-table` filtered to that cycle's modules
    (see UC-05).
 3. Teacher clicks `catalog-training-cycle-table-add-button`; a new blank, inline-editable row
@@ -134,18 +134,18 @@ local-component-state behavior only, no network calls.
 
 - **A1 — Duplicate name**: rejected, inline error on the row.
 - **A2 — Delete a cycle**: always succeeds — `catalog_modules`' FK to
-  `catalog_training_cycles` is `ON DELETE CASCADE`, so the cycle's modules are deleted along
+  `catalog_cycles` is `ON DELETE CASCADE`, so the cycle's modules are deleted along
   with it. There is no dependency-blocked deletion in this screen — nothing else references
   this catalog.
 
 ### Postconditions
 
-- On A1: no change. On main flow/A2: `catalog_training_cycles` (and, for A2, its now-deleted
+- On A1: no change. On main flow/A2: `catalog_cycles` (and, for A2, its now-deleted
   `catalog_modules` rows) reflects the change.
 
 ### Acceptance criteria
 
-- [x] Shows every training cycle the teacher has created
+- [x] Shows every training cycle in the shared catalog
 - [x] First row is selected by default on load
 - [x] Adding a row and saving a unique name persists it
 - [ ] Saving a duplicate name is rejected, inline error shown

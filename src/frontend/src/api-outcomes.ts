@@ -31,7 +31,7 @@ export type DeleteWithDependentsResult =
 
 /**
  * For delete endpoints with no dependency check at all — e.g. the Ciclos/Módulos catalog
- * (`catalog_training_cycles`/`catalog_modules`), which nothing else references (see
+ * (`catalog_cycles`/`catalog_modules`), which nothing else references (see
  * views/configuracion/api-contracts.md's "Training cycles catalog" section).
  */
 export type DeleteResult = { outcome: 'success' } | { outcome: 'not-found' };

@@ -4,7 +4,7 @@
 // catalog-module-table-add-button (see views/configuracion/use-cases.md UC-03/UC-04/UC-05).
 // New component (app-training-catalog-settings-view), doesn't exist yet.
 //
-// Rewritten 2026-08-04 for the full redesign: catalog_training_cycles/catalog_modules are
+// Rewritten 2026-08-04 for the full redesign: catalog_cycles/catalog_modules are
 // brand-new, standalone tables with no relation to años académicos — there is no
 // dependency-blocked deletion and no edit-confirmation modal anywhere in this screen
 // (compare the previous version of this file, which had both — both are gone from

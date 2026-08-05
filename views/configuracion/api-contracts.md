@@ -1,9 +1,16 @@
 # API Contracts — Configuración
 
 Rewritten from scratch 2026-08-04 for the full view redesign. Every endpoint below requires
-a valid session (see Login's `GET /api/auth/session` / `session-guard`) and only ever
-reads/writes the signed-in teacher's own rows — never another teacher's. **Allowed roles** is
-the same for all of them: Authenticated teacher, own data only — not repeated per endpoint.
+a valid session (see Login's `GET /api/auth/session` / `session-guard`). **Allowed roles** is
+the same for all of them: Authenticated teacher — not repeated per endpoint.
+
+**Ownership scoping differs by section, un-scoped 2026-08-05**: the Teacher endpoints
+(`/api/teacher/*`) still read/write only the signed-in teacher's own `users` row. The
+training cycles/modules catalog (`/api/catalog/*`) does **not** scope by teacher at all —
+`catalog_cycles` has no `teacher_id` column or relation to `users` — it's one shared,
+global catalog for every signed-in teacher, matching how official BOC curricula (e.g. DAM,
+DAW) are the same regardless of who teaches them. Any signed-in teacher can list, create,
+rename, or delete any cycle or module in it.
 
 **Año académico (`/configuracion/ano-academico`) has no endpoints in this pass.** Its former
 tables (`training_cycles`, `modules`, `academic_years`, `academic_year_modules`) were dropped
@@ -16,7 +23,7 @@ Domain error codes used below (per `tecnologias/tecnologia_code.md`'s centralize
 
 | Code | HTTP status | Meaning |
 |------|-------------|---------|
-| `DUPLICATE_NAME` | 409 | A name/(name, course) that must be unique for this teacher already exists |
+| `DUPLICATE_NAME` | 409 | A name/(name, course) that must be unique (per teacher for `/api/teacher/*`, globally for `/api/catalog/*`) already exists |
 | `INVALID_CREDENTIALS` | 401 | Current password didn't match (password-change only) |
 
 ---
@@ -72,14 +79,14 @@ teacher is already authenticated.
 
 ## Training cycles catalog (Ciclos/Módulos screen)
 
-New tables, no relation to anything year-related — see `schema-changes.sql`. No
-dependency-blocked deletion anywhere in this group: `catalog_modules`' FK to
-`catalog_training_cycles` is `ON DELETE CASCADE`, and nothing references `catalog_modules`
-at all.
+New tables, no relation to anything year-related, no relation to `users` either — shared,
+global catalog, see `schema-changes.sql`. No dependency-blocked deletion anywhere in this
+group: `catalog_modules`' FK to `catalog_cycles` is `ON DELETE CASCADE`, and nothing
+references `catalog_modules` at all.
 
 ### GET /api/catalog/training-cycles
 
-**Description**: Lists the signed-in teacher's complete catalog training cycle list.
+**Description**: Lists the complete catalog training cycle list (shared across all teachers).
 **Elements**: `catalog-training-cycle-table`
 
 #### Response 200
@@ -91,7 +98,7 @@ at all.
 
 ### POST /api/catalog/training-cycles
 
-**Description**: Creates a catalog training cycle for the signed-in teacher.
+**Description**: Creates a catalog training cycle.
 **Elements**: `catalog-training-cycle-table-add-button`, `catalog-training-cycle-table`
 
 #### Request
@@ -106,7 +113,7 @@ at all.
 | Code | Condition |
 |------|-----------|
 | 400 | `name` missing, empty, or not a string |
-| 409 | `name` already exists for this teacher. Body: `{ "message": "...", "code": "DUPLICATE_NAME" }` |
+| 409 | `name` already exists. Body: `{ "message": "...", "code": "DUPLICATE_NAME" }` |
 
 ---
 
@@ -128,8 +135,8 @@ at all.
 | Code | Condition |
 |------|-----------|
 | 400 | `name` missing, empty, or not a string |
-| 404 | `id` doesn't match a catalog training cycle owned by this teacher |
-| 409 | `name` already exists for this teacher (on a different cycle). `code: "DUPLICATE_NAME"` |
+| 404 | `id` doesn't match an existing catalog training cycle |
+| 409 | `name` already exists (on a different cycle). `code: "DUPLICATE_NAME"` |
 
 ---
 
@@ -149,7 +156,7 @@ No body.
 #### Errors
 | Code | Condition |
 |------|-----------|
-| 404 | `id` doesn't match a catalog training cycle owned by this teacher |
+| 404 | `id` doesn't match an existing catalog training cycle |
 
 ---
 
@@ -171,7 +178,7 @@ No body.
 #### Errors
 | Code | Condition |
 |------|-----------|
-| 404 | `cycleId` doesn't match a catalog training cycle owned by this teacher |
+| 404 | `cycleId` doesn't match an existing catalog training cycle |
 
 ---
 
@@ -193,7 +200,7 @@ No body.
 | Code | Condition |
 |------|-----------|
 | 400 | `name` missing/empty/not a string, or `course` not one of `1`, `2` |
-| 404 | `cycleId` doesn't match a catalog training cycle owned by this teacher |
+| 404 | `cycleId` doesn't match an existing catalog training cycle |
 | 409 | `(name, course)` already exists within this cycle. `code: "DUPLICATE_NAME"` |
 
 ---
@@ -218,7 +225,7 @@ catalog module.
 | Code | Condition |
 |------|-----------|
 | 400 | `name` present but empty/not a string, or `course` present but not one of `1`, `2` |
-| 404 | `id` doesn't match a catalog module owned by this teacher |
+| 404 | `id` doesn't match an existing catalog module |
 | 409 | `(name, course)` already exists within the module's cycle (on a different module). `code: "DUPLICATE_NAME"` |
 
 ---
@@ -238,7 +245,7 @@ No body.
 #### Errors
 | Code | Condition |
 |------|-----------|
-| 404 | `id` doesn't match a catalog module owned by this teacher |
+| 404 | `id` doesn't match an existing catalog module |
 
 ---
 

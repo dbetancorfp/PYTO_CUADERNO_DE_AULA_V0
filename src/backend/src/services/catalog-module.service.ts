@@ -11,16 +11,16 @@ export class CatalogModuleService {
     private readonly catalogTrainingCycleRepository: CatalogTrainingCycleRepository,
   ) {}
 
-  /** Returns `null` when `cycleId` doesn't match a cycle owned by `teacherId`. */
-  async listForCycle(teacherId: string, cycleId: string): Promise<CatalogModule[] | null> {
-    const cycle = await this.catalogTrainingCycleRepository.findById(teacherId, cycleId);
+  /** Returns `null` when `cycleId` doesn't match a cycle. */
+  async listForCycle(cycleId: string): Promise<CatalogModule[] | null> {
+    const cycle = await this.catalogTrainingCycleRepository.findById(cycleId);
     if (!cycle) return null;
     return this.catalogModuleRepository.findAllForCycle(cycleId);
   }
 
-  /** Returns `null` when `cycleId` doesn't match a cycle owned by `teacherId`. */
-  async create(teacherId: string, cycleId: string, name: string, course: number): Promise<CatalogModule | null> {
-    const cycle = await this.catalogTrainingCycleRepository.findById(teacherId, cycleId);
+  /** Returns `null` when `cycleId` doesn't match a cycle. */
+  async create(cycleId: string, name: string, course: number): Promise<CatalogModule | null> {
+    const cycle = await this.catalogTrainingCycleRepository.findById(cycleId);
     if (!cycle) return null;
 
     const existing = await this.catalogModuleRepository.findByNameAndCourse(cycleId, course, name);
@@ -30,18 +30,14 @@ export class CatalogModuleService {
     return this.catalogModuleRepository.create(cycleId, course, name);
   }
 
-  /** Returns `null` when `moduleId` doesn't match a module owned by `teacherId` (via its
-   * cycle). Always saves immediately — no confirmation step, no dependency check. */
+  /** Returns `null` when `moduleId` doesn't match a module. Always saves immediately — no
+   * confirmation step, no dependency check. */
   async update(
-    teacherId: string,
     moduleId: string,
     changes: Partial<Pick<CatalogModule, 'name' | 'course'>>,
   ): Promise<CatalogModule | null> {
     const module = await this.catalogModuleRepository.findById(moduleId);
     if (!module) return null;
-
-    const cycle = await this.catalogTrainingCycleRepository.findById(teacherId, module.catalogTrainingCycleId);
-    if (!cycle) return null;
 
     if (changes.name !== undefined || changes.course !== undefined) {
       const name = changes.name ?? module.name;
@@ -55,14 +51,11 @@ export class CatalogModuleService {
     return this.catalogModuleRepository.update(moduleId, changes);
   }
 
-  /** Returns `null` when `moduleId` doesn't match a module owned by `teacherId` (via its
-   * cycle). Deletion is always unconditional. */
-  async delete(teacherId: string, moduleId: string): Promise<void | null> {
+  /** Returns `null` when `moduleId` doesn't match a module. Deletion is always
+   * unconditional. */
+  async delete(moduleId: string): Promise<void | null> {
     const module = await this.catalogModuleRepository.findById(moduleId);
     if (!module) return null;
-
-    const cycle = await this.catalogTrainingCycleRepository.findById(teacherId, module.catalogTrainingCycleId);
-    if (!cycle) return null;
 
     await this.catalogModuleRepository.delete(moduleId);
   }
