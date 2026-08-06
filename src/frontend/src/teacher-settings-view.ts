@@ -192,9 +192,10 @@ export class TeacherSettingsView extends HTMLElement {
 
     render(
       html`
-        <div class="mx-auto flex max-w-2xl flex-col gap-8 p-4">
+        <div class="flex flex-col gap-8 p-4">
           ${renderSettingsNav('profesor')}
 
+          <div class="mx-auto flex w-full max-w-2xl flex-col gap-8">
           <section class="${classesFor('card', undefined, undefined)} flex flex-col gap-4 p-6">
             <h2 class="${classesFor('heading')}">Datos del profesor</h2>
 
@@ -300,6 +301,7 @@ export class TeacherSettingsView extends HTMLElement {
                 </p>`
               : ''}
           </section>
+          </div>
         </div>
       `,
       this.shadowRoot!,

@@ -7,6 +7,15 @@
 // `training-catalog-nav-link` added 2026-08-04 for the Ciclos/Módulos redesign — it sits
 // between `teacher-nav-link` and `academic-year-nav-link` in `NAV_LINKS`' order, per
 // functional-spec.json's acceptance criteria for that elementId.
+//
+// 2026-08-06 visual redesign: matches dashboard-view.ts's top navbar style (card —
+// `bg-white`/`shadow-md`/`rounded-lg` — instead of a bare bottom-border row) for cohesion
+// across the app. Three-zone layout: `settings-nav-heading` ("Configuración") pinned to the
+// far left like the dashboard's `app-logo`; the three screen links truly centered
+// (`absolute left-1/2 -translate-x-1/2`, not just flexbox's `justify-between` middle slot,
+// which would drift off-center whenever the left/right zones aren't equal width);
+// `back-to-dashboard-link` ("Volver") pinned to the far right, playing the same "exit this
+// screen" role `logout-link` plays in the dashboard navbar.
 import { html, nothing, type TemplateResult } from 'lit-html';
 import { classesFor } from './styles/classes-for';
 import { redirectTo } from './navigation';
@@ -38,7 +47,26 @@ const NAV_LINKS: readonly NavLinkDef[] = [
 
 export function renderSettingsNav(activeScreen: SettingsScreen): TemplateResult {
   return html`
-    <nav class="flex items-center gap-4 border-b border-slate-200 pb-2">
+    <nav class="relative flex items-center justify-between ${classesFor('card')} px-4 py-3">
+      <span class="${classesFor('heading')}" data-element-id="settings-nav-heading">Configuración</span>
+
+      <div class="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-4">
+        ${NAV_LINKS.map((link) => {
+          const isActive = link.screen === activeScreen;
+          return html`
+            <a
+              class="${classesFor('link', 'link')} ${isActive ? 'font-semibold' : 'text-slate-500'}"
+              data-element-id="${link.elementId}"
+              tabindex="0"
+              role="link"
+              aria-current="${isActive ? 'page' : nothing}"
+            >
+              ${link.label}
+            </a>
+          `;
+        })}
+      </div>
+
       <a
         class="${classesFor('link', 'link')} text-slate-500"
         data-element-id="back-to-dashboard-link"
@@ -47,20 +75,6 @@ export function renderSettingsNav(activeScreen: SettingsScreen): TemplateResult 
       >
         Volver
       </a>
-      ${NAV_LINKS.map((link) => {
-        const isActive = link.screen === activeScreen;
-        return html`
-          <a
-            class="${classesFor('link', 'link')} ${isActive ? 'font-semibold' : 'text-slate-500'}"
-            data-element-id="${link.elementId}"
-            tabindex="0"
-            role="link"
-            aria-current="${isActive ? 'page' : nothing}"
-          >
-            ${link.label}
-          </a>
-        `;
-      })}
     </nav>
   `;
 }
