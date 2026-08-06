@@ -13,9 +13,12 @@ export function signInAsE2eUser(): void {
   cy.url().should('include', '/dashboard');
 }
 
-// Short, timestamp-unique name generator for both the real catalog_cycles table
-// (UC-04/UC-05, Postgres-persisted, unique per teacher) and Año académico's local-state-only
-// entities (UC-06..UC-09, 2026-08-04 redesign — see academic-year-settings-view.ts).
-export function uniqueAcademicYearName(tag: string): string {
-  return `${tag} ${Date.now() % 1000000}`;
+// Unique `academic_years.start_year` generator (2026-08-05 redesign — Año académico is a
+// real, Postgres-persisted, per-teacher-unique INTEGER now, not a free-text name). Keeps
+// the value well under Postgres' INTEGER range while staying unique across specs run in
+// the same suite, same timestamp-plus-sequence pattern the catalog specs already use.
+let startYearSequence = 0;
+export function uniqueStartYear(): number {
+  startYearSequence += 1;
+  return 3000 + (Date.now() % 90000) + startYearSequence;
 }

@@ -63,35 +63,31 @@ async function bootstrap(): Promise<void> {
   }
 
   if (window.location.pathname === '/configuracion/ano-academico') {
-    // NOT WIRED (2026-08-04 redesign) — this screen's former tables (training_cycles,
-    // modules, academic_years, academic_year_modules) were dropped and are not recreated in
-    // this pass (see views/configuracion/functional-spec.json's "NOT WIRED" elementSpecs).
-    // `LocalAcademicYearStore` backs all three services with a single, page-lifetime-scoped
-    // in-memory instance — no fetch call, nothing persists across a reload. A future view
-    // rebuilds this screen's real data layer.
+    // Real backend as of the 2026-08-05 redesign (see
+    // views/configuracion/api-contracts.md's "Academic years"/"Academic year módulo
+    // selection" sections). The cycle/módulo picker in adding mode reuses the same catalog
+    // services that back /configuracion/ciclos-modulos above — no duplicate catalog-browsing
+    // service.
     const [
       { HttpSessionApiService },
-      { LocalAcademicYearStore },
-      { LocalTrainingCycleApiService },
-      { LocalModuleApiService },
-      { LocalAcademicYearApiService },
+      { HttpAcademicYearApiService },
+      { HttpCatalogTrainingCycleApiService },
+      { HttpCatalogModuleApiService },
       { AcademicYearSettingsView },
     ] = await Promise.all([
       import('./http-session-api-service'),
-      import('./local-academic-year-store'),
-      import('./local-training-cycle-api-service'),
-      import('./local-module-api-service'),
-      import('./local-academic-year-api-service'),
+      import('./http-academic-year-api-service'),
+      import('./http-catalog-training-cycle-api-service'),
+      import('./http-catalog-module-api-service'),
       import('./academic-year-settings-view'),
     ]);
     const academicYearSettingsView = document.createElement('app-academic-year-settings-view') as InstanceType<
       typeof AcademicYearSettingsView
     >;
-    const store = new LocalAcademicYearStore();
     academicYearSettingsView.sessionService = new HttpSessionApiService();
-    academicYearSettingsView.trainingCycleService = new LocalTrainingCycleApiService(store);
-    academicYearSettingsView.moduleService = new LocalModuleApiService(store);
-    academicYearSettingsView.academicYearService = new LocalAcademicYearApiService(store);
+    academicYearSettingsView.academicYearService = new HttpAcademicYearApiService();
+    academicYearSettingsView.catalogCycleService = new HttpCatalogTrainingCycleApiService();
+    academicYearSettingsView.catalogModuleService = new HttpCatalogModuleApiService();
     document.body.appendChild(academicYearSettingsView);
     return;
   }

@@ -1,13 +1,16 @@
 // Shared `<tableId>-row-<id>[-<action>]` elementId parser for inline-edit CRUD tables (see
 // lib/patterns/crud-table-component.md), used by `training-catalog-settings-view.ts`'s two
-// tables (`catalog-training-cycle-table`, `catalog-module-table`).
+// tables (`catalog-training-cycle-table`, `catalog-module-table`) and (as of the 2026-08-05
+// real-backend redesign) `academic-year-settings-view.ts`'s four tables
+// (`academic-year-table`, `training-cycle-table`, `module-table`, `module-selection-table`).
 //
-// `academic-year-settings-view.ts` implements an equivalent private parser of its own
-// instead of importing this one — that file's UI and interactions are frozen as of the
-// 2026-08-04 redesign (see views/configuracion/functional-spec.json's "NOT WIRED" notes),
-// so it is intentionally left untouched rather than migrated to this shared helper.
+// `set-current`/`checkbox` were added for that redesign — `set-current` for
+// `academic-year-table`'s "Marcar en curso" row action, `checkbox` for
+// `training-cycle-table`'s/`module-selection-table`'s adding-mode checkbox columns. Longer
+// suffixes are checked before shorter ones with the same trailing token, but none of the
+// existing consumers' row ids end in `-set-current`/`-checkbox`, so this is additive only.
 
-export type RowActionKind = 'edit' | 'cancel' | 'save' | 'delete' | 'name' | 'course' | 'row';
+export type RowActionKind = 'edit' | 'cancel' | 'save' | 'delete' | 'name' | 'course' | 'set-current' | 'checkbox' | 'row';
 
 export interface RowAction {
   rowId: string;
@@ -15,6 +18,8 @@ export interface RowAction {
 }
 
 const ROW_ACTION_SUFFIXES: readonly Exclude<RowActionKind, 'row'>[] = [
+  'set-current',
+  'checkbox',
   'cancel',
   'save',
   'edit',

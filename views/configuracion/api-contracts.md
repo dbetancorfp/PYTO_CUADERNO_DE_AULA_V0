@@ -12,19 +12,21 @@ global catalog for every signed-in teacher, matching how official BOC curricula 
 DAW) are the same regardless of who teaches them. Any signed-in teacher can list, create,
 rename, or delete any cycle or module in it.
 
-**Año académico (`/configuracion/ano-academico`) has no endpoints in this pass.** Its former
-tables (`training_cycles`, `modules`, `academic_years`, `academic_year_modules`) were dropped
-and are not recreated here — see `description_configuracion.md`'s "Redesign note" and
-`functional-spec.json`'s "NOT WIRED" elementSpecs. `frontend-implementer` wires that screen to
-a local-state-only stub; there is nothing to document here.
+**Año académico (`/configuracion/ano-academico`) gets real endpoints as of 2026-08-05** —
+see "Academic years" and "Academic year módulo selection" below. `academic_years` rows are
+scoped per teacher (own data only, like `/api/teacher/*`); the cycle/módulo picker in adding
+mode reuses the existing, unscoped `GET /api/catalog/training-cycles` and
+`GET /api/catalog/training-cycles/:cycleId/modules` endpoints above — no new endpoints
+needed for browsing the catalog itself.
 
 Domain error codes used below (per `tecnologias/tecnologia_code.md`'s centralized
 `STATUS_MAP` convention):
 
 | Code | HTTP status | Meaning |
 |------|-------------|---------|
-| `DUPLICATE_NAME` | 409 | A name/(name, course) that must be unique (per teacher for `/api/teacher/*`, globally for `/api/catalog/*`) already exists |
+| `DUPLICATE_NAME` | 409 | A name/(name, course) that must be unique (per teacher for `/api/teacher/*` and `/api/academic-years`, globally for `/api/catalog/*`) already exists |
 | `INVALID_CREDENTIALS` | 401 | Current password didn't match (password-change only) |
+| `HAS_DEPENDENTS` | 409 | Deleting an academic year is blocked because it still has módulos assigned |
 
 ---
 
@@ -255,3 +257,177 @@ No body.
 `views/dashboard/description_dashboard.md`). Making it a real link to
 `/configuracion/profesor` is a small reopen of the Dashboard view — its own Phase A/B, not
 part of this view's artifacts. Unaffected by the 2026-08-04 redesign.
+
+---
+
+## Academic years (Año académico screen)
+
+`academic_years` rows are scoped per teacher — own data only, same as `/api/teacher/*`.
+Displayed client-side as `"<startYear>-<startYear+1>"`; the API only ever sends/receives
+the integer `startYear`.
+
+### GET /api/academic-years
+
+**Description**: Lists the signed-in teacher's complete academic year list.
+**Elements**: `academic-year-table`
+
+#### Response 200
+```json
+{ "academicYears": [{ "id": "uuid", "startYear": 2026, "isCurrent": true }] }
+```
+
+---
+
+### PATCH /api/academic-years/:id
+
+**Description**: Renames a row's `startYear`, and/or marks it current. Marking one current
+un-marks whichever row was previously current for this teacher, in the same request.
+**Elements**: `academic-year-table`, `academic-year-toast`
+
+#### Request
+- **Params**: `{ id: string }`
+- **Body**: `{ startYear?: number, isCurrent?: boolean }`
+
+#### Response 200
+```json
+{ "id": "uuid", "startYear": 2026, "isCurrent": true }
+```
+
+#### Errors
+| Code | Condition |
+|------|-----------|
+| 400 | `startYear` present but not an integer, or `isCurrent` present but not a boolean |
+| 404 | `id` doesn't match an academic year owned by this teacher |
+| 409 | `startYear` already exists among this teacher's other academic years. Body: `{ "message": "...", "code": "DUPLICATE_NAME" }` |
+
+---
+
+### DELETE /api/academic-years/:id
+
+**Description**: Deletes an academic year. Blocked while it still has `academic_year_modules`
+rows — the teacher must remove the assigned módulos/ciclos first (see
+`DELETE /api/academic-year-modules/:id` below).
+**Elements**: `academic-year-table`, `academic-year-toast`
+
+#### Request
+- **Params**: `{ id: string }`
+
+#### Response 204
+No body.
+
+#### Errors
+| Code | Condition |
+|------|-----------|
+| 404 | `id` doesn't match an academic year owned by this teacher |
+| 409 | The year still has módulos assigned. Body: `{ "message": "...", "code": "HAS_DEPENDENTS" }` |
+
+---
+
+## Academic year módulo selection (Año académico screen)
+
+### GET /api/academic-years/:id/modules
+
+**Description**: Lists the modules this teacher has assigned to this academic year (across
+every cycle), each including its `catalogTrainingCycleId`/`course`/`name` (joined from
+`catalog_modules`) so the frontend can derive `training-cycle-table`'s normal-mode list and
+group `module-table` by curso without a second round trip.
+**Elements**: `training-cycle-table`, `module-table`
+
+#### Request
+- **Params**: `{ id: string }`
+
+#### Response 200
+```json
+{
+  "modules": [
+    {
+      "id": "uuid",
+      "catalogModuleId": "uuid",
+      "catalogTrainingCycleId": "uuid",
+      "catalogTrainingCycleName": "Desarrollo de Aplicaciones Web",
+      "course": 1,
+      "name": "Programación"
+    }
+  ]
+}
+```
+
+#### Errors
+| Code | Condition |
+|------|-----------|
+| 404 | `id` doesn't match an academic year owned by this teacher |
+
+---
+
+### POST /api/academic-years/selection
+
+**Description**: Creates a brand-new academic year and its initial cycle/módulo selection
+in one request — what `module-selection-save-button` calls in **new-year mode**, entered via
+`academic-year-table-add-button` (UC-06's A4). `moduleIds` may be empty (a year with nothing
+assigned yet is valid).
+**Elements**: `academic-year-table-add-button`, `module-selection-table`,
+`module-selection-save-button`, `module-selection-save-message`, `academic-year-toast`
+
+#### Request
+- **Body**: `{ startYear: number, moduleIds: string[] }` — `moduleIds` are `catalog_modules.id`
+  values.
+
+#### Response 201
+```json
+{ "academicYear": { "id": "uuid", "startYear": 2026, "isCurrent": false }, "moduleCount": 3 }
+```
+
+#### Errors
+| Code | Condition |
+|------|-----------|
+| 400 | `startYear` missing/not an integer, or `moduleIds` not an array of strings |
+| 404 | Some `moduleIds` entry doesn't match an existing `catalog_modules` row |
+| 409 | `startYear` already exists for this teacher. Body: `{ "message": "...", "code": "DUPLICATE_NAME" }` |
+
+---
+
+### POST /api/academic-years/:id/modules
+
+**Description**: Adds more módulos to an already-existing academic year — what
+`module-selection-save-button` calls in **extend-existing mode**, entered via
+`training-cycle-table-add-cycle-button`. Never touches `startYear`/`isCurrent`. `moduleIds`
+already assigned to this year are silently ignored (no error, no duplicate row) rather than
+rejected — the frontend pre-checks and disables them so they're normally not resent at all,
+but the backend doesn't rely on that.
+**Elements**: `training-cycle-table-add-cycle-button`, `module-selection-table`,
+`module-selection-save-button`, `module-selection-save-message`
+
+#### Request
+- **Params**: `{ id: string }`
+- **Body**: `{ moduleIds: string[] }` — `catalog_modules.id` values.
+
+#### Response 200
+```json
+{ "addedCount": 2 }
+```
+
+#### Errors
+| Code | Condition |
+|------|-----------|
+| 400 | `moduleIds` missing or not an array of strings |
+| 404 | `id` doesn't match an academic year owned by this teacher, or some `moduleIds` entry doesn't match an existing `catalog_modules` row |
+
+---
+
+### DELETE /api/academic-year-modules/:id
+
+**Description**: Un-assigns one módulo from an academic year (`module-table`'s row-level
+Quitar). Deletes only the `academic_year_modules` row — never the underlying
+`catalog_modules` row.
+**Elements**: `module-table`
+
+#### Request
+- **Params**: `{ id: string }` — the `academic_year_modules` row id.
+
+#### Response 204
+No body.
+
+#### Errors
+| Code | Condition |
+|------|-----------|
+| 404 | `id` doesn't match an `academic_year_modules` row owned (via its academic year) by this teacher |
