@@ -7,7 +7,7 @@
 | Agent execution | Claude Code — slash commands point to a role file in `lib/agents/*/*.md` |
 | Coordination | Orchestrator agent (`lib/agents/orchestrator/`) |
 | Artifact storage | Local filesystem (`views/`, `src/`) |
-| Application database | PostgreSQL 16, real and live — `DATABASE_URL` pending configuration |
+| Application database | PostgreSQL 16, real and live — `DATABASE_URL` configured |
 | Postgres client | `Bun.SQL` native driver — no `pg`/node-postgres, no ORM |
 | Backend | Bun + Express 5 + TypeScript |
 | Pipeline artifact validation | Zod (`lib/schemas/`) |
@@ -64,8 +64,10 @@ scripts/
 
 .claude/commands/  # one-line pointers to lib/agents/*/*.md
 .claude/agents/    # Task-tool subagent defs — only backend-implementer + frontend-implementer, for genuine parallel dispatch (see Pipeline)
+cli/commands/      # commit.md — the /commit slash command's role file (not a pipeline agent)
 tecnologias/       # detailed stack decisions per layer
 docs/              # this documentation (MkDocs)
+.github/workflows/ # ci-setup output (on-demand) — ci.yml, e2e.yml, deploy-docs.yml
 cypress.config.ts  # e2e-engineer output (first use)
 tailwind.config.js # e2e-engineer output (first use)
 ```
