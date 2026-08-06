@@ -74,17 +74,17 @@ describe('UC-05: Manage modules within a catalog training cycle', () => {
   });
 
   it('A1: shows a prompt and disables adding modules when no cycle is selected', () => {
-    // Delete every existing cycle so no cycle can be auto-selected on load (cascade removes
-    // their modules too, assuming none is assigned to an academic year — see the
-    // 2026-08-06 fix for #4; not expected in this dev-only e2e fixture set).
-    cy.request('GET', '/api/catalog/training-cycles').then(({ body }) => {
-      const existingCycles = (body as { trainingCycles: Array<{ id: string }> }).trainingCycles;
-      existingCycles.forEach((cycle) => {
-        cy.request('DELETE', `/api/catalog/training-cycles/${cycle.id}`);
-      });
-    });
-
+    // Stubs GET /api/catalog/training-cycles to an empty list instead of deleting every
+    // real cycle (2026-08-05..2026-08-06 approach, see #6): this test only exercises
+    // training-catalog-settings-view's empty-state rendering branch, not real backend
+    // deletion, so it doesn't need a genuinely empty database — and the old
+    // destructive approach could leave the real BOC curriculum catalog half-wiped whenever
+    // any cycle had a módulo assigned to an academic year (409 HAS_DEPENDENTS, see #4),
+    // since `cy.request`'s default `failOnStatusCode: true` aborted the delete loop early.
+    cy.intercept('GET', '/api/catalog/training-cycles', { statusCode: 200, body: { trainingCycles: [] } }).as('emptyCatalog');
     cy.reload();
+    cy.wait('@emptyCatalog');
+
     cy.get('[data-element-id="catalog-module-table"]').should('contain.text', 'Elige o crea un ciclo para ver sus módulos.');
     cy.get('[data-element-id="catalog-module-table-add-button"]').should('be.disabled');
   });
