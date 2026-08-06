@@ -1,42 +1,50 @@
-// Frontend-side contract for `academic-year-table`/`module-selection-table` (Año académico
-// screen), consumed by `academic-year-settings-view.ts`. This file only declares the shape
-// the component depends on (DIP).
+// Frontend-side contract for `academic-year-table`/`training-cycle-table`/`module-table`/
+// `module-selection-table` (Año académico screen), consumed by
+// `academic-year-settings-view.ts`. This file only declares the shape the component
+// depends on (DIP); the real HTTP client lives in `http-academic-year-api-service.ts`,
+// assembled at bootstrap in `main.ts`.
 //
-// **2026-08-04 redesign**: this screen has no backend in this pass — its former endpoints
-// (`/api/academic-years`, `/api/academic-years/:id/modules`) and tables were dropped (see
-// views/configuracion/functional-spec.json's "NOT WIRED" elementSpecs). The concrete
-// implementation wired at bootstrap in `main.ts` is now `local-academic-year-api-service.ts`,
-// an in-memory-only stub — the old `http-academic-year-api-service.ts` was removed.
-import type { DeleteCurrentBlockedResult, WriteResult } from './api-outcomes';
-import type { TrainingCycle } from './training-cycle-api-service';
-import type { ModuleRecord } from './module-api-service';
+// Real backend as of the 2026-08-05 redesign — see
+// views/configuracion/api-contracts.md's "Academic years"/"Academic year módulo selection"
+// sections. `academic_years`/`academic_year_modules` rows are scoped per teacher. The
+// cycle/módulo picker in adding mode reuses `CatalogTrainingCycleApiService`/
+// `CatalogModuleApiService` (catalog-training-cycle-api-service.ts, catalog-module-api-
+// service.ts) as-is — no duplicate catalog-browsing service here.
+import type {
+  CreateSelectionResult,
+  DeleteHasDependentsResult,
+  DeleteResult,
+  ExtendSelectionResult,
+  WriteResult,
+} from './api-outcomes';
 
 export interface AcademicYear {
   id: string;
-  name: string;
+  startYear: number;
   isCurrent: boolean;
 }
 
-export type ReplaceSelectionResult = { outcome: 'success' } | { outcome: 'not-found' };
+/**
+ * One of the signed-in teacher's módulos assigned to an academic year — joined with its
+ * catalog cycle/módulo info so the frontend can derive `training-cycle-table`'s normal-mode
+ * list and group `module-table` by curso without a second round trip (see
+ * `GET /api/academic-years/:id/modules`).
+ */
+export interface AcademicYearModuleDetail {
+  id: string;
+  catalogModuleId: string;
+  catalogTrainingCycleId: string;
+  catalogTrainingCycleName: string;
+  course: number;
+  name: string;
+}
 
 export interface AcademicYearApiService {
   list(): Promise<AcademicYear[]>;
-  create(name: string): Promise<WriteResult<AcademicYear>>;
-  rename(id: string, name: string): Promise<WriteResult<AcademicYear>>;
-  setCurrent(id: string): Promise<WriteResult<AcademicYear>>;
-  remove(id: string): Promise<DeleteCurrentBlockedResult>;
-  getSelection(id: string): Promise<string[]>;
-  replaceSelection(id: string, moduleIds: string[]): Promise<ReplaceSelectionResult>;
-  /**
-   * Normal-mode `training-cycle-table`: only the cycles with >=1 module currently selected
-   * for this academic year (see views/configuracion/api-contracts.md's
-   * `GET /api/academic-years/:id/training-cycles`).
-   */
-  listTrainingCyclesForYear(id: string): Promise<TrainingCycle[]>;
-  /**
-   * Normal-mode `module-table`: the modules of one training cycle that are also selected
-   * for this academic year (see views/configuracion/api-contracts.md's
-   * `GET /api/academic-years/:id/training-cycles/:cycleId/modules`).
-   */
-  listModulesForYearAndCycle(id: string, cycleId: string): Promise<ModuleRecord[]>;
+  update(id: string, changes: { startYear?: number; isCurrent?: boolean }): Promise<WriteResult<AcademicYear>>;
+  remove(id: string): Promise<DeleteHasDependentsResult>;
+  listModules(id: string): Promise<AcademicYearModuleDetail[]>;
+  createWithSelection(startYear: number, moduleIds: string[]): Promise<CreateSelectionResult>;
+  extendSelection(id: string, moduleIds: string[]): Promise<ExtendSelectionResult>;
+  removeModule(academicYearModuleId: string): Promise<DeleteResult>;
 }

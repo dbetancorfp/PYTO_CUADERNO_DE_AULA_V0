@@ -1,106 +1,142 @@
 /// <reference types="cypress" />
-// UC-07: Manage training cycles (local state — not wired)
+// UC-07: Pick training cycles for an academic year
 //
-// Rewritten 2026-08-04 — see UC-06's header comment for the redesign context shared by this
-// whole screen. `training-cycle-table` shows two different local-state views depending on
-// mode: normal mode filters to cycles with >=1 module selected for the active academic
-// year; adding-year/adding-cycle mode shows the complete local-state cycle list. This file
-// proves that distinction, plus the local-state dependency-blocked deletion.
+// Rewritten 2026-08-06 for the 2026-08-05 backend redesign. Cycles come exclusively from
+// the shared, global `catalog_cycles` table (UC-04) — this UC is only about which of them a
+// teacher picks for a given year. Closes two gaps `reviewer` flagged as real but untested at
+// the unit level (see views/configuracion/review-report.md "Criteria without verifiable
+// coverage"): extend-mode pre-checking/disabling already-assigned módulos, and unchecking a
+// cycle discarding its checked módulos — both need a real DOM + real backend to prove.
 
-import { signInAsE2eUser, uniqueAcademicYearName } from './support/sign-in';
+import { signInAsE2eUser, uniqueStartYear } from './support/sign-in';
 
-function rowIdFrom(tableId: string, elementId: string): string {
-  return elementId.slice(`${tableId}-row-`.length);
+interface CatalogCycle {
+  id: string;
+}
+interface CatalogModule {
+  id: string;
+}
+interface AcademicYear {
+  id: string;
 }
 
-/** Builds, through the UI only, one committed academic year with one training cycle and
- * one module selected for it, ending back in normal mode. Yields the cycle's local-state
- * id. Shared by both tests below — see UC-06's main-flow test for the same base pattern. */
-function buildYearWithOneCycleAndModule(yearName: string, yearTag: string): Cypress.Chainable<string> {
-  const cycleName = `E2E Cycle ${yearTag} ${Date.now()}`;
-  const moduleName = `E2E Module ${yearTag} ${Date.now()}`;
-
-  cy.get('[data-element-id="academic-year-table-add-button"]').click();
-  cy.get('[data-element-id="academic-year-table-row-new-name"]').type(yearName);
-  cy.get('[data-element-id="training-cycle-table-add-button"]').click();
-  cy.get('[data-element-id="training-cycle-table-row-new-name"]').type(cycleName);
-  cy.get('[data-element-id="training-cycle-table-row-new-save"]').click();
-
-  return cy
-    .contains('[data-element-id^="training-cycle-table-row-"]', cycleName)
-    .invoke('attr', 'data-element-id')
-    .then((cycleElementId) => {
-      const cycleId = rowIdFrom('training-cycle-table', cycleElementId as string);
-      cy.get(`[data-element-id="training-cycle-table-row-${cycleId}"]`).click();
-      cy.get('[data-element-id="module-selection-add-button"]').click();
-      cy.get('[data-element-id="module-selection-table-row-new-name"]').type(moduleName);
-      cy.get('[data-element-id="module-selection-table-row-new-course"]').select('1');
-      cy.get('[data-element-id="module-selection-table-row-new-save"]').click();
-      cy.get('[data-element-id="module-selection-save-button"]').click();
-      cy.get('[data-element-id="module-selection-save-message"]').should('contain.text', 'guardados');
-      return cy.wrap(cycleId);
-    });
-}
-
-describe('UC-07: Manage training cycles', () => {
+describe('UC-07: Pick training cycles for an academic year', () => {
   beforeEach(() => {
     signInAsE2eUser();
-    cy.intercept('/api/academic-years**').as('yearApi');
-    cy.intercept('/api/training-cycles**').as('cycleApi');
-    cy.intercept('/api/modules**').as('moduleApi');
-    cy.visit('/configuracion/ano-academico');
   });
 
-  it('normal mode filters to referenced cycles only; adding a new cycle switches to the complete list', () => {
-    const cycle2Name = `E2E Decoy Cycle ${Date.now()}`;
-    const yearName = uniqueAcademicYearName('AY-Cyc');
+  it('normal mode filters to assigned cycles only; extending pre-checks and disables already-assigned módulos', () => {
+    const cycleAName = `E2E UC07 Cycle A ${Date.now()}`;
+    const cycleBName = `E2E UC07 Cycle B ${Date.now()}`;
+    const moduleA1Name = `E2E UC07 Module A1 ${Date.now()}`;
+    const moduleA2Name = `E2E UC07 Module A2 ${Date.now()}`;
 
-    buildYearWithOneCycleAndModule(yearName, 'AY-Cyc').then((cycle1Id) => {
-      // Normal mode: training-cycle-table shows only cycle 1 (it has a selected module).
-      cy.get(`[data-element-id="training-cycle-table-row-${cycle1Id}"]`).should('exist');
-      cy.get('[data-element-id="training-cycle-table"]').find('tbody tr[data-element-id]').should('have.length', 1);
+    cy.request('POST', '/api/catalog/training-cycles', { name: cycleAName }).then(({ body: cycleABody }) => {
+      const cycleAId = (cycleABody as CatalogCycle).id;
+      cy.request('POST', `/api/catalog/training-cycles/${cycleAId}/modules`, { name: moduleA1Name, course: 1 }).then(({ body: moduleA1Body }) => {
+        const moduleA1Id = (moduleA1Body as CatalogModule).id;
+        cy.request('POST', `/api/catalog/training-cycles/${cycleAId}/modules`, { name: moduleA2Name, course: 2 }).then(({ body: moduleA2Body }) => {
+          const moduleA2Id = (moduleA2Body as CatalogModule).id;
+          cy.request('POST', '/api/catalog/training-cycles', { name: cycleBName }).then(({ body: cycleBBody }) => {
+            const cycleBId = (cycleBBody as CatalogCycle).id;
 
-      // Adding a second, decoy cycle from normal mode switches into adding-cycle mode —
-      // the complete, unfiltered list now shows both cycles, proving the filter really is
-      // lifted (cycle 2 has zero modules selected, so normal mode alone would hide it).
-      cy.get('[data-element-id="training-cycle-table-add-button"]').click();
-      cy.get('[data-element-id="training-cycle-table-row-new-name"]').type(cycle2Name);
-      cy.get('[data-element-id="training-cycle-table-row-new-save"]').click();
+            // Year starts with only módulo A1 (course 1) assigned — módulo A2 and cycle B are not.
+            cy.request('POST', '/api/academic-years/selection', { startYear: uniqueStartYear(), moduleIds: [moduleA1Id] }).then(({ body }) => {
+              const year = (body as { academicYear: AcademicYear }).academicYear;
+              cy.visit('/configuracion/ano-academico');
 
-      cy.get(`[data-element-id="training-cycle-table-row-${cycle1Id}"]`).should('exist');
-      cy.contains('[data-element-id^="training-cycle-table-row-"]', cycle2Name).should('exist');
-      cy.get('[data-element-id="module-table"]').should('not.exist');
-      cy.get('[data-element-id="module-selection-table"]').should('exist');
+              cy.get(`[data-element-id="academic-year-table-row-${year.id}"]`).click('left');
 
-      // Re-selecting the already-active academic year row returns to normal mode,
-      // discarding the in-progress adding-cycle draft — cycle 2 (never given a selected
-      // module) disappears from the now-filtered list again. Clicked via its Nombre cell
-      // specifically, not the whole <tr>: Cypress clicks the row's bounding-box center,
-      // which on this row lands on the wide "Marcar en curso" button rather than plain
-      // row background, firing set-current instead of row-select.
-      cy.contains('[data-element-id^="academic-year-table-row-"]', yearName).find('td').first().click();
-      cy.get(`[data-element-id="training-cycle-table-row-${cycle1Id}"]`).should('exist');
-      cy.contains('[data-element-id^="training-cycle-table-row-"]', cycle2Name).should('not.exist');
-      cy.get('[data-element-id="module-table"]').should('exist');
-      cy.get('[data-element-id="module-selection-table"]').should('not.exist');
+              // UC-07 criterion: normal mode shows only cycles with >=1 assigned módulo.
+              cy.get(`[data-element-id="training-cycle-table-row-${cycleAId}"]`).should('exist');
+              cy.get(`[data-element-id="training-cycle-table-row-${cycleBId}"]`).should('not.exist');
+
+              // Enter extend mode via UC-06 A6.
+              cy.get('[data-element-id="training-cycle-table-add-cycle-button"]').click();
+              cy.get(`[data-element-id="training-cycle-table-row-${cycleAId}-checkbox"]`).should('exist');
+              cy.get(`[data-element-id="training-cycle-table-row-${cycleBId}-checkbox"]`).should('exist');
+
+              cy.get(`[data-element-id="training-cycle-table-row-${cycleAId}-checkbox"]`).click();
+
+              // Already-assigned módulo A1 loads pre-checked and disabled; A2 loads unchecked and enabled.
+              cy.get(`[data-element-id="module-selection-table-row-${moduleA1Id}-checkbox"]`)
+                .should('be.checked')
+                .and('be.disabled');
+              cy.get(`[data-element-id="module-selection-table-row-${moduleA2Id}-checkbox"]`)
+                .should('not.be.checked')
+                .and('not.be.disabled');
+
+              // Cleanup: no save happened, so only the year's original assignment + the year itself remain.
+              cy.request('GET', `/api/academic-years/${year.id}/modules`).then(({ body: modulesBody }) => {
+                const assignmentId = (modulesBody as { modules: { id: string }[] }).modules[0]!.id;
+                cy.request('DELETE', `/api/academic-year-modules/${assignmentId}`);
+                cy.request('DELETE', `/api/academic-years/${year.id}`);
+                cy.request('DELETE', `/api/catalog/training-cycles/${cycleAId}`);
+                cy.request('DELETE', `/api/catalog/training-cycles/${cycleBId}`);
+              });
+            });
+          });
+        });
+      });
     });
-
-    cy.get('@yearApi.all').should('have.length', 0);
-    cy.get('@cycleApi.all').should('have.length', 0);
-    cy.get('@moduleApi.all').should('have.length', 0);
   });
 
-  it('A2: rejects deleting a cycle whose module is referenced by the active academic year, naming it', () => {
-    const yearName = uniqueAcademicYearName('AY-Block');
+  it('A1: unchecking a cycle in adding mode discards its checked módulos, and extending saves and returns to normal mode with the year selected', () => {
+    const cycleAName = `E2E UC07alt Cycle A ${Date.now()}`;
+    const cycleBName = `E2E UC07alt Cycle B ${Date.now()}`;
+    const moduleAName = `E2E UC07alt Module A ${Date.now()}`;
+    const moduleBName = `E2E UC07alt Module B ${Date.now()}`;
 
-    buildYearWithOneCycleAndModule(yearName, 'AY-Block').then((cycleId) => {
-      cy.get(`[data-element-id="training-cycle-table-row-${cycleId}-delete"]`).click();
-      cy.get('[data-element-id="training-cycle-delete-blocked-message"]').should('be.visible').and('contain.text', yearName);
-      cy.get(`[data-element-id="training-cycle-table-row-${cycleId}"]`).should('exist');
+    cy.request('POST', '/api/catalog/training-cycles', { name: cycleAName }).then(({ body: cycleABody }) => {
+      const cycleAId = (cycleABody as CatalogCycle).id;
+      cy.request('POST', `/api/catalog/training-cycles/${cycleAId}/modules`, { name: moduleAName, course: 1 }).then(({ body: moduleABody }) => {
+        const moduleAId = (moduleABody as CatalogModule).id;
+        cy.request('POST', '/api/catalog/training-cycles', { name: cycleBName }).then(({ body: cycleBBody }) => {
+          const cycleBId = (cycleBBody as CatalogCycle).id;
+          cy.request('POST', `/api/catalog/training-cycles/${cycleBId}/modules`, { name: moduleBName, course: 1 }).then(({ body: moduleBBody }) => {
+            const moduleBId = (moduleBBody as CatalogModule).id;
+
+            cy.request('POST', '/api/academic-years/selection', { startYear: uniqueStartYear(), moduleIds: [] }).then(({ body }) => {
+              const year = (body as { academicYear: AcademicYear }).academicYear;
+              cy.visit('/configuracion/ano-academico');
+
+              cy.get(`[data-element-id="academic-year-table-row-${year.id}"]`).click('left');
+              cy.get('[data-element-id="training-cycle-table-add-cycle-button"]').click();
+
+              cy.get(`[data-element-id="training-cycle-table-row-${cycleAId}-checkbox"]`).click();
+              cy.get(`[data-element-id="training-cycle-table-row-${cycleBId}-checkbox"]`).click();
+              cy.get(`[data-element-id="module-selection-table-row-${moduleBId}-checkbox"]`).click();
+
+              // A1 — unchecking cycle B discards its checked módulo from the in-progress selection.
+              cy.get(`[data-element-id="training-cycle-table-row-${cycleBId}-checkbox"]`).click();
+              cy.get(`[data-element-id="module-selection-table-row-${moduleBId}-checkbox"]`).should('not.exist');
+
+              cy.get(`[data-element-id="module-selection-table-row-${moduleAId}-checkbox"]`).click();
+
+              cy.intercept('POST', `/api/academic-years/${year.id}/modules`).as('extend');
+              cy.get('[data-element-id="module-selection-save-button"]').click();
+              cy.wait('@extend').then(({ response }) => {
+                expect(response?.statusCode).to.eq(200);
+                expect((response?.body as { addedCount: number }).addedCount).to.eq(1);
+              });
+
+              cy.get('[data-element-id="module-selection-save-message"]').should('contain.text', 'Selección de módulos guardada');
+              cy.get('[data-element-id="module-selection-table"]').should('not.exist');
+              cy.get(`[data-element-id="academic-year-table-row-${year.id}"]`).should('have.class', 'bg-slate-100');
+              cy.contains('[data-element-id="training-cycle-table"]', cycleAName).should('exist');
+              cy.contains('[data-element-id="training-cycle-table"]', cycleBName).should('not.exist');
+
+              cy.request('GET', `/api/academic-years/${year.id}/modules`).then(({ body: modulesBody }) => {
+                const assignmentId = (modulesBody as { modules: { id: string }[] }).modules[0]!.id;
+                cy.request('DELETE', `/api/academic-year-modules/${assignmentId}`);
+                cy.request('DELETE', `/api/academic-years/${year.id}`);
+                cy.request('DELETE', `/api/catalog/training-cycles/${cycleAId}`);
+                cy.request('DELETE', `/api/catalog/training-cycles/${cycleBId}`);
+              });
+            });
+          });
+        });
+      });
     });
-
-    cy.get('@yearApi.all').should('have.length', 0);
-    cy.get('@cycleApi.all').should('have.length', 0);
-    cy.get('@moduleApi.all').should('have.length', 0);
   });
 });

@@ -4,14 +4,16 @@
   "generated_at": "2026-08-04T20:20:00.000Z",
   "agent": "view-designer",
   "model": "claude-sonnet-5",
-  "total_elements": 30,
+  "total_elements": 33,
   "screens": [
     {
       "screen_id": "teacher-settings-screen",
       "screen_name": "Configuración — Profesor",
       "file": "teacher-settings-view.ts",
       "route": "/configuracion/profesor",
-      "role_guard": ["authenticated"],
+      "role_guard": [
+        "authenticated"
+      ],
       "element_ids": [
         "back-to-dashboard-link",
         "teacher-nav-link",
@@ -26,7 +28,9 @@
         "teacher-save-password-button",
         "teacher-password-save-message"
       ],
-      "data_needs": ["users"],
+      "data_needs": [
+        "users"
+      ],
       "notes": "Own top-level custom element (app-teacher-settings-view), not nested inside anything — CLAUDE.md's 'no nested Shadow DOM' rule. Unaffected by the 2026-08-04 redesign except its shared nav (three links now, see the other two screens' notes). Reached from Dashboard's settings-menu, which today is a disabled placeholder — making it link here is a small reopen of the Dashboard view, same pattern as Login's session-gap reopen. Shared nav markup produced by one plain function called by all three screens, never a nested custom element.",
       "components": [
         {
@@ -35,10 +39,20 @@
           "label": "Volver",
           "props": {},
           "states": [
-            { "name": "default", "description": "Always visible on all three settings screens", "visual_cues": ["plain link styling"] }
+            {
+              "name": "default",
+              "description": "Always visible on all three settings screens",
+              "visual_cues": [
+                "plain link styling"
+              ]
+            }
           ],
           "interactions": [
-            { "trigger": "click", "event": "app:back-to-dashboard-clicked", "response": "Navigates to /dashboard" }
+            {
+              "trigger": "click",
+              "event": "app:back-to-dashboard-clicked",
+              "response": "Navigates to /dashboard"
+            }
           ]
         },
         {
@@ -47,11 +61,29 @@
           "label": "Profesor",
           "props": {},
           "states": [
-            { "name": "active", "description": "Current screen is this one", "visual_cues": ["highlighted/underlined"], "condition": "route is /configuracion/profesor" },
-            { "name": "inactive", "description": "Current screen is one of the other two", "visual_cues": ["plain link styling"], "condition": "route is /configuracion/ciclos-modulos or /configuracion/ano-academico" }
+            {
+              "name": "active",
+              "description": "Current screen is this one",
+              "visual_cues": [
+                "highlighted/underlined"
+              ],
+              "condition": "route is /configuracion/profesor"
+            },
+            {
+              "name": "inactive",
+              "description": "Current screen is one of the other two",
+              "visual_cues": [
+                "plain link styling"
+              ],
+              "condition": "route is /configuracion/ciclos-modulos or /configuracion/ano-academico"
+            }
           ],
           "interactions": [
-            { "trigger": "click", "event": "app:settings-nav-clicked", "response": "Navigates to /configuracion/profesor (no-op if already there)" }
+            {
+              "trigger": "click",
+              "event": "app:settings-nav-clicked",
+              "response": "Navigates to /configuracion/profesor (no-op if already there)"
+            }
           ]
         },
         {
@@ -60,11 +92,29 @@
           "label": "Ciclos/Módulos",
           "props": {},
           "states": [
-            { "name": "active", "description": "Current screen is this one", "visual_cues": ["highlighted/underlined"], "condition": "route is /configuracion/ciclos-modulos" },
-            { "name": "inactive", "description": "Current screen is one of the other two", "visual_cues": ["plain link styling"], "condition": "route is /configuracion/profesor or /configuracion/ano-academico" }
+            {
+              "name": "active",
+              "description": "Current screen is this one",
+              "visual_cues": [
+                "highlighted/underlined"
+              ],
+              "condition": "route is /configuracion/ciclos-modulos"
+            },
+            {
+              "name": "inactive",
+              "description": "Current screen is one of the other two",
+              "visual_cues": [
+                "plain link styling"
+              ],
+              "condition": "route is /configuracion/profesor or /configuracion/ano-academico"
+            }
           ],
           "interactions": [
-            { "trigger": "click", "event": "app:settings-nav-clicked", "response": "Navigates to /configuracion/ciclos-modulos (no-op if already there)" }
+            {
+              "trigger": "click",
+              "event": "app:settings-nav-clicked",
+              "response": "Navigates to /configuracion/ciclos-modulos (no-op if already there)"
+            }
           ]
         },
         {
@@ -73,38 +123,103 @@
           "label": "Año académico",
           "props": {},
           "states": [
-            { "name": "active", "description": "Current screen is this one", "visual_cues": ["highlighted/underlined"], "condition": "route is /configuracion/ano-academico" },
-            { "name": "inactive", "description": "Current screen is one of the other two", "visual_cues": ["plain link styling"], "condition": "route is /configuracion/profesor or /configuracion/ciclos-modulos" }
+            {
+              "name": "active",
+              "description": "Current screen is this one",
+              "visual_cues": [
+                "highlighted/underlined"
+              ],
+              "condition": "route is /configuracion/ano-academico"
+            },
+            {
+              "name": "inactive",
+              "description": "Current screen is one of the other two",
+              "visual_cues": [
+                "plain link styling"
+              ],
+              "condition": "route is /configuracion/profesor or /configuracion/ciclos-modulos"
+            }
           ],
           "interactions": [
-            { "trigger": "click", "event": "app:settings-nav-clicked", "response": "Navigates to /configuracion/ano-academico (no-op if already there)" }
+            {
+              "trigger": "click",
+              "event": "app:settings-nav-clicked",
+              "response": "Navigates to /configuracion/ano-academico (no-op if already there)"
+            }
           ]
         },
         {
           "elementId": "teacher-full-name-input",
           "type": "text-input",
           "label": "Nombre",
-          "props": { "placeholder": "Nombre completo", "size": "md" },
+          "props": {
+            "placeholder": "Nombre completo",
+            "size": "md"
+          },
           "states": [
-            { "name": "default", "description": "Pre-filled with the signed-in teacher's current full_name", "visual_cues": ["neutral border"] },
-            { "name": "invalid", "description": "Empty at submit time", "visual_cues": ["red border", "inline error"], "condition": "submit attempted while empty" }
+            {
+              "name": "default",
+              "description": "Pre-filled with the signed-in teacher's current full_name",
+              "visual_cues": [
+                "neutral border"
+              ]
+            },
+            {
+              "name": "invalid",
+              "description": "Empty at submit time",
+              "visual_cues": [
+                "red border",
+                "inline error"
+              ],
+              "condition": "submit attempted while empty"
+            }
           ],
           "interactions": [
-            { "trigger": "input", "event": "app:teacher-full-name-changed", "response": "Updates the internal value" }
+            {
+              "trigger": "input",
+              "event": "app:teacher-full-name-changed",
+              "response": "Updates the internal value"
+            }
           ],
-          "validation": [{ "rule": "required", "message": "El nombre es obligatorio" }]
+          "validation": [
+            {
+              "rule": "required",
+              "message": "El nombre es obligatorio"
+            }
+          ]
         },
         {
           "elementId": "teacher-save-name-button",
           "type": "submit-button",
           "label": "Guardar nombre",
-          "props": { "variant": "primary", "size": "md" },
+          "props": {
+            "variant": "primary",
+            "size": "md"
+          },
           "states": [
-            { "name": "default", "description": "Enabled", "visual_cues": ["solid primary color"] },
-            { "name": "loading", "description": "Request in flight", "visual_cues": ["loading indicator", "disabled"], "condition": "save request sent, no response yet" }
+            {
+              "name": "default",
+              "description": "Enabled",
+              "visual_cues": [
+                "solid primary color"
+              ]
+            },
+            {
+              "name": "loading",
+              "description": "Request in flight",
+              "visual_cues": [
+                "loading indicator",
+                "disabled"
+              ],
+              "condition": "save request sent, no response yet"
+            }
           ],
           "interactions": [
-            { "trigger": "click", "event": "app:teacher-name-save-submitted", "response": "Validates teacher-full-name-input is non-empty, then PATCHes the teacher's full_name" }
+            {
+              "trigger": "click",
+              "event": "app:teacher-name-save-submitted",
+              "response": "Validates teacher-full-name-input is non-empty, then PATCHes the teacher's full_name"
+            }
           ]
         },
         {
@@ -113,69 +228,194 @@
           "label": "Resultado guardar nombre",
           "props": {},
           "states": [
-            { "name": "hidden", "description": "No result to show yet", "visual_cues": ["not rendered"] },
-            { "name": "success", "description": "Name saved", "visual_cues": ["green text"], "condition": "save succeeded" },
-            { "name": "error", "description": "Save failed", "visual_cues": ["red text"], "condition": "save failed" }
+            {
+              "name": "hidden",
+              "description": "No result to show yet",
+              "visual_cues": [
+                "not rendered"
+              ]
+            },
+            {
+              "name": "success",
+              "description": "Name saved",
+              "visual_cues": [
+                "green text"
+              ],
+              "condition": "save succeeded"
+            },
+            {
+              "name": "error",
+              "description": "Save failed",
+              "visual_cues": [
+                "red text"
+              ],
+              "condition": "save failed"
+            }
           ],
           "interactions": [],
-          "accessibility": { "aria_live": "polite" }
+          "accessibility": {
+            "aria_live": "polite"
+          }
         },
         {
           "elementId": "teacher-current-password-input",
           "type": "password-input",
           "label": "Contraseña actual",
-          "props": { "placeholder": "Contraseña actual", "size": "md" },
+          "props": {
+            "placeholder": "Contraseña actual",
+            "size": "md"
+          },
           "states": [
-            { "name": "default", "description": "Empty or filled, masked", "visual_cues": ["neutral border color", "masked characters"] },
-            { "name": "invalid", "description": "Empty at submit time", "visual_cues": ["red border", "inline error"], "condition": "submit attempted while empty" }
+            {
+              "name": "default",
+              "description": "Empty or filled, masked",
+              "visual_cues": [
+                "neutral border color",
+                "masked characters"
+              ]
+            },
+            {
+              "name": "invalid",
+              "description": "Empty at submit time",
+              "visual_cues": [
+                "red border",
+                "inline error"
+              ],
+              "condition": "submit attempted while empty"
+            }
           ],
           "interactions": [
-            { "trigger": "input", "event": "app:teacher-current-password-changed", "response": "Updates the internal value" }
+            {
+              "trigger": "input",
+              "event": "app:teacher-current-password-changed",
+              "response": "Updates the internal value"
+            }
           ],
-          "validation": [{ "rule": "required", "message": "Introduce tu contraseña actual" }]
+          "validation": [
+            {
+              "rule": "required",
+              "message": "Introduce tu contraseña actual"
+            }
+          ]
         },
         {
           "elementId": "teacher-new-password-input",
           "type": "password-input",
           "label": "Nueva contraseña",
-          "props": { "placeholder": "Nueva contraseña", "size": "md" },
+          "props": {
+            "placeholder": "Nueva contraseña",
+            "size": "md"
+          },
           "states": [
-            { "name": "default", "description": "Empty or filled, masked", "visual_cues": ["neutral border color", "masked characters"] },
-            { "name": "invalid", "description": "Empty at submit time", "visual_cues": ["red border", "inline error"], "condition": "submit attempted while empty" }
+            {
+              "name": "default",
+              "description": "Empty or filled, masked",
+              "visual_cues": [
+                "neutral border color",
+                "masked characters"
+              ]
+            },
+            {
+              "name": "invalid",
+              "description": "Empty at submit time",
+              "visual_cues": [
+                "red border",
+                "inline error"
+              ],
+              "condition": "submit attempted while empty"
+            }
           ],
           "interactions": [
-            { "trigger": "input", "event": "app:teacher-new-password-changed", "response": "Updates the internal value" }
+            {
+              "trigger": "input",
+              "event": "app:teacher-new-password-changed",
+              "response": "Updates the internal value"
+            }
           ],
-          "validation": [{ "rule": "required", "message": "Introduce la nueva contraseña" }]
+          "validation": [
+            {
+              "rule": "required",
+              "message": "Introduce la nueva contraseña"
+            }
+          ]
         },
         {
           "elementId": "teacher-repeat-password-input",
           "type": "password-input",
           "label": "Repite la nueva contraseña",
-          "props": { "placeholder": "Repite la nueva contraseña", "size": "md" },
+          "props": {
+            "placeholder": "Repite la nueva contraseña",
+            "size": "md"
+          },
           "states": [
-            { "name": "default", "description": "Empty or filled, masked", "visual_cues": ["neutral border color", "masked characters"] },
-            { "name": "invalid", "description": "Empty, or doesn't match teacher-new-password-input, at submit time", "visual_cues": ["red border", "inline error"], "condition": "submit attempted while empty or mismatched" }
+            {
+              "name": "default",
+              "description": "Empty or filled, masked",
+              "visual_cues": [
+                "neutral border color",
+                "masked characters"
+              ]
+            },
+            {
+              "name": "invalid",
+              "description": "Empty, or doesn't match teacher-new-password-input, at submit time",
+              "visual_cues": [
+                "red border",
+                "inline error"
+              ],
+              "condition": "submit attempted while empty or mismatched"
+            }
           ],
           "interactions": [
-            { "trigger": "input", "event": "app:teacher-repeat-password-changed", "response": "Updates the internal value" }
+            {
+              "trigger": "input",
+              "event": "app:teacher-repeat-password-changed",
+              "response": "Updates the internal value"
+            }
           ],
           "validation": [
-            { "rule": "required", "message": "Repite la nueva contraseña" },
-            { "rule": "matches teacher-new-password-input", "message": "Las contraseñas no coinciden" }
+            {
+              "rule": "required",
+              "message": "Repite la nueva contraseña"
+            },
+            {
+              "rule": "matches teacher-new-password-input",
+              "message": "Las contraseñas no coinciden"
+            }
           ]
         },
         {
           "elementId": "teacher-save-password-button",
           "type": "submit-button",
           "label": "Cambiar contraseña",
-          "props": { "variant": "primary", "size": "md" },
+          "props": {
+            "variant": "primary",
+            "size": "md"
+          },
           "states": [
-            { "name": "default", "description": "Enabled", "visual_cues": ["solid primary color"] },
-            { "name": "loading", "description": "Request in flight", "visual_cues": ["loading indicator", "disabled"], "condition": "save request sent, no response yet" }
+            {
+              "name": "default",
+              "description": "Enabled",
+              "visual_cues": [
+                "solid primary color"
+              ]
+            },
+            {
+              "name": "loading",
+              "description": "Request in flight",
+              "visual_cues": [
+                "loading indicator",
+                "disabled"
+              ],
+              "condition": "save request sent, no response yet"
+            }
           ],
           "interactions": [
-            { "trigger": "click", "event": "app:teacher-password-save-submitted", "response": "Validates all 3 password fields client-side (required + repeat matches new), then PATCHes with current+new password" }
+            {
+              "trigger": "click",
+              "event": "app:teacher-password-save-submitted",
+              "response": "Validates all 3 password fields client-side (required + repeat matches new), then PATCHes with current+new password"
+            }
           ]
         },
         {
@@ -184,12 +424,34 @@
           "label": "Resultado cambio contraseña",
           "props": {},
           "states": [
-            { "name": "hidden", "description": "No result to show yet", "visual_cues": ["not rendered"] },
-            { "name": "success", "description": "Password changed", "visual_cues": ["green text"], "condition": "save succeeded" },
-            { "name": "error", "description": "Save failed — e.g. current password didn't match", "visual_cues": ["red text"], "condition": "save failed" }
+            {
+              "name": "hidden",
+              "description": "No result to show yet",
+              "visual_cues": [
+                "not rendered"
+              ]
+            },
+            {
+              "name": "success",
+              "description": "Password changed",
+              "visual_cues": [
+                "green text"
+              ],
+              "condition": "save succeeded"
+            },
+            {
+              "name": "error",
+              "description": "Save failed — e.g. current password didn't match",
+              "visual_cues": [
+                "red text"
+              ],
+              "condition": "save failed"
+            }
           ],
           "interactions": [],
-          "accessibility": { "aria_live": "polite" }
+          "accessibility": {
+            "aria_live": "polite"
+          }
         }
       ]
     },
@@ -198,7 +460,9 @@
       "screen_name": "Configuración — Ciclos/Módulos",
       "file": "training-catalog-settings-view.ts",
       "route": "/configuracion/ciclos-modulos",
-      "role_guard": ["authenticated"],
+      "role_guard": [
+        "authenticated"
+      ],
       "element_ids": [
         "back-to-dashboard-link",
         "teacher-nav-link",
@@ -209,7 +473,10 @@
         "catalog-module-table",
         "catalog-module-table-add-button"
       ],
-      "data_needs": ["catalog_cycles", "catalog_modules"],
+      "data_needs": [
+        "catalog_cycles",
+        "catalog_modules"
+      ],
       "notes": "Own top-level custom element (app-training-catalog-settings-view), sibling to the other two settings screens. **Redesigned 2026-08-04**: owns a brand-new, independent pair of tables (catalog_cycles, catalog_modules) — not the training_cycles/modules pair Año académico used to use (those, plus academic_years/academic_year_modules, were dropped). No FK from any other table into this catalog, so deletion is never dependency-blocked: deleting a cycle cascades to its modules, no confirmation, no blocked-message element needed (unlike the old design's catalog-training-cycle-delete-blocked-message/catalog-module-delete-blocked-message/catalog-module-edit-confirm-modal, all removed — there's nothing left to reference this catalog and block against). Follows lib/patterns/crud-table-component.md: inline editing, master/detail cascade (catalog-training-cycle-table drives catalog-module-table). Seeded once from the BOC PDFs in documentation/ — a one-off data load outside this UI, not a button here.",
       "components": [
         {
@@ -218,10 +485,20 @@
           "label": "Volver",
           "props": {},
           "states": [
-            { "name": "default", "description": "Always visible on all three settings screens", "visual_cues": ["plain link styling"] }
+            {
+              "name": "default",
+              "description": "Always visible on all three settings screens",
+              "visual_cues": [
+                "plain link styling"
+              ]
+            }
           ],
           "interactions": [
-            { "trigger": "click", "event": "app:back-to-dashboard-clicked", "response": "Navigates to /dashboard" }
+            {
+              "trigger": "click",
+              "event": "app:back-to-dashboard-clicked",
+              "response": "Navigates to /dashboard"
+            }
           ]
         },
         {
@@ -230,11 +507,29 @@
           "label": "Profesor",
           "props": {},
           "states": [
-            { "name": "active", "description": "Current screen is this one", "visual_cues": ["highlighted/underlined"], "condition": "route is /configuracion/profesor" },
-            { "name": "inactive", "description": "Current screen is one of the other two", "visual_cues": ["plain link styling"], "condition": "route is /configuracion/ciclos-modulos or /configuracion/ano-academico" }
+            {
+              "name": "active",
+              "description": "Current screen is this one",
+              "visual_cues": [
+                "highlighted/underlined"
+              ],
+              "condition": "route is /configuracion/profesor"
+            },
+            {
+              "name": "inactive",
+              "description": "Current screen is one of the other two",
+              "visual_cues": [
+                "plain link styling"
+              ],
+              "condition": "route is /configuracion/ciclos-modulos or /configuracion/ano-academico"
+            }
           ],
           "interactions": [
-            { "trigger": "click", "event": "app:settings-nav-clicked", "response": "Navigates to /configuracion/profesor (no-op if already there)" }
+            {
+              "trigger": "click",
+              "event": "app:settings-nav-clicked",
+              "response": "Navigates to /configuracion/profesor (no-op if already there)"
+            }
           ]
         },
         {
@@ -243,11 +538,29 @@
           "label": "Ciclos/Módulos",
           "props": {},
           "states": [
-            { "name": "active", "description": "Current screen is this one", "visual_cues": ["highlighted/underlined"], "condition": "route is /configuracion/ciclos-modulos" },
-            { "name": "inactive", "description": "Current screen is one of the other two", "visual_cues": ["plain link styling"], "condition": "route is /configuracion/profesor or /configuracion/ano-academico" }
+            {
+              "name": "active",
+              "description": "Current screen is this one",
+              "visual_cues": [
+                "highlighted/underlined"
+              ],
+              "condition": "route is /configuracion/ciclos-modulos"
+            },
+            {
+              "name": "inactive",
+              "description": "Current screen is one of the other two",
+              "visual_cues": [
+                "plain link styling"
+              ],
+              "condition": "route is /configuracion/profesor or /configuracion/ano-academico"
+            }
           ],
           "interactions": [
-            { "trigger": "click", "event": "app:settings-nav-clicked", "response": "Navigates to /configuracion/ciclos-modulos (no-op if already there)" }
+            {
+              "trigger": "click",
+              "event": "app:settings-nav-clicked",
+              "response": "Navigates to /configuracion/ciclos-modulos (no-op if already there)"
+            }
           ]
         },
         {
@@ -256,60 +569,170 @@
           "label": "Año académico",
           "props": {},
           "states": [
-            { "name": "active", "description": "Current screen is this one", "visual_cues": ["highlighted/underlined"], "condition": "route is /configuracion/ano-academico" },
-            { "name": "inactive", "description": "Current screen is one of the other two", "visual_cues": ["plain link styling"], "condition": "route is /configuracion/profesor or /configuracion/ciclos-modulos" }
+            {
+              "name": "active",
+              "description": "Current screen is this one",
+              "visual_cues": [
+                "highlighted/underlined"
+              ],
+              "condition": "route is /configuracion/ano-academico"
+            },
+            {
+              "name": "inactive",
+              "description": "Current screen is one of the other two",
+              "visual_cues": [
+                "plain link styling"
+              ],
+              "condition": "route is /configuracion/profesor or /configuracion/ciclos-modulos"
+            }
           ],
           "interactions": [
-            { "trigger": "click", "event": "app:settings-nav-clicked", "response": "Navigates to /configuracion/ano-academico (no-op if already there)" }
+            {
+              "trigger": "click",
+              "event": "app:settings-nav-clicked",
+              "response": "Navigates to /configuracion/ano-academico (no-op if already there)"
+            }
           ]
         },
         {
           "elementId": "catalog-training-cycle-table",
           "type": "table",
           "label": "Ciclos",
-          "props": { "columns": ["nombre"], "is_editable": true },
+          "props": {
+            "columns": [
+              "nombre"
+            ],
+            "is_editable": true
+          },
           "states": [
-            { "name": "empty", "description": "No ciclos created yet — prompts to create the first one", "visual_cues": ["empty-state message"] },
-            { "name": "populated", "description": "One row per ciclo the teacher has created; first one selected by default; inline-editable per lib/patterns/crud-table-component.md", "visual_cues": ["table rows", "highlighted background on the selected row"] }
+            {
+              "name": "empty",
+              "description": "No ciclos created yet — prompts to create the first one",
+              "visual_cues": [
+                "empty-state message"
+              ]
+            },
+            {
+              "name": "populated",
+              "description": "One row per ciclo the teacher has created; first one selected by default; inline-editable per lib/patterns/crud-table-component.md",
+              "visual_cues": [
+                "table rows",
+                "highlighted background on the selected row"
+              ]
+            }
           ],
           "interactions": [
-            { "trigger": "click on a row (outside its inline-edit controls)", "event": "app:catalog-training-cycle-selected", "target_elements": ["catalog-module-table"], "response": "Reloads catalog-module-table filtered to this ciclo's módulos" }
+            {
+              "trigger": "click on a row (outside its inline-edit controls)",
+              "event": "app:catalog-training-cycle-selected",
+              "target_elements": [
+                "catalog-module-table"
+              ],
+              "response": "Reloads catalog-module-table filtered to this ciclo's módulos"
+            }
           ]
         },
         {
           "elementId": "catalog-training-cycle-table-add-button",
           "type": "button",
           "label": "Añadir ciclo",
-          "props": { "variant": "secondary", "size": "sm" },
-          "states": [{ "name": "default", "description": "Enabled", "visual_cues": ["secondary button style"] }],
+          "props": {
+            "variant": "secondary",
+            "size": "sm"
+          },
+          "states": [
+            {
+              "name": "default",
+              "description": "Enabled",
+              "visual_cues": [
+                "secondary button style"
+              ]
+            }
+          ],
           "interactions": [
-            { "trigger": "click", "event": "app:catalog-training-cycle-add-clicked", "target_elements": ["catalog-training-cycle-table"], "response": "Inserts a new blank, immediately-editable row into catalog-training-cycle-table, persisted via its own Guardar; saving selects it and reloads catalog-module-table (empty)" }
+            {
+              "trigger": "click",
+              "event": "app:catalog-training-cycle-add-clicked",
+              "target_elements": [
+                "catalog-training-cycle-table"
+              ],
+              "response": "Inserts a new blank, immediately-editable row into catalog-training-cycle-table, persisted via its own Guardar; saving selects it and reloads catalog-module-table (empty)"
+            }
           ]
         },
         {
           "elementId": "catalog-module-table",
           "type": "table",
           "label": "Módulos",
-          "props": { "columns": ["nombre", "curso"], "is_editable": true },
+          "props": {
+            "columns": [
+              "nombre",
+              "curso"
+            ],
+            "is_editable": true
+          },
           "states": [
-            { "name": "no-cycle-selected", "description": "No ciclo selected yet (catalog-training-cycle-table is empty)", "visual_cues": ["prompt to pick/create a ciclo first"] },
-            { "name": "empty", "description": "Selected ciclo has no módulos yet", "visual_cues": ["empty-state message"] },
-            { "name": "populated", "description": "One row per módulo of the selected ciclo, grouped/sorted by curso (1º/2º), inline-editable per lib/patterns/crud-table-component.md", "visual_cues": ["table rows grouped under curso subheaders"] }
+            {
+              "name": "no-cycle-selected",
+              "description": "No ciclo selected yet (catalog-training-cycle-table is empty)",
+              "visual_cues": [
+                "prompt to pick/create a ciclo first"
+              ]
+            },
+            {
+              "name": "empty",
+              "description": "Selected ciclo has no módulos yet",
+              "visual_cues": [
+                "empty-state message"
+              ]
+            },
+            {
+              "name": "populated",
+              "description": "One row per módulo of the selected ciclo, grouped/sorted by curso (1º/2º), inline-editable per lib/patterns/crud-table-component.md",
+              "visual_cues": [
+                "table rows grouped under curso subheaders"
+              ]
+            }
           ],
           "interactions": [],
-          "depends_on": ["catalog-training-cycle-table"]
+          "depends_on": [
+            "catalog-training-cycle-table"
+          ]
         },
         {
           "elementId": "catalog-module-table-add-button",
           "type": "button",
           "label": "Añadir módulo",
-          "props": { "variant": "secondary", "size": "sm" },
+          "props": {
+            "variant": "secondary",
+            "size": "sm"
+          },
           "states": [
-            { "name": "default", "description": "Enabled only when catalog-training-cycle-table has a ciclo selected", "visual_cues": ["secondary button style"] },
-            { "name": "disabled", "description": "No ciclo selected yet", "visual_cues": ["disabled/greyed-out button"], "condition": "catalog-training-cycle-table has no selected row" }
+            {
+              "name": "default",
+              "description": "Enabled only when catalog-training-cycle-table has a ciclo selected",
+              "visual_cues": [
+                "secondary button style"
+              ]
+            },
+            {
+              "name": "disabled",
+              "description": "No ciclo selected yet",
+              "visual_cues": [
+                "disabled/greyed-out button"
+              ],
+              "condition": "catalog-training-cycle-table has no selected row"
+            }
           ],
           "interactions": [
-            { "trigger": "click", "event": "app:catalog-module-add-clicked", "target_elements": ["catalog-module-table"], "response": "Inserts a new blank, immediately-editable row (nombre + curso select, 1º/2º) into catalog-module-table, scoped to the currently-selected ciclo" }
+            {
+              "trigger": "click",
+              "event": "app:catalog-module-add-clicked",
+              "target_elements": [
+                "catalog-module-table"
+              ],
+              "response": "Inserts a new blank, immediately-editable row (nombre + curso select, 1º/2º) into catalog-module-table, scoped to the currently-selected ciclo"
+            }
           ]
         }
       ]
@@ -319,7 +742,9 @@
       "screen_name": "Configuración — Año académico",
       "file": "academic-year-settings-view.ts",
       "route": "/configuracion/ano-academico",
-      "role_guard": ["authenticated"],
+      "role_guard": [
+        "authenticated"
+      ],
       "element_ids": [
         "back-to-dashboard-link",
         "teacher-nav-link",
@@ -327,21 +752,20 @@
         "academic-year-nav-link",
         "academic-year-table",
         "academic-year-table-add-button",
-        "academic-year-delete-blocked-message",
         "training-cycle-table",
-        "training-cycle-table-add-button",
-        "training-cycle-delete-blocked-message",
         "module-table",
-        "module-table-add-button",
-        "module-delete-blocked-message",
-        "module-edit-confirm-modal",
         "module-selection-table",
-        "module-selection-add-button",
         "module-selection-save-button",
-        "module-selection-save-message"
+        "module-selection-save-message",
+        "academic-year-toast"
       ],
-      "data_needs": [],
-      "notes": "UI ONLY, NOT WIRED — redesign 2026-08-04. Same visual layout and components as before (kept unchanged, per explicit instruction: don't redesign this screen's UI). Its former backing tables (training_cycles, modules, academic_years, academic_year_modules) were dropped and are NOT recreated in this pass. requirement-architect must generate no api-contracts.md entries and no schema-changes.sql for this screen; tdd-engineer must write no test asserting real persistence/HTTP calls for it; frontend-implementer renders the same components and interactions using a local/in-memory-only service stub (no live backend), so the screen is visually complete and interactive but doesn't persist anything. This is intentionally temporary — a future view rebuilds this screen's real data layer, decision on top of which tables (possibly the new catalog, possibly its own) deferred. Own top-level custom element (app-academic-year-settings-view), sibling to the other two.",
+      "data_needs": [
+        "academic_years",
+        "academic_year_modules",
+        "catalog_cycles",
+        "catalog_modules"
+      ],
+      "notes": "REAL BACKEND — 2026-08-05 redesign. Año académico gets a persisted data layer again: academic_years (per-teacher rows, start_year integer displayed as e.g. \"2026-2027\", is_current flag) and academic_year_modules (join to catalog_modules — a row's cycle is derived via catalog_modules.catalog_training_cycle_id, not stored again). No more creating/editing catalog cycles/módulos from this screen (that's Ciclos/Módulos' job, un-scoped/global as of the 2026-08-05 catalog redesign) — training-cycle-table-add-button, training-cycle-delete-blocked-message, module-table-add-button, module-delete-blocked-message and module-edit-confirm-modal are REMOVED (previously stubbed only, never wired to a real backend). module-selection-add-button is also REMOVED — module-selection-table now lists catalog_modules' fixed rows to check, not user-created free rows. New: academic-year-toast, a reusable floating notification (see its own entry) replacing academic-year-delete-blocked-message's old inline-paragraph pattern for this screen's two error cases. Own top-level custom element (app-academic-year-settings-view), sibling to the other two.",
       "components": [
         {
           "elementId": "back-to-dashboard-link",
@@ -349,10 +773,20 @@
           "label": "Volver",
           "props": {},
           "states": [
-            { "name": "default", "description": "Always visible on all three settings screens", "visual_cues": ["plain link styling"] }
+            {
+              "name": "default",
+              "description": "Always visible on all three settings screens",
+              "visual_cues": [
+                "plain link styling"
+              ]
+            }
           ],
           "interactions": [
-            { "trigger": "click", "event": "app:back-to-dashboard-clicked", "response": "Navigates to /dashboard" }
+            {
+              "trigger": "click",
+              "event": "app:back-to-dashboard-clicked",
+              "response": "Navigates to /dashboard"
+            }
           ]
         },
         {
@@ -361,11 +795,29 @@
           "label": "Profesor",
           "props": {},
           "states": [
-            { "name": "active", "description": "Current screen is this one", "visual_cues": ["highlighted/underlined"], "condition": "route is /configuracion/profesor" },
-            { "name": "inactive", "description": "Current screen is one of the other two", "visual_cues": ["plain link styling"], "condition": "route is /configuracion/ciclos-modulos or /configuracion/ano-academico" }
+            {
+              "name": "active",
+              "description": "Current screen is this one",
+              "visual_cues": [
+                "highlighted/underlined"
+              ],
+              "condition": "route is /configuracion/profesor"
+            },
+            {
+              "name": "inactive",
+              "description": "Current screen is one of the other two",
+              "visual_cues": [
+                "plain link styling"
+              ],
+              "condition": "route is /configuracion/ciclos-modulos or /configuracion/ano-academico"
+            }
           ],
           "interactions": [
-            { "trigger": "click", "event": "app:settings-nav-clicked", "response": "Navigates to /configuracion/profesor (no-op if already there)" }
+            {
+              "trigger": "click",
+              "event": "app:settings-nav-clicked",
+              "response": "Navigates to /configuracion/profesor (no-op if already there)"
+            }
           ]
         },
         {
@@ -374,11 +826,29 @@
           "label": "Ciclos/Módulos",
           "props": {},
           "states": [
-            { "name": "active", "description": "Current screen is this one", "visual_cues": ["highlighted/underlined"], "condition": "route is /configuracion/ciclos-modulos" },
-            { "name": "inactive", "description": "Current screen is one of the other two", "visual_cues": ["plain link styling"], "condition": "route is /configuracion/profesor or /configuracion/ano-academico" }
+            {
+              "name": "active",
+              "description": "Current screen is this one",
+              "visual_cues": [
+                "highlighted/underlined"
+              ],
+              "condition": "route is /configuracion/ciclos-modulos"
+            },
+            {
+              "name": "inactive",
+              "description": "Current screen is one of the other two",
+              "visual_cues": [
+                "plain link styling"
+              ],
+              "condition": "route is /configuracion/profesor or /configuracion/ano-academico"
+            }
           ],
           "interactions": [
-            { "trigger": "click", "event": "app:settings-nav-clicked", "response": "Navigates to /configuracion/ciclos-modulos (no-op if already there)" }
+            {
+              "trigger": "click",
+              "event": "app:settings-nav-clicked",
+              "response": "Navigates to /configuracion/ciclos-modulos (no-op if already there)"
+            }
           ]
         },
         {
@@ -387,192 +857,427 @@
           "label": "Año académico",
           "props": {},
           "states": [
-            { "name": "active", "description": "Current screen is this one", "visual_cues": ["highlighted/underlined"], "condition": "route is /configuracion/ano-academico" },
-            { "name": "inactive", "description": "Current screen is one of the other two", "visual_cues": ["plain link styling"], "condition": "route is /configuracion/profesor or /configuracion/ciclos-modulos" }
+            {
+              "name": "active",
+              "description": "Current screen is this one",
+              "visual_cues": [
+                "highlighted/underlined"
+              ],
+              "condition": "route is /configuracion/ano-academico"
+            },
+            {
+              "name": "inactive",
+              "description": "Current screen is one of the other two",
+              "visual_cues": [
+                "plain link styling"
+              ],
+              "condition": "route is /configuracion/profesor or /configuracion/ciclos-modulos"
+            }
           ],
           "interactions": [
-            { "trigger": "click", "event": "app:settings-nav-clicked", "response": "Navigates to /configuracion/ano-academico (no-op if already there)" }
+            {
+              "trigger": "click",
+              "event": "app:settings-nav-clicked",
+              "response": "Navigates to /configuracion/ano-academico (no-op if already there)"
+            }
           ]
         },
         {
           "elementId": "academic-year-table",
           "type": "table",
           "label": "Años académicos",
-          "props": { "columns": ["nombre", "en_curso"], "is_editable": true },
+          "props": {
+            "columns": [
+              "año_académico",
+              "en_curso"
+            ],
+            "is_editable": true
+          },
           "states": [
-            { "name": "empty", "description": "No años académicos in the local, non-persisted state", "visual_cues": ["empty-state message"] },
-            { "name": "populated", "description": "One row per año académico in local state, inline-editable; marking one 'en_curso' un-marks the previous one", "visual_cues": ["table rows", "highlighted badge on the row marked en curso", "highlighted background on the selected row"] },
-            { "name": "adding-draft", "description": "The 'Añadir año académico' row is open: name input only, no per-row Guardar", "visual_cues": ["blank editable row with just a name input and a Cancelar action"], "condition": "academic-year-table-add-button was just clicked" }
+            {
+              "name": "empty",
+              "description": "The signed-in teacher has no academic years yet",
+              "visual_cues": [
+                "empty-state message"
+              ]
+            },
+            {
+              "name": "populated",
+              "description": "One row per academic year owned by the signed-in teacher, inline-editable (start year only); marking one 'en curso' un-marks the previous one",
+              "visual_cues": [
+                "table rows showing e.g. \"2026-2027\"",
+                "badge on the row marked en curso",
+                "highlighted background on the selected row"
+              ]
+            },
+            {
+              "name": "adding-draft",
+              "description": "The 'Añadir año académico' draft row is open: start-year input only, no per-row Guardar — commits together with the cycle/módulo selection via module-selection-save-button",
+              "visual_cues": [
+                "blank editable row with a year input and a Cancelar action"
+              ],
+              "condition": "academic-year-table-add-button was just clicked"
+            }
           ],
           "interactions": [
-            { "trigger": "click on a row (outside its inline-edit controls)", "event": "app:academic-year-selected", "response": "Selects that año académico in local state; reloads training-cycle-table/module-table from local state only — no HTTP call in this pass" },
-            { "trigger": "click the adding-draft row's Cancelar", "event": "app:academic-year-add-cancelled", "target_elements": ["training-cycle-table", "module-table", "module-selection-table"], "response": "Discards the draft" }
+            {
+              "trigger": "click on a row (outside its inline-edit controls)",
+              "event": "app:academic-year-selected",
+              "target_elements": [
+                "training-cycle-table",
+                "module-table"
+              ],
+              "response": "GET the selected year's assigned módulos; reloads training-cycle-table (derived cycles) and module-table from the response"
+            },
+            {
+              "trigger": "row Editar, then submit a new start year",
+              "event": "app:academic-year-renamed",
+              "response": "PATCH the row's start_year. 200 updates the row. 409 (duplicate start year for this teacher) shows academic-year-toast with the conflict and keeps the row in edit mode"
+            },
+            {
+              "trigger": "row \"Marcar en curso\"",
+              "event": "app:academic-year-marked-current",
+              "response": "PATCH marks this row current and un-marks whichever was current before, both reflected from the response"
+            },
+            {
+              "trigger": "row Eliminar",
+              "event": "app:academic-year-delete-requested",
+              "response": "DELETE the row. 204 removes it. 409 (HAS_DEPENDENTS — módulos still assigned) shows academic-year-toast explaining the block; row stays"
+            },
+            {
+              "trigger": "click the adding-draft row's Cancelar",
+              "event": "app:academic-year-add-cancelled",
+              "target_elements": [
+                "training-cycle-table",
+                "module-table",
+                "module-selection-table"
+              ],
+              "response": "Discards the draft and any in-progress cycle/módulo selection, returns to normal mode"
+            }
           ]
         },
         {
           "elementId": "academic-year-table-add-button",
           "type": "button",
           "label": "Añadir año académico",
-          "props": { "variant": "secondary", "size": "sm" },
-          "states": [{ "name": "default", "description": "Enabled", "visual_cues": ["secondary button style"] }],
+          "props": {
+            "variant": "secondary",
+            "size": "sm"
+          },
+          "states": [
+            {
+              "name": "default",
+              "description": "Enabled",
+              "visual_cues": [
+                "secondary button style"
+              ]
+            }
+          ],
           "interactions": [
-            { "trigger": "click", "event": "app:academic-year-add-clicked", "target_elements": ["academic-year-table", "training-cycle-table", "module-table", "module-selection-table"], "response": "Inserts a new blank, immediately-editable row into academic-year-table; switches training-cycle-table into adding-year mode" }
+            {
+              "trigger": "click",
+              "event": "app:academic-year-add-clicked",
+              "target_elements": [
+                "academic-year-table",
+                "training-cycle-table",
+                "module-table",
+                "module-selection-table"
+              ],
+              "response": "Inserts a blank, editable start-year draft row into academic-year-table; switches training-cycle-table into adding mode (full catalog_cycles list, multi-select) and hides module-table in favor of module-selection-table"
+            }
           ]
         },
         {
-          "elementId": "academic-year-delete-blocked-message",
-          "type": "paragraph",
-          "label": "Borrado bloqueado (año académico en curso)",
-          "props": {},
+          "elementId": "training-cycle-table-add-cycle-button",
+          "type": "button",
+          "label": "Añadir ciclo",
+          "props": {
+            "variant": "secondary",
+            "size": "sm"
+          },
           "states": [
-            { "name": "hidden", "description": "No blocked attempt to show", "visual_cues": ["not rendered"] },
-            { "name": "visible", "description": "Last delete attempt targeted the año académico marked en curso", "visual_cues": ["red text"], "condition": "delete attempted on the row marked en_curso" }
+            {
+              "name": "hidden",
+              "description": "No academic year selected, or adding mode already active",
+              "visual_cues": [
+                "not rendered"
+              ],
+              "condition": "no academic year selected or already in adding mode"
+            },
+            {
+              "name": "default",
+              "description": "An existing academic year is selected, normal mode",
+              "visual_cues": [
+                "secondary button style"
+              ]
+            }
           ],
-          "interactions": [],
-          "accessibility": { "aria_live": "assertive" }
+          "interactions": [
+            {
+              "trigger": "click",
+              "event": "app:academic-year-extend-clicked",
+              "target_elements": [
+                "training-cycle-table",
+                "module-table",
+                "module-selection-table"
+              ],
+              "response": "Switches training-cycle-table into adding mode scoped to the already-selected, already-existing academic year (no new draft row in academic-year-table — the year already exists) and hides module-table in favor of module-selection-table"
+            }
+          ],
+          "note": "New element (not in the 2026-08-04 stub) — lets a teacher add more cycles/módulos to an academic year created earlier, not just at creation time. Same adding-mode UI as academic-year-table-add-button's flow, different backend endpoint on save (see api-contracts.md POST /api/academic-years/:id/modules vs POST /api/academic-years/selection)."
         },
         {
           "elementId": "training-cycle-table",
           "type": "table",
           "label": "Ciclos",
-          "props": { "columns": ["nombre"], "is_editable": true },
+          "props": {
+            "columns": [
+              "nombre"
+            ],
+            "is_read_only": true
+          },
           "states": [
-            { "name": "empty", "description": "No ciclos in local state for the active mode", "visual_cues": ["empty-state message"] },
-            { "name": "populated-filtered", "description": "Normal mode: local-state ciclos with ≥1 módulo selected for the selected año académico", "visual_cues": ["table rows", "highlighted background on the selected row"], "condition": "an existing año académico is selected and neither adding-year nor adding-cycle mode is active" },
-            { "name": "populated-full", "description": "Adding-year or adding-cycle mode: complete local-state ciclo list", "visual_cues": ["table rows", "highlighted background on the selected row"], "condition": "academic-year-table is in its adding-draft state, or a ciclo was just added via training-cycle-table-add-button in normal mode" }
+            {
+              "name": "normal-empty",
+              "description": "Selected academic year has no módulos assigned yet",
+              "visual_cues": [
+                "empty-state message"
+              ]
+            },
+            {
+              "name": "normal-populated",
+              "description": "Cycles derived from the selected academic year's assigned módulos (a cycle appears here only while it has ≥1 assigned módulo) — read-only, no create/rename/delete (that's Ciclos/Módulos' job)",
+              "visual_cues": [
+                "table rows",
+                "highlighted background on the selected row"
+              ]
+            },
+            {
+              "name": "adding-mode",
+              "description": "Shows every cycle in the shared catalog_cycles catalog (not filtered to this teacher) with a checkbox column, so the teacher can check one or several to add to the in-progress selection — entered either via academic-year-table-add-button (brand-new year) or training-cycle-table-add-cycle-button (adding to the already-selected existing year)",
+              "visual_cues": [
+                "checkbox per row"
+              ],
+              "condition": "academic-year-table-add-button or training-cycle-table-add-cycle-button was just clicked"
+            }
           ],
           "interactions": [
-            { "trigger": "click on a row (outside its inline-edit controls)", "event": "app:training-cycle-selected", "target_elements": ["module-table", "module-selection-table"], "response": "Updates module-table/module-selection-table from local state only" }
+            {
+              "trigger": "click a row in normal mode",
+              "event": "app:training-cycle-selected",
+              "target_elements": [
+                "module-table"
+              ],
+              "response": "Reloads module-table filtered to this cycle's módulos assigned to the selected academic year"
+            },
+            {
+              "trigger": "check/uncheck a row in adding mode",
+              "event": "app:training-cycle-checked",
+              "target_elements": [
+                "module-selection-table"
+              ],
+              "response": "Adds/removes this cycle from the in-progress selection; checking a cycle for the first time reloads module-selection-table with that cycle's catalog_modules, all unchecked (already-assigned módulos pre-checked and disabled when extending an existing year, so the teacher can't re-add what's already theirs)"
+            }
           ],
-          "depends_on": ["academic-year-table"]
-        },
-        {
-          "elementId": "training-cycle-table-add-button",
-          "type": "button",
-          "label": "Añadir ciclo",
-          "props": { "variant": "secondary", "size": "sm" },
-          "states": [{ "name": "default", "description": "Enabled", "visual_cues": ["secondary button style"] }],
-          "interactions": [
-            { "trigger": "click", "event": "app:training-cycle-add-clicked", "target_elements": ["training-cycle-table", "module-table", "module-selection-table"], "response": "Inserts a new blank, immediately-editable row into training-cycle-table (local state only)" }
-          ]
-        },
-        {
-          "elementId": "training-cycle-delete-blocked-message",
-          "type": "paragraph",
-          "label": "Borrado bloqueado (ciclo referenciado)",
-          "props": {},
-          "states": [
-            { "name": "hidden", "description": "No blocked attempt to show", "visual_cues": ["not rendered"] },
-            { "name": "visible", "description": "Last delete attempt targeted a ciclo whose módulos are referenced by some año académico (local-state check only)", "visual_cues": ["red text"] }
-          ],
-          "interactions": [],
-          "accessibility": { "aria_live": "assertive" }
+          "note": "Type 'table' with a props.is_read_only column set in normal mode and a checkbox (table-selectable-cell) column in adding mode — same elementId, mode-dependent rendering, matching the existing app's cascading master/detail pattern."
         },
         {
           "elementId": "module-table",
           "type": "table",
           "label": "Módulos",
-          "props": { "columns": ["nombre", "curso"], "is_editable": true },
+          "props": {
+            "columns": [
+              "curso",
+              "nombre"
+            ],
+            "is_read_only": true
+          },
           "states": [
-            { "name": "hidden", "description": "Adding-year or adding-cycle mode is active", "visual_cues": ["not rendered"] },
-            { "name": "no-cycle-selected", "description": "Normal mode with no ciclo selected", "visual_cues": ["prompt to pick/create a ciclo first"] },
-            { "name": "empty", "description": "Selected ciclo has no módulos in local state for the active año académico", "visual_cues": ["empty-state message"] },
-            { "name": "populated", "description": "Local-state módulos of the selected ciclo selected for the selected año académico, grouped by curso (1º/2º/3º)", "visual_cues": ["table rows grouped under curso subheaders"] }
-          ],
-          "interactions": [],
-          "depends_on": ["training-cycle-table", "academic-year-table"]
-        },
-        {
-          "elementId": "module-table-add-button",
-          "type": "button",
-          "label": "Añadir módulo",
-          "props": { "variant": "secondary", "size": "sm" },
-          "states": [
-            { "name": "default", "description": "Enabled only when training-cycle-table has a ciclo selected and module-table is visible", "visual_cues": ["secondary button style"] },
-            { "name": "disabled", "description": "No ciclo selected yet", "visual_cues": ["disabled/greyed-out button"], "condition": "training-cycle-table has no selected row" }
+            {
+              "name": "hidden",
+              "description": "Adding mode is active — module-selection-table takes this element's place",
+              "visual_cues": [
+                "not rendered"
+              ],
+              "condition": "adding mode is active"
+            },
+            {
+              "name": "no-cycle-selected",
+              "description": "Normal mode, no row selected in training-cycle-table",
+              "visual_cues": [
+                "prompt to pick a cycle"
+              ]
+            },
+            {
+              "name": "populated",
+              "description": "This teacher's módulos assigned to the selected cycle within the selected academic year, grouped by curso (1º/2º) — read-only display plus a per-row remove action",
+              "visual_cues": [
+                "table rows grouped under '1º'/'2º' headers",
+                "Quitar action per row"
+              ]
+            }
           ],
           "interactions": [
-            { "trigger": "click", "event": "app:module-add-clicked", "target_elements": ["module-table"], "response": "Inserts a new blank, immediately-editable row (local state only) into module-table" }
+            {
+              "trigger": "row Quitar",
+              "event": "app:academic-year-module-removed",
+              "response": "Removes this módulo from the selected academic year (deletes the academic_year_modules row) — un-linking only, never touches the catalog_modules row itself. If it was the cycle's last assigned módulo, the cycle also disappears from training-cycle-table."
+            }
           ]
-        },
-        {
-          "elementId": "module-delete-blocked-message",
-          "type": "paragraph",
-          "label": "Borrado bloqueado (módulo referenciado)",
-          "props": {},
-          "states": [
-            { "name": "hidden", "description": "No blocked attempt to show", "visual_cues": ["not rendered"] },
-            { "name": "visible", "description": "Last delete attempt targeted a módulo referenced by some año académico (local-state check only)", "visual_cues": ["red text"] }
-          ],
-          "interactions": [],
-          "accessibility": { "aria_live": "assertive" }
-        },
-        {
-          "elementId": "module-edit-confirm-modal",
-          "type": "modal",
-          "label": "Confirmar edición de módulo en uso",
-          "props": {},
-          "states": [
-            { "name": "hidden", "description": "Default", "visual_cues": ["not rendered"] },
-            { "name": "open", "description": "Teacher tried to save an inline edit to a módulo referenced by one or more años académicos (local-state check only)", "visual_cues": ["modal overlay", "names which año(s) académico(s) reference this módulo", "Confirmar and Cancelar actions"] }
-          ],
-          "interactions": [
-            { "trigger": "click on its Confirmar action", "event": "app:module-edit-confirmed", "target_elements": ["module-table"], "response": "Proceeds with the local-state edit" },
-            { "trigger": "click on its Cancelar action", "event": "app:module-edit-cancelled", "target_elements": ["module-table"], "response": "Discards the pending edit" }
-          ],
-          "note": "Renders inside app-academic-year-settings-view's own Shadow DOM, never a separate nested custom element."
         },
         {
           "elementId": "module-selection-table",
           "type": "table",
-          "label": "Selección de módulos del año académico",
-          "props": { "columns": ["curso", "modulo", "seleccionado"], "is_selectable": true, "is_editable": true },
+          "label": "Selecciona módulos",
+          "props": {
+            "columns": [
+              "curso",
+              "nombre"
+            ]
+          },
           "states": [
-            { "name": "hidden", "description": "Normal mode", "visual_cues": ["not rendered"] },
-            { "name": "populated-existing", "description": "Adding-year/adding-cycle mode, selected ciclo already has módulos in local state", "visual_cues": ["table rows with checkboxes, grouped under curso subheaders"] },
-            { "name": "populated-empty-cycle", "description": "Adding-year/adding-cycle mode, selected ciclo has no módulos yet in local state", "visual_cues": ["empty-state row plus module-selection-add-button", "newly-added rows pre-checked"] }
+            {
+              "name": "hidden",
+              "description": "Normal mode — module-table is shown instead",
+              "visual_cues": [
+                "not rendered"
+              ],
+              "condition": "not in adding mode"
+            },
+            {
+              "name": "no-cycle-checked",
+              "description": "Adding mode, no cycle checked yet in training-cycle-table",
+              "visual_cues": [
+                "prompt to check a cycle first"
+              ]
+            },
+            {
+              "name": "populated",
+              "description": "Every catalog_modules row of the currently-checked cycle (all courses), with a checkbox reflecting the in-progress, unsaved selection",
+              "visual_cues": [
+                "table rows grouped under '1º'/'2º' headers",
+                "checkbox per row"
+              ]
+            }
           ],
           "interactions": [
-            { "trigger": "click on a row's checkbox", "event": "app:module-selection-toggled", "response": "Toggles local, unsaved in-progress selection state" }
-          ],
-          "depends_on": ["training-cycle-table"]
-        },
-        {
-          "elementId": "module-selection-add-button",
-          "type": "button",
-          "label": "Añadir módulo",
-          "props": { "variant": "secondary", "size": "sm" },
-          "states": [
-            { "name": "default", "description": "Visible whenever module-selection-table is open", "visual_cues": ["secondary button style"] }
-          ],
-          "interactions": [
-            { "trigger": "click", "event": "app:module-selection-add-clicked", "target_elements": ["module-selection-table"], "response": "Inserts a new blank, immediately-editable row (local state only) into module-selection-table" }
+            {
+              "trigger": "toggle a row's checkbox",
+              "event": "app:module-selection-toggled",
+              "response": "Flips this módulo's checked state in local, in-progress, unsaved selection only — no network request"
+            }
           ]
         },
         {
           "elementId": "module-selection-save-button",
           "type": "submit-button",
           "label": "Guardar selección",
-          "props": { "variant": "primary", "size": "md" },
+          "props": {
+            "variant": "primary"
+          },
           "states": [
-            { "name": "hidden", "description": "Normal mode", "visual_cues": ["not rendered"] },
-            { "name": "default", "description": "Adding-year/adding-cycle mode, enabled", "visual_cues": ["solid primary color"] }
+            {
+              "name": "hidden",
+              "description": "Normal mode",
+              "visual_cues": [
+                "not rendered"
+              ],
+              "condition": "not in adding mode"
+            },
+            {
+              "name": "default",
+              "description": "Adding mode, enabled",
+              "visual_cues": [
+                "primary button style"
+              ]
+            }
           ],
           "interactions": [
-            { "trigger": "click", "event": "app:module-selection-save-submitted", "target_elements": ["module-selection-save-message"], "response": "Commits the in-progress selection to local state only — no HTTP call in this pass. Shows module-selection-save-message and returns to normal mode" }
+            {
+              "trigger": "click, new-year mode (entered via academic-year-table-add-button)",
+              "event": "app:academic-year-selection-saved",
+              "target_elements": [
+                "academic-year-table",
+                "training-cycle-table",
+                "module-table",
+                "module-selection-save-message"
+              ],
+              "response": "POST the draft start year + every checked cycle × checked módulo in one request. On success: creates academic_years + academic_year_modules rows, shows module-selection-save-message, returns to normal mode selecting the new year. On 409 (duplicate start year): shows academic-year-toast, stays in adding mode."
+            },
+            {
+              "trigger": "click, extend-existing mode (entered via training-cycle-table-add-cycle-button)",
+              "event": "app:academic-year-selection-extended",
+              "target_elements": [
+                "training-cycle-table",
+                "module-table",
+                "module-selection-save-message"
+              ],
+              "response": "POST every newly-checked módulo (already-assigned ones are pre-checked/disabled, not resent) for the already-selected academic year. On success: inserts the new academic_year_modules rows, shows module-selection-save-message, returns to normal mode with the same year still selected."
+            }
           ]
         },
         {
           "elementId": "module-selection-save-message",
           "type": "paragraph",
-          "label": "Resultado guardar selección",
           "props": {},
           "states": [
-            { "name": "hidden", "description": "No result to show yet", "visual_cues": ["not rendered"] },
-            { "name": "success", "description": "Local-state save completed", "visual_cues": ["green toast/text"] }
+            {
+              "name": "hidden",
+              "description": "No save attempt yet this session",
+              "visual_cues": [
+                "not rendered"
+              ]
+            },
+            {
+              "name": "success",
+              "description": "Last save succeeded",
+              "visual_cues": [
+                "success-styled text"
+              ]
+            }
           ],
           "interactions": [],
-          "accessibility": { "aria_live": "assertive" }
+          "accessibility": {
+            "aria_live": "polite"
+          }
+        },
+        {
+          "elementId": "academic-year-toast",
+          "type": "container",
+          "label": "Notificación",
+          "props": {
+            "variant": "danger"
+          },
+          "states": [
+            {
+              "name": "hidden",
+              "description": "No error to show",
+              "visual_cues": [
+                "not rendered"
+              ]
+            },
+            {
+              "name": "visible-error",
+              "description": "Shows a transient, auto-dismissing error message — duplicate start year on rename, or delete blocked by assigned módulos/ciclos",
+              "visual_cues": [
+                "floating notification, corner of the screen",
+                "auto-dismiss after a few seconds",
+                "manual dismiss control"
+              ]
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "auto-dismiss timeout or manual close",
+              "event": "app:toast-dismissed",
+              "response": "Hides the toast"
+            }
+          ],
+          "accessibility": {
+            "role": "status",
+            "aria_live": "assertive"
+          },
+          "note": "New, reusable component (not scoped to this view) — a floating, auto-dismissing notification, distinct from the existing inline '*-save-message' paragraph pattern used elsewhere in this app. This view is its first user: duplicate-start-year-on-edit and delete-blocked-by-dependents errors. Implemented as its own Web Component (e.g. app-toast) that any future view can reuse."
         }
       ]
     }

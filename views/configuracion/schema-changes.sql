@@ -28,3 +28,46 @@ CREATE TABLE IF NOT EXISTS catalog_modules (
 
 CREATE INDEX IF NOT EXISTS catalog_modules_cycle_id_idx
   ON catalog_modules (catalog_training_cycle_id);
+
+-- views/configuracion — Año académico redesign (2026-08-05)
+--
+-- Gives Año académico a real, persisted data layer again, built on top of the shared
+-- catalog above instead of duplicating it per teacher. `academic_years` is per-teacher;
+-- `academic_year_modules` links a teacher's academic year to catalog_modules rows they'll
+-- teach that year — a row's cycle is derived via catalog_modules.catalog_training_cycle_id,
+-- not stored again here. See use-cases.md UC-06/UC-07/UC-08/UC-09.
+
+CREATE TABLE IF NOT EXISTS academic_years (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  -- ON DELETE CASCADE: deleting the teacher's account removes their academic years with it.
+  teacher_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  -- The "2026" in the "2026-2027" displayed school year — the end year is always start+1,
+  -- computed for display, never stored.
+  start_year INTEGER NOT NULL,
+  is_current BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (teacher_id, start_year)
+);
+
+CREATE INDEX IF NOT EXISTS academic_years_teacher_id_idx
+  ON academic_years (teacher_id);
+
+CREATE TABLE IF NOT EXISTS academic_year_modules (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  -- ON DELETE CASCADE: deleting an academic year removes its module assignments with it.
+  -- Deleting the academic_years row itself is blocked at the application level while this
+  -- table still has rows for it (HAS_DEPENDENTS) — see api-contracts.md.
+  academic_year_id UUID NOT NULL REFERENCES academic_years(id) ON DELETE CASCADE,
+  -- No ON DELETE CASCADE from this side: this view never deletes catalog_modules rows, and
+  -- Ciclos/Módulos' own delete is unconditional (see UC-04's A2) — a teacher's academic-year
+  -- assignment isn't this table's concern to protect against that.
+  catalog_module_id UUID NOT NULL REFERENCES catalog_modules(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (academic_year_id, catalog_module_id)
+);
+
+CREATE INDEX IF NOT EXISTS academic_year_modules_academic_year_id_idx
+  ON academic_year_modules (academic_year_id);
+
+CREATE INDEX IF NOT EXISTS academic_year_modules_catalog_module_id_idx
+  ON academic_year_modules (catalog_module_id);

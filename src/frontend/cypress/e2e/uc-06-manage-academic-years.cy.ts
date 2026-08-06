@@ -1,117 +1,126 @@
 /// <reference types="cypress" />
-// UC-06: Manage academic years (local state — not wired)
+// UC-06: Manage academic years
 //
-// Rewritten 2026-08-04: this screen's former backing tables (training_cycles, modules,
-// academic_years, academic_year_modules) were dropped and are not recreated in this pass —
-// every element here now operates on local component state only, scoped to the page's
-// lifetime (a fresh LocalAcademicYearStore per bootstrap, see main.ts). No HTTP request is
-// ever made by any interaction on this screen, and nothing persists across a reload — so,
-// unlike the previous (now superseded) version of this file, no test here seeds or cleans
-// up state via cy.request: every fixture is built through the UI itself, and state resets
-// for free on the next cy.visit()/cy.reload().
+// Rewritten 2026-08-06 for the 2026-08-05 backend redesign: `academic_years` is a real,
+// Postgres-persisted, per-teacher table again (`GET/PATCH/DELETE /api/academic-years`,
+// `POST /api/academic-years/selection`) — no relation to any local-state stub. Cycles/
+// módulos come from the shared, global `catalog_cycles`/`catalog_modules` tables (UC-04/
+// UC-05), seeded here via `cy.request` for isolation from other specs.
 
-import { signInAsE2eUser, uniqueAcademicYearName } from './support/sign-in';
+import { signInAsE2eUser, uniqueStartYear } from './support/sign-in';
 
-/** Extracts the local-state row id (e.g. `cycle-1`) from a captured `data-element-id`
- * attribute of the form `<tableId>-row-<id>`. */
-function rowIdFrom(tableId: string, elementId: string): string {
-  return elementId.slice(`${tableId}-row-`.length);
+interface CatalogCycle {
+  id: string;
+}
+interface CatalogModule {
+  id: string;
+}
+interface AcademicYear {
+  id: string;
+  startYear: number;
+  isCurrent: boolean;
+}
+
+function seedCatalogCycleWithModule(cycleName: string, moduleName: string): Cypress.Chainable<{ cycleId: string; moduleId: string }> {
+  return cy.request('POST', '/api/catalog/training-cycles', { name: cycleName }).then(({ body }) => {
+    const cycleId = (body as CatalogCycle).id;
+    return cy.request('POST', `/api/catalog/training-cycles/${cycleId}/modules`, { name: moduleName, course: 1 }).then(({ body: moduleBody }) => ({
+      cycleId,
+      moduleId: (moduleBody as CatalogModule).id,
+    }));
+  });
 }
 
 describe('UC-06: Manage academic years', () => {
   beforeEach(() => {
     signInAsE2eUser();
-    // These paths backed the old, now-dropped tables — asserting zero calls proves the
-    // local-state stub never talks to a server, per functional-spec.json's "No network
-    // request is made by any interaction on this element".
-    cy.intercept('/api/academic-years**').as('yearApi');
-    cy.intercept('/api/training-cycles**').as('cycleApi');
-    cy.intercept('/api/modules**').as('moduleApi');
-    cy.visit('/configuracion/ano-academico');
   });
 
-  it('builds a year with a module selection entirely through the UI, then marks it current and blocks its deletion', () => {
-    const yearName = uniqueAcademicYearName('AY-Local');
-    const cycleName = `E2E Local Cycle ${Date.now()}`;
-    const moduleName = `E2E Local Module ${Date.now()}`;
+  it('creates a year with a módulo selection via the UI, displays it, reloads on selection, and marking it current un-marks the previous one', () => {
+    const cycleName = `E2E AY Cycle ${Date.now()}`;
+    const moduleName = `E2E AY Module ${Date.now()}`;
+    const newStartYear = uniqueStartYear();
 
-    cy.get('[data-element-id="academic-year-table"]').should('contain.text', 'Todavía no has creado ningún año académico.');
+    seedCatalogCycleWithModule(cycleName, moduleName).then(({ cycleId, moduleId }) => {
+      cy.request('POST', '/api/academic-years/selection', { startYear: uniqueStartYear(), moduleIds: [] }).then(({ body }) => {
+        const previousYear = (body as { academicYear: AcademicYear }).academicYear;
+        cy.request('PATCH', `/api/academic-years/${previousYear.id}`, { isCurrent: true }).then(() => {
+          cy.visit('/configuracion/ano-academico');
 
-    cy.get('[data-element-id="academic-year-table-add-button"]').click();
-    // No independent save button on the draft row — only a name input and Cancelar.
-    cy.get('[data-element-id="academic-year-table-row-new-save"]').should('not.exist');
-    cy.get('[data-element-id="academic-year-table-row-new-cancel"]').should('exist');
-    cy.get('[data-element-id="academic-year-table-row-new-name"]').type(yearName);
+          cy.get('[data-element-id="academic-year-table-add-button"]').click();
+          cy.get('[data-element-id="academic-year-table-row-new-name"]').type(String(newStartYear));
+          cy.get(`[data-element-id="training-cycle-table-row-${cycleId}-checkbox"]`).click();
+          cy.get(`[data-element-id="module-selection-table-row-${moduleId}-checkbox"]`).should('not.be.checked').click();
 
-    cy.get('[data-element-id="training-cycle-table-add-button"]').click();
-    cy.get('[data-element-id="training-cycle-table-row-new-name"]').type(cycleName);
-    cy.get('[data-element-id="training-cycle-table-row-new-save"]').click();
+          cy.intercept('POST', '/api/academic-years/selection').as('createSelection');
+          cy.get('[data-element-id="module-selection-save-button"]').click();
+          cy.wait('@createSelection').its('response.statusCode').should('eq', 201);
 
-    cy.contains('[data-element-id^="training-cycle-table-row-"]', cycleName)
-      .invoke('attr', 'data-element-id')
-      .then((cycleRowElementId) => {
-        const cycleId = rowIdFrom('training-cycle-table', cycleRowElementId as string);
-        cy.get(`[data-element-id="training-cycle-table-row-${cycleId}"]`).click();
+          cy.get('[data-element-id="module-selection-save-message"]').should('contain.text', 'Año académico y selección de módulos guardados');
+          cy.get('[data-element-id="module-selection-table"]').should('not.exist');
 
-        cy.get('[data-element-id="module-selection-add-button"]').click();
-        cy.get('[data-element-id="module-selection-table-row-new-name"]').type(moduleName);
-        cy.get('[data-element-id="module-selection-table-row-new-course"]').select('1');
-        cy.get('[data-element-id="module-selection-table-row-new-save"]').click();
+          cy.contains('[data-element-id^="academic-year-table-row-"]', `${newStartYear}-${newStartYear + 1}`)
+            .invoke('attr', 'data-element-id')
+            .then((elementId) => {
+              const newYearId = (elementId as string).slice('academic-year-table-row-'.length);
 
-        // New selection modules are pre-checked automatically.
-        cy.contains('[data-element-id^="module-selection-table-row-"]', moduleName)
-          .find('input[type="checkbox"]')
-          .should('be.checked');
+              // Selecting the newly-created year (auto-selected on save) reloaded training-cycle-table.
+              cy.get(`[data-element-id="academic-year-table-row-${newYearId}"]`).should('have.class', 'bg-slate-100');
+              cy.contains('[data-element-id="training-cycle-table"]', cycleName).should('exist');
 
-        cy.get('[data-element-id="module-selection-save-button"]').click();
+              cy.intercept('PATCH', `/api/academic-years/${newYearId}`).as('setCurrent');
+              cy.get(`[data-element-id="academic-year-table-row-${newYearId}-set-current"]`).click();
+              cy.wait('@setCurrent').its('response.statusCode').should('eq', 200);
+              cy.contains(`[data-element-id="academic-year-table-row-${newYearId}"]`, 'En curso').should('exist');
+              cy.contains(`[data-element-id="academic-year-table-row-${previousYear.id}"]`, 'En curso').should('not.exist');
 
-        cy.get('[data-element-id="module-selection-save-message"]').should(
-          'contain.text',
-          'Año académico y selección de módulos guardados',
-        );
-        cy.get('[data-element-id="module-selection-table"]').should('not.exist');
-        cy.contains('[data-element-id="module-table"]', moduleName).should('exist');
+              // A2 — blocked while a módulo is still assigned.
+              cy.get(`[data-element-id="academic-year-table-row-${newYearId}-delete"]`).click();
+              cy.get('[data-element-id="academic-year-toast"]').should('contain.text', 'módulos');
+              cy.get(`[data-element-id="academic-year-table-row-${newYearId}"]`).should('exist');
 
-        cy.contains('[data-element-id^="academic-year-table-row-"]', yearName)
-          .invoke('attr', 'data-element-id')
-          .then((yearRowElementId) => {
-            const yearId = rowIdFrom('academic-year-table', yearRowElementId as string);
-
-            cy.get(`[data-element-id="academic-year-table-row-${yearId}-set-current"]`).click();
-            cy.contains(`[data-element-id="academic-year-table-row-${yearId}"]`, 'En curso').should('exist');
-
-            cy.get(`[data-element-id="academic-year-table-row-${yearId}-delete"]`).click();
-            cy.get('[data-element-id="academic-year-delete-blocked-message"]').should('be.visible');
-            cy.get(`[data-element-id="academic-year-table-row-${yearId}"]`).should('exist');
-          });
+              // Cleanup: remove the módulo assignment, then delete both years and the cycle.
+              cy.request('GET', `/api/academic-years/${newYearId}/modules`).then(({ body: modulesBody }) => {
+                const assignmentId = (modulesBody as { modules: { id: string }[] }).modules[0]!.id;
+                cy.request('DELETE', `/api/academic-year-modules/${assignmentId}`);
+                cy.request('DELETE', `/api/academic-years/${newYearId}`);
+                cy.request('DELETE', `/api/academic-years/${previousYear.id}`);
+                cy.request('DELETE', `/api/catalog/training-cycles/${cycleId}`);
+              });
+            });
+        });
       });
-
-    cy.get('@yearApi.all').should('have.length', 0);
-    cy.get('@cycleApi.all').should('have.length', 0);
-    cy.get('@moduleApi.all').should('have.length', 0);
+    });
   });
 
-  it('A1: rejects a duplicate name inline, keeping the draft open, and no network request is ever made', () => {
-    const yearName = uniqueAcademicYearName('AY-Dup');
+  it('A1: rejects a duplicate start year inline, keeping the row editable, and A3: deletes a year with no módulos assigned', () => {
+    const startYearC = uniqueStartYear();
+    const startYearD = uniqueStartYear();
 
-    cy.get('[data-element-id="academic-year-table-add-button"]').click();
-    cy.get('[data-element-id="academic-year-table-row-new-name"]').type(yearName);
-    cy.get('[data-element-id="module-selection-save-button"]').click();
-    cy.get('[data-element-id="module-selection-save-message"]').should('contain.text', 'guardados');
+    cy.request('POST', '/api/academic-years/selection', { startYear: startYearC, moduleIds: [] }).then(({ body: bodyC }) => {
+      const yearC = (bodyC as { academicYear: AcademicYear }).academicYear;
+      cy.request('POST', '/api/academic-years/selection', { startYear: startYearD, moduleIds: [] }).then(({ body: bodyD }) => {
+        const yearD = (bodyD as { academicYear: AcademicYear }).academicYear;
+        cy.visit('/configuracion/ano-academico');
 
-    cy.get('[data-element-id="academic-year-table-add-button"]').click();
-    cy.get('[data-element-id="academic-year-table-row-new-name"]').type(yearName);
-    cy.get('[data-element-id="module-selection-save-button"]').click();
+        cy.get(`[data-element-id="academic-year-table-row-${yearC.id}-edit"]`).click();
+        cy.get(`[data-element-id="academic-year-table-row-${yearC.id}-name"]`).clear().type(String(startYearD));
 
-    cy.get('[data-element-id="module-selection-save-message"]').should(
-      'contain.text',
-      'Ya existe un año académico con ese nombre',
-    );
-    cy.get('[data-element-id="academic-year-table-row-new-name"]').should('have.value', yearName);
-    cy.get('[data-element-id="academic-year-table"]').find(`td:contains("${yearName}")`).should('have.length', 1);
+        cy.intercept('PATCH', `/api/academic-years/${yearC.id}`).as('rename');
+        cy.get(`[data-element-id="academic-year-table-row-${yearC.id}-save"]`).click();
+        cy.wait('@rename').its('response.statusCode').should('eq', 409);
 
-    cy.get('@yearApi.all').should('have.length', 0);
-    cy.get('@cycleApi.all').should('have.length', 0);
-    cy.get('@moduleApi.all').should('have.length', 0);
+        cy.get('[data-element-id="academic-year-toast"]').should('be.visible');
+        cy.get(`[data-element-id="academic-year-table-row-${yearC.id}-name"]`).should('have.value', String(startYearD));
+
+        // A3 — no módulos assigned, deletion succeeds outright.
+        cy.intercept('DELETE', `/api/academic-years/${yearD.id}`).as('deleteD');
+        cy.get(`[data-element-id="academic-year-table-row-${yearD.id}-delete"]`).click();
+        cy.wait('@deleteD').its('response.statusCode').should('eq', 204);
+        cy.get(`[data-element-id="academic-year-table-row-${yearD.id}"]`).should('not.exist');
+
+        cy.request('DELETE', `/api/academic-years/${yearC.id}`);
+      });
+    });
   });
 });
