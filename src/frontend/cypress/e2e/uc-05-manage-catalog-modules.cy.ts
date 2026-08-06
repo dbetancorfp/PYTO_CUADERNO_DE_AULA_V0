@@ -89,6 +89,34 @@ describe('UC-05: Manage modules within a catalog training cycle', () => {
     cy.get('[data-element-id="catalog-module-table-add-button"]').should('be.disabled');
   });
 
+  it('#5 regression: re-selecting a cycle deleted out from under the page shows an empty list instead of crashing', () => {
+    const cycleName = `E2E UC05 Deleted-Under-Page Cycle ${Date.now()}`;
+
+    cy.request('POST', '/api/catalog/training-cycles', { name: cycleName }).then(({ body }) => {
+      const cycleId = (body as { id: string }).id;
+      cy.reload();
+
+      cy.get(`[data-element-id="catalog-training-cycle-table-row-${cycleId}"]`).click();
+      cy.get('[data-element-id="catalog-module-table"]').should('contain.text', 'Este ciclo todavía no tiene módulos.');
+
+      // Delete it via a raw request — bypassing the UI, so the page's own state doesn't
+      // know it's gone (this is exactly how #5's crash was triggered: a background módulo
+      // fetch for a cycle that no longer exists).
+      cy.request('DELETE', `/api/catalog/training-cycles/${cycleId}`);
+
+      // Re-selecting the still-rendered (now stale) row re-fetches its módulos — GET
+      // .../modules now 404s. Before the fix, HttpCatalogModuleApiService cast that error
+      // body's missing `.modules` straight through as `undefined`, and
+      // TrainingCatalogSettingsView's `[...this._modules]` spread threw
+      // `TypeError: this._modules is not iterable`, leaving the page dead. After the fix,
+      // listForCycle returns `[]` on a non-OK response instead.
+      cy.get(`[data-element-id="catalog-training-cycle-table-row-${cycleId}"]`).click();
+      cy.get('[data-element-id="catalog-module-table"]').should('contain.text', 'Este ciclo todavía no tiene módulos.');
+      // The page is still alive and interactive — not dead from an uncaught exception.
+      cy.get('[data-element-id="catalog-training-cycle-table-add-button"]').should('be.visible');
+    });
+  });
+
   it('A2: rejects a duplicate (name, course) within the same cycle', () => {
     const cycleName = `E2E Catalog Dup Module Cycle ${Date.now()}`;
     const moduleName = `E2E Dup Module ${Date.now()}`;

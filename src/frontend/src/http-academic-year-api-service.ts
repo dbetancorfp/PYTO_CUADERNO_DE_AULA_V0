@@ -33,8 +33,13 @@ export class HttpAcademicYearApiService implements AcademicYearApiService {
     return parseDeleteHasDependents(response);
   }
 
+  /** Returns `[]` when `id` no longer exists (404) — e.g. deleted out from under an active
+   * selection — instead of letting an error body with no `.modules` field propagate as a
+   * non-array (same class of bug as #5, fixed there for the sibling Ciclos/Módulos
+   * screen's `listForCycle`). */
   async listModules(id: string): Promise<AcademicYearModuleDetail[]> {
     const response = await fetch(`/api/academic-years/${id}/modules`);
+    if (!response.ok) return [];
     const body = (await response.json()) as { modules: AcademicYearModuleDetail[] };
     return body.modules;
   }

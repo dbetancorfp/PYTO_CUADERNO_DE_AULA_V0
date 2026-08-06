@@ -8,8 +8,13 @@ import type { DeleteResult, WriteResult } from './api-outcomes';
 import { parseDeleteResult, parseWriteResult } from './api-outcomes';
 
 export class HttpCatalogModuleApiService implements CatalogModuleApiService {
+  /** Returns `[]` when `cycleId` no longer exists (404) — e.g. deleted out from under an
+   * active selection — instead of letting an error body with no `.modules` field propagate
+   * as a non-array (see #5: `TrainingCatalogSettingsView` iterating that non-array threw
+   * `TypeError: this._modules is not iterable`). */
   async listForCycle(cycleId: string): Promise<CatalogModuleRecord[]> {
     const response = await fetch(`/api/catalog/training-cycles/${cycleId}/modules`);
+    if (!response.ok) return [];
     const body = (await response.json()) as { modules: CatalogModuleRecord[] };
     return body.modules;
   }
