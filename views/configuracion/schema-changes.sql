@@ -58,9 +58,10 @@ CREATE TABLE IF NOT EXISTS academic_year_modules (
   -- Deleting the academic_years row itself is blocked at the application level while this
   -- table still has rows for it (HAS_DEPENDENTS) — see api-contracts.md.
   academic_year_id UUID NOT NULL REFERENCES academic_years(id) ON DELETE CASCADE,
-  -- No ON DELETE CASCADE from this side: this view never deletes catalog_modules rows, and
-  -- Ciclos/Módulos' own delete is unconditional (see UC-04's A2) — a teacher's academic-year
-  -- assignment isn't this table's concern to protect against that.
+  -- No ON DELETE CASCADE from this side: deleting a catalog_modules row while an
+  -- academic_year_modules row still references it is blocked at the application level
+  -- instead (HAS_DEPENDENTS, see api-contracts.md's DELETE /api/catalog/modules/:id and
+  -- DELETE /api/catalog/training-cycles/:id — 2026-08-06 fix for #4, UC-04/UC-05's A5).
   catalog_module_id UUID NOT NULL REFERENCES catalog_modules(id),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (academic_year_id, catalog_module_id)

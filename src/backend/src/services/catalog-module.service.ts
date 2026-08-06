@@ -1,7 +1,11 @@
 // elementId: catalog-module-table, catalog-module-table-add-button (business-logic side of
-// UC-05, see views/configuracion/use-cases.md). No dependency-blocked deletion, no confirm
-// flow — nothing references a catalog module (unlike the old, now-dropped ModuleService).
+// UC-05, see views/configuracion/use-cases.md). No confirm flow — editing always saves
+// immediately. Deletion IS dependency-blocked as of the 2026-08-06 fix for #4: a catalog
+// módulo still assigned to some academic year (academic_year_modules) can't be deleted —
+// academic_year_modules_catalog_module_id_fkey has no ON DELETE CASCADE, so an unblocked
+// delete would 500 instead of the graceful 409 this now returns.
 import { DomainError } from '../errors/domain-error';
+import type { AcademicYearModuleRepository } from '../repositories/academic-year-module.repository';
 import type { CatalogModule, CatalogModuleRepository } from '../repositories/catalog-module.repository';
 import type { CatalogTrainingCycleRepository } from '../repositories/catalog-training-cycle.repository';
 
@@ -9,6 +13,7 @@ export class CatalogModuleService {
   constructor(
     private readonly catalogModuleRepository: CatalogModuleRepository,
     private readonly catalogTrainingCycleRepository: CatalogTrainingCycleRepository,
+    private readonly academicYearModuleRepository: AcademicYearModuleRepository,
   ) {}
 
   /** Returns `null` when `cycleId` doesn't match a cycle. */
@@ -51,11 +56,16 @@ export class CatalogModuleService {
     return this.catalogModuleRepository.update(moduleId, changes);
   }
 
-  /** Returns `null` when `moduleId` doesn't match a module. Deletion is always
-   * unconditional. */
+  /** Returns `null` when `moduleId` doesn't match a module. Throws `HAS_DEPENDENTS` when
+   * some academic year still has this módulo assigned. */
   async delete(moduleId: string): Promise<void | null> {
     const module = await this.catalogModuleRepository.findById(moduleId);
     if (!module) return null;
+
+    const stillAssigned = await this.academicYearModuleRepository.existsForCatalogModule(moduleId);
+    if (stillAssigned) {
+      throw new DomainError('HAS_DEPENDENTS', 'This módulo is still assigned to an academic year');
+    }
 
     await this.catalogModuleRepository.delete(moduleId);
   }

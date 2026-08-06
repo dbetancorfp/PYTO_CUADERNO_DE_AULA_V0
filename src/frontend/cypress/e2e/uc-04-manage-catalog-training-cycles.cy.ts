@@ -2,10 +2,12 @@
 // UC-04: Manage catalog training cycles
 //
 // New for the 2026-08-04 redesign: catalog-training-cycle-table is backed by the brand-new,
-// standalone catalog_cycles table (GET/POST/PATCH/DELETE
-// /api/catalog/training-cycles) — no relation to any año académico. Deletion always
-// succeeds and cascades to the cycle's modules (catalog_modules' FK is ON DELETE CASCADE),
-// unlike the old, now-dropped training_cycles table's dependency-blocked deletion.
+// standalone catalog_cycles table (GET/POST/PATCH/DELETE /api/catalog/training-cycles).
+// Deletion cascades to the cycle's modules (catalog_modules' FK is ON DELETE CASCADE) when
+// none of them is assigned to an academic year — this spec's fixtures never assign
+// anything, so that path isn't exercised here. The blocked (409 HAS_DEPENDENTS) case,
+// reintroduced by the 2026-08-06 fix for #4, is covered by
+// catalog-training-cycle.routes.test.ts instead, not duplicated at the e2e layer.
 
 import { signInAsE2eUser } from './support/sign-in';
 
@@ -57,7 +59,8 @@ describe('UC-04: Manage catalog training cycles', () => {
         cy.get(`[data-element-id="catalog-training-cycle-table-row-${cycleAId}"]`).click();
         cy.contains('[data-element-id="catalog-module-table"]', moduleAName).should('exist');
 
-        // A2 — deleting cycle A always succeeds, cascading its module, no confirmation.
+        // A2 — deleting cycle A succeeds (its module isn't assigned to any academic year),
+        // cascading its module, no confirmation.
         cy.intercept('DELETE', `/api/catalog/training-cycles/${cycleAId}`).as('deleteCycleA');
         cy.get(`[data-element-id="catalog-training-cycle-table-row-${cycleAId}-delete"]`).click();
         cy.wait('@deleteCycleA').its('response.statusCode').should('eq', 204);

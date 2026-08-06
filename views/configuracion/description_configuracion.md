@@ -56,9 +56,11 @@ one-off data load, not a UI feature of this view.
   Create new (curso + nombre), rename, change curso, delete.
 - Uniqueness, global (not scoped per teacher): ciclo names unique; módulo names unique
   within their (ciclo, curso).
-- Deleting a ciclo cascades to deleting its módulos — no other table references this
-  catalog, so there's no dependency-blocked-deletion case here (unlike the old
-  training_cycles/modules pair, which was blocked by academic_year_modules).
+- Deleting a ciclo cascades to deleting its módulos, unless one of them is still assigned
+  to some academic year (`academic_year_modules`) — that's blocked with `HAS_DEPENDENTS`
+  instead (2026-08-06 fix for #4; re-introduces the dependency-blocked case the original
+  2026-08-04 catalog decoupling had intentionally removed, now that Año académico's
+  real-backend redesign gives the catalog a real dependent again).
 - If the catalog has no ciclos yet, an empty state prompts to create the first one.
 
 ### Section: Año académico — real backend, 2026-08-05 redesign

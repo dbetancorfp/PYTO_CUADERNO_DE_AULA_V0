@@ -3,9 +3,9 @@
 // mounted at two different prefixes by app.ts: `catalogCycleModulesRouter` under
 // /api/catalog/training-cycles/:cycleId/modules (cycle-scoped create/list) and
 // `catalogModuleRouter` under /api/catalog/modules (rename/re-course, delete — id-scoped, no
-// cycleId in the path). No HAS_DEPENDENTS / confirm-flow cases here — catalog_modules has no
-// FK relation to anything year-related, edit and delete are always immediate (unlike the
-// old, now-dropped modules table).
+// cycleId in the path). No confirm-flow for edits — always immediate. Delete IS
+// dependency-blocked (409 HAS_DEPENDENTS) as of the 2026-08-06 fix for #4 — see
+// CatalogModuleService.delete.
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import type { CatalogModuleService } from '../services/catalog-module.service';

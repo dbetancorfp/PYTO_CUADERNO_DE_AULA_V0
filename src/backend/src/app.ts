@@ -103,8 +103,8 @@ export function createApp(deps: AppDeps): Express {
   // per-request (see views/login/description_login.md's Session section).
   const sessionService = new SessionService(new InMemorySessionRepository());
   const teacherSettingsService = new TeacherSettingsService(userRepository);
-  const catalogTrainingCycleService = new CatalogTrainingCycleService(catalogTrainingCycleRepository);
-  const catalogModuleService = new CatalogModuleService(catalogModuleRepository, catalogTrainingCycleRepository);
+  const catalogTrainingCycleService = new CatalogTrainingCycleService(catalogTrainingCycleRepository, academicYearModuleRepository);
+  const catalogModuleService = new CatalogModuleService(catalogModuleRepository, catalogTrainingCycleRepository, academicYearModuleRepository);
   const academicYearService = new AcademicYearService(academicYearRepository, academicYearModuleRepository, catalogModuleRepository);
 
   const app = express();

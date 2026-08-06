@@ -58,6 +58,8 @@ function fakeRepos(overrides: Partial<{
     countForYear: async () => overrides.moduleDetails?.length ?? 0,
     createMany: async (_academicYearId: string, catalogModuleIds: string[]) => catalogModuleIds.length,
     delete: async () => {},
+    existsForCatalogModule: async () => false,
+    existsForCatalogCycle: async () => false,
   };
 
   const catalogModuleRepository: CatalogModuleRepository = {

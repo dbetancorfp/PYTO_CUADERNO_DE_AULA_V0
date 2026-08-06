@@ -100,4 +100,44 @@ describe('PgAcademicYearModuleRepository', () => {
     expect(sqlTextOf(fakeSql.calls[0])).toContain('DELETE FROM academic_year_modules');
     expect(fakeSql.calls[0].values).toEqual(['am1']);
   });
+
+  it('existsForCatalogModule returns true when a row references the given catalog módulo', async () => {
+    const fakeSql = createFakeSql([[{ '?column?': 1 }]]);
+    const repo = new PgAcademicYearModuleRepository(fakeSql);
+
+    const exists = await repo.existsForCatalogModule('m1');
+
+    expect(exists).toBe(true);
+    expect(sqlTextOf(fakeSql.calls[0])).toContain('FROM academic_year_modules');
+    expect(fakeSql.calls[0].values).toEqual(['m1']);
+  });
+
+  it('existsForCatalogModule returns false when no row references the given catalog módulo', async () => {
+    const fakeSql = createFakeSql([[]]);
+    const repo = new PgAcademicYearModuleRepository(fakeSql);
+
+    const exists = await repo.existsForCatalogModule('m1');
+
+    expect(exists).toBe(false);
+  });
+
+  it('existsForCatalogCycle returns true when a row references a módulo of the given cycle', async () => {
+    const fakeSql = createFakeSql([[{ '?column?': 1 }]]);
+    const repo = new PgAcademicYearModuleRepository(fakeSql);
+
+    const exists = await repo.existsForCatalogCycle('c1');
+
+    expect(exists).toBe(true);
+    expect(sqlTextOf(fakeSql.calls[0])).toContain('JOIN catalog_modules');
+    expect(fakeSql.calls[0].values).toEqual(['c1']);
+  });
+
+  it('existsForCatalogCycle returns false when no row references any módulo of the given cycle', async () => {
+    const fakeSql = createFakeSql([[]]);
+    const repo = new PgAcademicYearModuleRepository(fakeSql);
+
+    const exists = await repo.existsForCatalogCycle('c1');
+
+    expect(exists).toBe(false);
+  });
 });

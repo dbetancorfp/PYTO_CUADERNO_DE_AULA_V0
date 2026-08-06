@@ -4,8 +4,11 @@
 // New for the 2026-08-04 redesign: catalog-module-table is backed by the brand-new,
 // standalone catalog_modules table (GET/POST /api/catalog/training-cycles/:cycleId/modules,
 // PATCH/DELETE /api/catalog/modules/:id). Editing always saves immediately — no
-// module-edit-confirm-modal, unlike the old, now-dropped modules table, since nothing
-// references a catalog module.
+// module-edit-confirm-modal, unaffected by any academic year assignment. Deletion is
+// blocked (409 HAS_DEPENDENTS) when the módulo is still assigned to an academic year
+// (2026-08-06 fix for #4) — this spec's fixtures never assign anything, so only the
+// unblocked path is exercised here; the blocked case is covered by
+// catalog-module.routes.test.ts instead, not duplicated at the e2e layer.
 
 import { signInAsE2eUser } from './support/sign-in';
 
@@ -58,7 +61,7 @@ describe('UC-05: Manage modules within a catalog training cycle', () => {
           cy.wait('@updateModule').its('response.statusCode').should('eq', 200);
           cy.contains(`[data-element-id="catalog-module-table-row-${module1Id}"]`, renamedName).should('exist');
 
-          // A3 — deleting always succeeds unconditionally.
+          // A3 — deleting succeeds (module2 isn't assigned to any academic year).
           cy.intercept('DELETE', `/api/catalog/modules/${module2Id}`).as('deleteModule');
           cy.get(`[data-element-id="catalog-module-table-row-${module2Id}-delete"]`).click();
           cy.wait('@deleteModule').its('response.statusCode').should('eq', 204);
@@ -71,8 +74,9 @@ describe('UC-05: Manage modules within a catalog training cycle', () => {
   });
 
   it('A1: shows a prompt and disables adding modules when no cycle is selected', () => {
-    // Delete every existing cycle so no cycle can be auto-selected on load (cascade
-    // removes their modules too — this catalog has no dependency-blocked deletion).
+    // Delete every existing cycle so no cycle can be auto-selected on load (cascade removes
+    // their modules too, assuming none is assigned to an academic year — see the
+    // 2026-08-06 fix for #4; not expected in this dev-only e2e fixture set).
     cy.request('GET', '/api/catalog/training-cycles').then(({ body }) => {
       const existingCycles = (body as { trainingCycles: Array<{ id: string }> }).trainingCycles;
       existingCycles.forEach((cycle) => {

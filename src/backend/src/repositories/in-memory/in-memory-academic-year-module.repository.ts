@@ -49,6 +49,17 @@ export class InMemoryAcademicYearModuleRepository implements AcademicYearModuleR
     this.store.academicYearModules.delete(id);
   }
 
+  async existsForCatalogModule(catalogModuleId: string): Promise<boolean> {
+    return [...this.store.academicYearModules.values()].some((ref) => ref.catalogModuleId === catalogModuleId);
+  }
+
+  async existsForCatalogCycle(catalogTrainingCycleId: string): Promise<boolean> {
+    return [...this.store.academicYearModules.values()].some((ref) => {
+      const catalogModule = this.catalogStore.modules.get(ref.catalogModuleId);
+      return catalogModule?.catalogTrainingCycleId === catalogTrainingCycleId;
+    });
+  }
+
   private toDetail(ref: AcademicYearModuleRef): AcademicYearModuleDetail {
     const catalogModule = this.catalogStore.modules.get(ref.catalogModuleId);
     if (!catalogModule) throw new Error(`Catalog module ${ref.catalogModuleId} not found`);

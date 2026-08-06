@@ -81,10 +81,12 @@ teacher is already authenticated.
 
 ## Training cycles catalog (Ciclos/Módulos screen)
 
-New tables, no relation to anything year-related, no relation to `users` either — shared,
-global catalog, see `schema-changes.sql`. No dependency-blocked deletion anywhere in this
-group: `catalog_modules`' FK to `catalog_cycles` is `ON DELETE CASCADE`, and nothing
-references `catalog_modules` at all.
+New tables, no relation to `users` — shared, global catalog, see `schema-changes.sql`.
+`catalog_modules`' FK to `catalog_cycles` is `ON DELETE CASCADE`. As of the 2026-08-06 fix
+for #4, deletion of a cycle or módulo IS dependency-blocked (`409 HAS_DEPENDENTS`) when some
+academic year (`academic_year_modules`, any teacher's) still has one of the cycle's módulos
+assigned — `academic_year_modules_catalog_module_id_fkey` has no cascade of its own, so an
+unblocked delete would fail with a raw `500` instead.
 
 ### GET /api/catalog/training-cycles
 
@@ -145,8 +147,9 @@ references `catalog_modules` at all.
 ### DELETE /api/catalog/training-cycles/:id
 
 **Description**: Deletes a catalog training cycle and cascades to its modules
-(`catalog_modules_catalog_training_cycle_id_fkey ON DELETE CASCADE`). Always succeeds if the
-cycle exists — no dependency check, nothing references this catalog.
+(`catalog_modules_catalog_training_cycle_id_fkey ON DELETE CASCADE`) — unless any of those
+modules is still assigned to some academic year, in which case the whole deletion is
+blocked (2026-08-06 fix for #4).
 **Elements**: `catalog-training-cycle-table`
 
 #### Request
@@ -159,6 +162,7 @@ No body.
 | Code | Condition |
 |------|-----------|
 | 404 | `id` doesn't match an existing catalog training cycle |
+| 409 | Some módulo of this cycle is still assigned to an academic year. Body: `{ "message": "...", "code": "HAS_DEPENDENTS" }` |
 
 ---
 
@@ -234,8 +238,8 @@ catalog module.
 
 ### DELETE /api/catalog/modules/:id
 
-**Description**: Deletes a catalog module. Always succeeds if it exists — no dependency
-check.
+**Description**: Deletes a catalog module — unless it's still assigned to some academic
+year, in which case deletion is blocked (2026-08-06 fix for #4).
 **Elements**: `catalog-module-table`
 
 #### Request
@@ -248,6 +252,7 @@ No body.
 | Code | Condition |
 |------|-----------|
 | 404 | `id` doesn't match an existing catalog module |
+| 409 | Still assigned to an academic year. Body: `{ "message": "...", "code": "HAS_DEPENDENTS" }` |
 
 ---
 

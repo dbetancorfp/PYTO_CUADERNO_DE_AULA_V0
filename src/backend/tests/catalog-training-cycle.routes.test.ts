@@ -1,9 +1,9 @@
 // elementId: catalog-training-cycle-table, catalog-training-cycle-table-add-button
 // (HTTP contract side of UC-04 — see views/configuracion/api-contracts.md GET/POST
-// /api/catalog/training-cycles, PATCH/DELETE /api/catalog/training-cycles/:id). New routes,
-// don't exist yet — expected 404s until backend-implementer adds them. No HAS_DEPENDENTS
-// case here — catalog_cycles has no FK relation to anything year-related, deletion
-// is unconditional (unlike the old, now-dropped training_cycles table).
+// /api/catalog/training-cycles, PATCH/DELETE /api/catalog/training-cycles/:id). Delete IS
+// dependency-blocked (409 HAS_DEPENDENTS, fix for #4, 2026-08-06) when some academic year
+// still has one of the cycle's módulos assigned — cascading past that would otherwise
+// violate academic_year_modules_catalog_module_id_fkey.
 import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
 import type { Server } from 'node:http';
 import { createApp } from '../src/app';
@@ -147,7 +147,7 @@ describe('elementId: catalog-training-cycle-table', () => {
     expect(response.status).toBe(404);
   });
 
-  it('DELETE /api/catalog/training-cycles/:id deletes a cycle unconditionally, even with modules', async () => {
+  it('DELETE /api/catalog/training-cycles/:id cascade-deletes its módulos when none is assigned to an academic year', async () => {
     const created = await createCycle('Peluquería');
     await fetch(`${baseUrl}/api/catalog/training-cycles/${created.id}/modules`, {
       method: 'POST',
@@ -164,5 +164,36 @@ describe('elementId: catalog-training-cycle-table', () => {
     const listResponse = await fetch(`${baseUrl}/api/catalog/training-cycles`, { headers: { Cookie: cookie } });
     const body = (await listResponse.json()) as { trainingCycles: { id: string }[] };
     expect(body.trainingCycles.some((c) => c.id === created.id)).toBe(false);
+  });
+
+  it('DELETE /api/catalog/training-cycles/:id responds 409 HAS_DEPENDENTS when a módulo of the cycle is assigned to an academic year', async () => {
+    const created = await createCycle('Estética Integral');
+    const moduleResponse = await fetch(`${baseUrl}/api/catalog/training-cycles/${created.id}/modules`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: cookie },
+      body: JSON.stringify({ name: 'Anatomía Aplicada', course: 1 }),
+    });
+    const module = (await moduleResponse.json()) as { id: string };
+
+    const selectionResponse = await fetch(`${baseUrl}/api/academic-years/selection`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: cookie },
+      body: JSON.stringify({ startYear: 4002, moduleIds: [module.id] }),
+    });
+    const year = ((await selectionResponse.json()) as { academicYear: { id: string } }).academicYear;
+
+    const response = await fetch(`${baseUrl}/api/catalog/training-cycles/${created.id}`, {
+      method: 'DELETE',
+      headers: { Cookie: cookie },
+    });
+
+    expect(response.status).toBe(409);
+    const body = (await response.json()) as { code: string };
+    expect(body.code).toBe('HAS_DEPENDENTS');
+
+    const modulesResponse = await fetch(`${baseUrl}/api/academic-years/${year.id}/modules`, { headers: { Cookie: cookie } });
+    const assignmentId = ((await modulesResponse.json()) as { modules: { id: string }[] }).modules[0]!.id;
+    await fetch(`${baseUrl}/api/academic-year-modules/${assignmentId}`, { method: 'DELETE', headers: { Cookie: cookie } });
+    await fetch(`${baseUrl}/api/academic-years/${year.id}`, { method: 'DELETE', headers: { Cookie: cookie } });
   });
 });

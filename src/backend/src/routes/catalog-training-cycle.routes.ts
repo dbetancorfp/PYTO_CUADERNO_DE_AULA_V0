@@ -1,9 +1,8 @@
 // elementId: catalog-training-cycle-table, catalog-training-cycle-table-add-button (HTTP
 // contract side of UC-04 — see views/configuracion/api-contracts.md GET/POST
-// /api/catalog/training-cycles, PATCH/DELETE /api/catalog/training-cycles/:id). No
-// HAS_DEPENDENTS case here — catalog_cycles has no FK relation to anything
-// year-related, deletion is unconditional (unlike the old, now-dropped training_cycles
-// table).
+// /api/catalog/training-cycles, PATCH/DELETE /api/catalog/training-cycles/:id). Delete IS
+// dependency-blocked (409 HAS_DEPENDENTS) as of the 2026-08-06 fix for #4 — see
+// CatalogTrainingCycleService.delete.
 import { Router, type Request, type Response } from 'express';
 import type { CatalogTrainingCycleService } from '../services/catalog-training-cycle.service';
 import type { SessionService } from '../services/session.service';

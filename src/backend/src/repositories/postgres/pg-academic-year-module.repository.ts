@@ -99,4 +99,25 @@ export class PgAcademicYearModuleRepository implements AcademicYearModuleReposit
       WHERE id = ${id}
     `;
   }
+
+  async existsForCatalogModule(catalogModuleId: string): Promise<boolean> {
+    const rows = (await this.sql`
+      SELECT 1
+      FROM academic_year_modules
+      WHERE catalog_module_id = ${catalogModuleId}
+      LIMIT 1
+    `) as unknown as unknown[];
+    return rows.length > 0;
+  }
+
+  async existsForCatalogCycle(catalogTrainingCycleId: string): Promise<boolean> {
+    const rows = (await this.sql`
+      SELECT 1
+      FROM academic_year_modules aym
+      JOIN catalog_modules cm ON cm.id = aym.catalog_module_id
+      WHERE cm.catalog_training_cycle_id = ${catalogTrainingCycleId}
+      LIMIT 1
+    `) as unknown as unknown[];
+    return rows.length > 0;
+  }
 }

@@ -135,14 +135,18 @@ instead of duplicating it per teacher.
 ### Alternative flows
 
 - **A1 — Duplicate name**: rejected, inline error on the row.
-- **A2 — Delete a cycle**: always succeeds — `catalog_modules`' FK to
-  `catalog_cycles` is `ON DELETE CASCADE`, so the cycle's modules are deleted along
-  with it. There is no dependency-blocked deletion in this screen — nothing else references
-  this catalog.
+- **A2 — Delete a cycle, none of its modules assigned to any academic year**: succeeds —
+  `catalog_modules`' FK to `catalog_cycles` is `ON DELETE CASCADE`, so the cycle's modules
+  are deleted along with it.
+- **A5 — Delete a cycle with a module still assigned to an academic year (2026-08-06 fix
+  for #4)**: rejected (`HAS_DEPENDENTS`) — cascading past `academic_year_modules` would
+  otherwise violate `academic_year_modules_catalog_module_id_fkey`, which has no cascade of
+  its own. The teacher must remove the módulo from every academic year that has it first
+  (Año académico's `module-table` row-level Quitar, see UC-08).
 
 ### Postconditions
 
-- On A1: no change. On main flow/A2: `catalog_cycles` (and, for A2, its now-deleted
+- On A1/A5: no change. On main flow/A2: `catalog_cycles` (and, for A2, its now-deleted
   `catalog_modules` rows) reflects the change.
 
 ### Acceptance criteria
@@ -151,7 +155,10 @@ instead of duplicating it per teacher.
 - [x] First row is selected by default on load
 - [x] Adding a row and saving a unique name persists it
 - [ ] Saving a duplicate name is rejected, inline error shown
-- [x] Deleting a cycle always succeeds and removes its modules too, unconditionally
+- [x] Deleting a cycle with none of its modules assigned to an academic year succeeds and
+      removes its modules too
+- [x] Deleting a cycle with a module still assigned to an academic year is rejected
+      (`HAS_DEPENDENTS`)
 - [x] Selecting a different row reloads `catalog-module-table` filtered to that cycle's
       modules
 
@@ -177,14 +184,18 @@ instead of duplicating it per teacher.
 - **A1 — No cycle selected in `catalog-training-cycle-table`**: `catalog-module-table`
   prompts to pick/create one; `catalog-module-table-add-button` is disabled.
 - **A2 — Duplicate (name, course) within the cycle**: rejected, inline error on the row.
-- **A3 — Delete a module**: always succeeds — nothing references this catalog.
+- **A3 — Delete a module not assigned to any academic year**: succeeds.
+- **A5 — Delete a module still assigned to an academic year (2026-08-06 fix for #4)**:
+  rejected (`HAS_DEPENDENTS`) — see UC-04's A5, same underlying constraint. The teacher must
+  remove it from every academic year that has it first (Año académico's `module-table`
+  row-level Quitar, see UC-08).
 - **A4 — Edit (rename or change course) a module**: always saves immediately — no
-  confirmation modal, unlike Año académico's old `module-edit-confirm-modal`; nothing
-  references a catalog module to warn about.
+  confirmation modal, unlike Año académico's old `module-edit-confirm-modal`. Editing is
+  unaffected by any academic year assignment — only deletion is blocked.
 
 ### Postconditions
 
-- On A1/A2: no change. On main flow/A3/A4: `catalog_modules` reflects the change.
+- On A1/A2/A5: no change. On main flow/A3/A4: `catalog_modules` reflects the change.
 
 ### Acceptance criteria
 
@@ -195,7 +206,8 @@ instead of duplicating it per teacher.
       `catalog-training-cycle-table` has no cycle selected
 - [x] Adding a row and saving a unique (name, course) within the cycle persists it
 - [x] Saving a duplicate (name, course) within the cycle is rejected, inline error shown
-- [x] Deleting a module always succeeds, unconditionally
+- [x] Deleting a module not assigned to any academic year succeeds
+- [x] Deleting a module still assigned to an academic year is rejected (`HAS_DEPENDENTS`)
 - [x] Editing a module always saves immediately, no modal, regardless of anything else in
       the system
 
