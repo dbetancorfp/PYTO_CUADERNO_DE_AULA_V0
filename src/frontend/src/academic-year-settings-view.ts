@@ -164,6 +164,12 @@ export class AcademicYearSettingsView extends HTMLElement {
 
     this._academicYears = await this.academicYearService.list();
     this._loaded = true;
+
+    const defaultYear = this._academicYears.find((year) => year.isCurrent) ?? this._academicYears[0] ?? null;
+    if (defaultYear !== null) {
+      this._selectYear(defaultYear.id);
+      return;
+    }
     this._render();
   }
 
@@ -203,8 +209,11 @@ export class AcademicYearSettingsView extends HTMLElement {
 
     const cycleAction = parseRowAction(elementId, 'training-cycle-table');
     if (cycleAction) {
-      if (cycleAction.action === 'row' && this._mode === 'normal') {
+      if (this._mode !== 'normal') return;
+      if (cycleAction.action === 'row') {
         this._selectCycle(cycleAction.rowId);
+      } else if (cycleAction.action === 'delete') {
+        this._deleteCycleFromYear(cycleAction.rowId);
       }
       return;
     }
@@ -282,7 +291,16 @@ export class AcademicYearSettingsView extends HTMLElement {
     const modules = await this.academicYearService.listModules(id);
     if (this._selectedYearId !== id) return;
     this._yearModules = modules;
+    this._selectFirstCycle();
     this._render();
+  }
+
+  /** Leaves the first of the cycles currently derived from `_yearModules` selected — the
+   * screen never shows normal-mode `training-cycle-table` with nothing selected while at
+   * least one row exists. */
+  private _selectFirstCycle(): void {
+    const cycles = this._distinctCyclesFromYearModules();
+    this._selectedCycleId = cycles.length > 0 ? cycles[0]!.id : null;
   }
 
   private async _saveYear(rowId: string): Promise<void> {
@@ -403,6 +421,21 @@ export class AcademicYearSettingsView extends HTMLElement {
     this._render();
   }
 
+  /** `training-cycle-table` (normal mode) only ever shows a cycle while it has ≥1 módulo
+   * assigned to this academic year (see `_distinctCyclesFromYearModules`), so this is
+   * blocked every time it's actually reachable — the teacher must remove the cycle's
+   * módulos one by one via `module-table`'s Eliminar first, at which point the cycle drops
+   * out of this list on its own. Never touches `catalog_cycles`/`catalog_modules` — those
+   * are only ever modified from the Ciclos/Módulos screen. */
+  private _deleteCycleFromYear(cycleId: string): void {
+    const hasModules = this._yearModules.some((module) => module.catalogTrainingCycleId === cycleId);
+    if (hasModules) {
+      this._toast.show('No se puede eliminar el ciclo: todavía tiene módulos asignados. Elimínalos primero.');
+      return;
+    }
+    this._render();
+  }
+
   private _toggleCycleChecked(cycleId: string, checked: boolean): void {
     if (checked) {
       this._checkedCycleIds.add(cycleId);
@@ -440,16 +473,11 @@ export class AcademicYearSettingsView extends HTMLElement {
       return;
     }
 
-    const removed = this._yearModules.find((module) => module.id === id) ?? null;
     this._yearModules = this._yearModules.filter((module) => module.id !== id);
 
-    if (removed !== null && this._selectedCycleId === removed.catalogTrainingCycleId) {
-      const cycleStillHasModules = this._yearModules.some(
-        (module) => module.catalogTrainingCycleId === removed.catalogTrainingCycleId,
-      );
-      if (!cycleStillHasModules) {
-        this._selectedCycleId = null;
-      }
+    const stillCycles = this._distinctCyclesFromYearModules();
+    if (!stillCycles.some((cycle) => cycle.id === this._selectedCycleId)) {
+      this._selectFirstCycle();
     }
     this._render();
   }
@@ -674,7 +702,7 @@ export class AcademicYearSettingsView extends HTMLElement {
           <thead>
             <tr>
               <th>Nombre</th>
-              ${this._mode === 'normal' ? '' : html`<th></th>`}
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -688,13 +716,18 @@ export class AcademicYearSettingsView extends HTMLElement {
   private _renderNormalCycleRows(): TemplateResult {
     const cycles = this._distinctCyclesFromYearModules();
     if (cycles.length === 0) {
-      return html`<tr><td>${this._selectedYearId === null ? 'Elige un año académico.' : 'Este año académico todavía no tiene módulos asignados.'}</td></tr>`;
+      return html`<tr><td colspan="2">${this._selectedYearId === null ? 'Elige un año académico.' : 'Este año académico todavía no tiene módulos asignados.'}</td></tr>`;
     }
     return html`${cycles.map((cycle) => {
       const isSelected = this._selectedCycleId === cycle.id;
       return html`
         <tr data-element-id="training-cycle-table-row-${cycle.id}" class="cursor-pointer ${isSelected ? 'bg-slate-100' : ''}">
           <td>${cycle.name}</td>
+          <td>
+            <button type="button" class="${classesFor('button', 'danger', 'sm')}" data-element-id="training-cycle-table-row-${cycle.id}-delete">
+              Eliminar
+            </button>
+          </td>
         </tr>
       `;
     })}`;
@@ -768,7 +801,7 @@ export class AcademicYearSettingsView extends HTMLElement {
           <td>${module.name}</td>
           <td>
             <button type="button" class="${classesFor('button', 'danger', 'sm')}" data-element-id="module-table-row-${module.id}-delete">
-              Quitar
+              Eliminar
             </button>
           </td>
         </tr>

@@ -192,6 +192,37 @@ describe('elementId: academic-year-table (UC-06)', () => {
     el.remove();
   });
 
+  it('auto-selects the current academic year on load, without any click', async () => {
+    const el = await mountView({
+      academicYear: fakeAcademicYearService({
+        list: async () => [
+          { id: 'y1', startYear: 2025, isCurrent: false },
+          { id: 'y2', startYear: 2026, isCurrent: true },
+        ],
+      }),
+    });
+
+    expect(el.shadowRoot!.querySelector('[data-element-id="academic-year-table-row-y2"]')!.className).toContain('bg-slate-100');
+    expect(el.shadowRoot!.querySelector('[data-element-id="academic-year-table-row-y1"]')!.className).not.toContain('bg-slate-100');
+
+    el.remove();
+  });
+
+  it('auto-selects the first academic year on load when none is marked current', async () => {
+    const el = await mountView({
+      academicYear: fakeAcademicYearService({
+        list: async () => [
+          { id: 'y1', startYear: 2025, isCurrent: false },
+          { id: 'y2', startYear: 2026, isCurrent: false },
+        ],
+      }),
+    });
+
+    expect(el.shadowRoot!.querySelector('[data-element-id="academic-year-table-row-y1"]')!.className).toContain('bg-slate-100');
+
+    el.remove();
+  });
+
   it('selecting a row loads its assigned módulos and reloads training-cycle-table/module-table', async () => {
     const calls: string[] = [];
     const el = await mountView({
@@ -413,6 +444,25 @@ describe('elementId: training-cycle-table (UC-07)', () => {
     el.remove();
   });
 
+  it('auto-selects the first cycle derived from the year\'s módulos, without clicking it', async () => {
+    const el = await mountView({
+      academicYear: fakeAcademicYearService({
+        list: async () => [{ id: 'y1', startYear: 2026, isCurrent: true }],
+        listModules: async () => [
+          { id: 'am1', catalogModuleId: 'm1', catalogTrainingCycleId: 'c1', catalogTrainingCycleName: 'DAW', course: 1, name: 'Programación' },
+          { id: 'am2', catalogModuleId: 'm2', catalogTrainingCycleId: 'c2', catalogTrainingCycleName: 'DAM', course: 1, name: 'Base de datos' },
+        ],
+      }),
+    });
+    await tick();
+
+    expect(el.shadowRoot!.querySelector('[data-element-id="training-cycle-table-row-c1"]')!.className).toContain('bg-slate-100');
+    expect(el.shadowRoot!.querySelector('[data-element-id="module-table-row-am1"]')).not.toBeNull();
+    expect(el.shadowRoot!.querySelector('[data-element-id="module-table-row-am2"]')).toBeNull();
+
+    el.remove();
+  });
+
   it('checking a cycle in adding mode loads its módulos into module-selection-table', async () => {
     const calls: string[] = [];
     const el = await mountView({
@@ -454,6 +504,25 @@ describe('elementId: training-cycle-table (UC-07)', () => {
 
     expect(el.shadowRoot!.querySelector('[data-element-id="module-table-row-am1"]')).not.toBeNull();
     expect(el.shadowRoot!.querySelector('[data-element-id="module-table-row-am2"]')).toBeNull();
+
+    el.remove();
+  });
+
+  it('Eliminar shows academic-year-toast blocking deletion while the cycle still has módulos assigned', async () => {
+    const el = await mountView({
+      academicYear: fakeAcademicYearService({
+        list: async () => [{ id: 'y1', startYear: 2026, isCurrent: false }],
+        listModules: async () => [
+          { id: 'am1', catalogModuleId: 'm1', catalogTrainingCycleId: 'c1', catalogTrainingCycleName: 'DAW', course: 1, name: 'Programación' },
+        ],
+      }),
+    });
+
+    el.shadowRoot!.querySelector<HTMLElement>('[data-element-id="training-cycle-table-row-c1-delete"]')!.click();
+    await tick();
+
+    expect(el.shadowRoot!.querySelector('[data-element-id="academic-year-toast"]')!.textContent).toContain('módulos');
+    expect(el.shadowRoot!.querySelector('[data-element-id="training-cycle-table-row-c1"]')).not.toBeNull();
 
     el.remove();
   });
