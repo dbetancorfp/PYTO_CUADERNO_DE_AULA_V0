@@ -235,20 +235,24 @@ export class CalendarioView extends HTMLElement {
 
     const onClick = (event: Event): void => this._handleClick(event);
     const onChange = (event: Event): void => this._handleChange(event);
-    // `mouseenter`/`mouseleave` never bubble, but a *capturing* listener on an ancestor
-    // still receives them for every descendant that fires one (this is the standard,
-    // spec-sanctioned way to delegate these two events — see MDN's "mouseenter"/
-    // "mouseleave" docs on using capture for delegation).
-    const onDayMouseEnter = (event: Event): void => this._handleDayMouseEnter(event);
-    const onDayMouseLeave = (event: Event): void => this._handleDayMouseLeave(event);
+    // `mouseenter`/`mouseleave` never bubble and, in practice, never reach a capture-phase
+    // listener registered on a ShadowRoot for real pointer movement either — verified live
+    // in Chrome: genuine mouse movement fires `mouseover`/`mouseout`/`mousemove` on the day
+    // cell exactly as expected, but zero `mouseenter`/`mouseleave` events at all (only a
+    // synthetic `dispatchEvent(new MouseEvent('mouseenter', ...))`, as unit tests and
+    // Cypress's `.trigger()` both use, ever reached it — masking this in every automated
+    // check). `mouseover`/`mouseout` bubble normally, so plain bubble-phase delegation
+    // (same as click/change above) works reliably for real hover.
+    const onDayMouseOver = (event: Event): void => this._handleDayMouseOver(event);
+    const onDayMouseOut = (event: Event): void => this._handleDayMouseOut(event);
     this.shadowRoot!.addEventListener('click', onClick);
     this.shadowRoot!.addEventListener('change', onChange);
-    this.shadowRoot!.addEventListener('mouseenter', onDayMouseEnter, true);
-    this.shadowRoot!.addEventListener('mouseleave', onDayMouseLeave, true);
+    this.shadowRoot!.addEventListener('mouseover', onDayMouseOver);
+    this.shadowRoot!.addEventListener('mouseout', onDayMouseOut);
     this._disposables.push(() => this.shadowRoot!.removeEventListener('click', onClick));
     this._disposables.push(() => this.shadowRoot!.removeEventListener('change', onChange));
-    this._disposables.push(() => this.shadowRoot!.removeEventListener('mouseenter', onDayMouseEnter, true));
-    this._disposables.push(() => this.shadowRoot!.removeEventListener('mouseleave', onDayMouseLeave, true));
+    this._disposables.push(() => this.shadowRoot!.removeEventListener('mouseover', onDayMouseOver));
+    this._disposables.push(() => this.shadowRoot!.removeEventListener('mouseout', onDayMouseOut));
 
     void this._init();
   }
@@ -317,11 +321,7 @@ export class CalendarioView extends HTMLElement {
     }
   }
 
-  private _handleDayMouseEnter(event: Event): void {
-    // Capture-phase mouseenter/mouseleave delegation can fire with `event.target` set to
-    // something other than an Element (e.g. the ShadowRoot itself, at the boundary of the
-    // capture-listening region) — real browser behavior happy-dom's synthetic
-    // `dispatchEvent` in unit tests never reproduces, only caught here via a real browser.
+  private _handleDayMouseOver(event: Event): void {
     if (!(event.target instanceof Element)) return;
     const target = event.target.closest<HTMLElement>('[data-calendario-day-categories]');
     if (!target) return;
@@ -337,7 +337,7 @@ export class CalendarioView extends HTMLElement {
     );
   }
 
-  private _handleDayMouseLeave(event: Event): void {
+  private _handleDayMouseOut(event: Event): void {
     if (!(event.target instanceof Element)) return;
     const target = event.target.closest<HTMLElement>('[data-calendario-day-categories]');
     if (!target) return;

@@ -63,10 +63,14 @@ describe('UC-05: See event details on hover', () => {
                 }
                 cy.get('[data-element-id="calendario-months"]').should('exist');
 
-                cy.get(`[data-element-id="calendario-month-${targetStartYear}-12-day-25"]`).trigger('mouseenter');
+                // calendario-view.ts delegates via mouseover/mouseout (bubbling), not
+                // mouseenter/mouseleave — verified live in Chrome that real pointer movement
+                // never fires mouseenter/mouseleave through a capture-phase ShadowRoot
+                // listener, only mouseover/mouseout/mousemove do.
+                cy.get(`[data-element-id="calendario-month-${targetStartYear}-12-day-25"]`).trigger('mouseover', { bubbles: true });
                 cy.get('[data-element-id="calendario-day-toast"]').should('be.visible').and('contain.text', 'Vacaciones de Navidad.');
 
-                cy.get(`[data-element-id="calendario-month-${targetStartYear}-12-day-25"]`).trigger('mouseleave');
+                cy.get(`[data-element-id="calendario-month-${targetStartYear}-12-day-25"]`).trigger('mouseout', { bubbles: true });
                 cy.get('[data-element-id="calendario-day-toast"]').should('not.exist');
 
                 cy.request('GET', `/api/academic-years/${academicYearId}/modules`).then(({ body: modulesBody }) => {

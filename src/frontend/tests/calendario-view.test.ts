@@ -402,7 +402,7 @@ describe('elementId: calendario-day-toast', () => {
       }),
     });
 
-    el.shadowRoot!.querySelector('[data-element-id="calendario-month-2025-12-day-25"]')!.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+    el.shadowRoot!.querySelector('[data-element-id="calendario-month-2025-12-day-25"]')!.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
     await tick();
 
     expect(el.shadowRoot!.querySelector('[data-element-id="calendario-day-toast"]')!.textContent).toContain('Vacaciones de Navidad.');
@@ -421,7 +421,7 @@ describe('elementId: calendario-day-toast', () => {
       }),
     });
 
-    el.shadowRoot!.querySelector('[data-element-id="calendario-month-2026-03-day-01"]')!.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+    el.shadowRoot!.querySelector('[data-element-id="calendario-month-2026-03-day-01"]')!.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
     await tick();
 
     const toastText = el.shadowRoot!.querySelector('[data-element-id="calendario-day-toast"]')!.textContent!;
@@ -440,9 +440,9 @@ describe('elementId: calendario-day-toast', () => {
     });
 
     const day = el.shadowRoot!.querySelector('[data-element-id="calendario-month-2025-12-day-25"]')!;
-    day.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+    day.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
     await tick();
-    day.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
+    day.dispatchEvent(new MouseEvent('mouseout', { bubbles: true }));
     await tick();
 
     expect(el.shadowRoot!.querySelector('[data-element-id="calendario-day-toast"]')).toBeNull();
