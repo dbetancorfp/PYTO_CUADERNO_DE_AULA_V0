@@ -8,9 +8,8 @@
 // between `teacher-nav-link` and `academic-year-nav-link` in `NAV_LINKS`' order, per
 // functional-spec.json's acceptance criteria for that elementId.
 //
-// `key-dates-nav-link` added 2026-08-06 for the Fechas señaladas screen — it sits after
-// `academic-year-nav-link` in `NAV_LINKS`' order, per
-// views/fechas-senaladas/functional-spec.json's acceptance criteria for that elementId.
+// `key-dates-nav-link` added 2026-08-06 for the Fechas señaladas screen, originally after
+// `academic-year-nav-link`; reordered 2026-08-07 to sit before it in `NAV_LINKS`' order.
 //
 // 2026-08-06 visual redesign: matches dashboard-view.ts's top navbar style (card —
 // `bg-white`/`shadow-md`/`rounded-lg` — instead of a bare bottom-border row) for cohesion
@@ -42,16 +41,16 @@ const NAV_LINKS: readonly NavLinkDef[] = [
     route: '/configuracion/ciclos-modulos',
   },
   {
-    elementId: 'academic-year-nav-link',
-    screen: 'ano-academico',
-    label: 'Año académico',
-    route: '/configuracion/ano-academico',
-  },
-  {
     elementId: 'key-dates-nav-link',
     screen: 'fechas-senaladas',
     label: 'Fechas señaladas',
     route: '/configuracion/fechas-senaladas',
+  },
+  {
+    elementId: 'academic-year-nav-link',
+    screen: 'ano-academico',
+    label: 'Año académico',
+    route: '/configuracion/ano-academico',
   },
 ];
 
