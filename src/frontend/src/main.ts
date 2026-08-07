@@ -92,6 +92,19 @@ async function bootstrap(): Promise<void> {
     return;
   }
 
+  if (window.location.pathname === '/configuracion/fechas-senaladas') {
+    const [{ HttpSessionApiService }, { HttpKeyDateApiService }, { KeyDateSettingsView }] = await Promise.all([
+      import('./http-session-api-service'),
+      import('./http-key-date-api-service'),
+      import('./key-date-settings-view'),
+    ]);
+    const keyDateSettingsView = document.createElement('app-key-date-settings-view') as InstanceType<typeof KeyDateSettingsView>;
+    keyDateSettingsView.sessionService = new HttpSessionApiService();
+    keyDateSettingsView.keyDateService = new HttpKeyDateApiService();
+    document.body.appendChild(keyDateSettingsView);
+    return;
+  }
+
   const [{ HttpAuthApiService }, { LoginView }] = await Promise.all([
     import('./http-auth-api-service'),
     import('./login-view'),

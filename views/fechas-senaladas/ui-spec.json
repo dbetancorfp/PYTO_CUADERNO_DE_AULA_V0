@@ -1,0 +1,543 @@
+{
+  "view_id": "fechas-senaladas",
+  "version": 1,
+  "generated_at": "2026-08-06T20:52:00Z",
+  "agent": "view-designer",
+  "model": "claude-sonnet-5",
+  "total_elements": 17,
+  "screens": [
+    {
+      "screen_id": "key-dates-settings-screen",
+      "screen_name": "Configuración — Fechas señaladas",
+      "file": "key-dates-settings-view.ts",
+      "route": "/configuracion/fechas-senaladas",
+      "role_guard": [
+        "authenticated"
+      ],
+      "element_ids": [
+        "back-to-dashboard-link",
+        "teacher-nav-link",
+        "training-catalog-nav-link",
+        "academic-year-nav-link",
+        "key-dates-nav-link",
+        "academic-key-dates-table",
+        "academic-key-dates-table-add-button",
+        "holidays-table",
+        "holidays-table-add-button",
+        "public-holidays-table",
+        "public-holidays-table-add-button",
+        "free-disposal-days-table",
+        "free-disposal-days-table-add-button",
+        "evaluations-table",
+        "evaluations-table-add-button",
+        "feoe-project-days-table",
+        "feoe-project-days-table-add-button"
+      ],
+      "components": [
+        {
+          "elementId": "back-to-dashboard-link",
+          "type": "link",
+          "label": "Volver",
+          "props": {},
+          "states": [
+            {
+              "name": "default",
+              "description": "Always visible on all four settings screens",
+              "visual_cues": [
+                "plain link styling",
+                "pinned to the far right of the settings nav"
+              ]
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "click",
+              "event": "app:back-to-dashboard-clicked",
+              "response": "Navigates to /dashboard"
+            }
+          ]
+        },
+        {
+          "elementId": "teacher-nav-link",
+          "type": "link",
+          "label": "Profesor",
+          "props": {},
+          "states": [
+            {
+              "name": "active",
+              "description": "Current screen is this one",
+              "visual_cues": [
+                "highlighted/underlined, centered in the settings nav"
+              ],
+              "condition": "route is /configuracion/profesor"
+            },
+            {
+              "name": "inactive",
+              "description": "Current screen is one of the other three",
+              "visual_cues": [
+                "plain link styling"
+              ],
+              "condition": "route is /configuracion/ciclos-modulos or /configuracion/ano-academico or /configuracion/fechas-senaladas"
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "click",
+              "event": "app:settings-nav-clicked",
+              "response": "Navigates to /configuracion/profesor (no-op if already there)"
+            }
+          ]
+        },
+        {
+          "elementId": "training-catalog-nav-link",
+          "type": "link",
+          "label": "Ciclos/Módulos",
+          "props": {},
+          "states": [
+            {
+              "name": "active",
+              "description": "Current screen is this one",
+              "visual_cues": [
+                "highlighted/underlined, centered in the settings nav"
+              ],
+              "condition": "route is /configuracion/ciclos-modulos"
+            },
+            {
+              "name": "inactive",
+              "description": "Current screen is one of the other three",
+              "visual_cues": [
+                "plain link styling"
+              ],
+              "condition": "route is /configuracion/profesor or /configuracion/ano-academico or /configuracion/fechas-senaladas"
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "click",
+              "event": "app:settings-nav-clicked",
+              "response": "Navigates to /configuracion/ciclos-modulos (no-op if already there)"
+            }
+          ]
+        },
+        {
+          "elementId": "academic-year-nav-link",
+          "type": "link",
+          "label": "Año académico",
+          "props": {},
+          "states": [
+            {
+              "name": "active",
+              "description": "Current screen is this one",
+              "visual_cues": [
+                "highlighted/underlined, centered in the settings nav"
+              ],
+              "condition": "route is /configuracion/ano-academico"
+            },
+            {
+              "name": "inactive",
+              "description": "Current screen is one of the other three",
+              "visual_cues": [
+                "plain link styling"
+              ],
+              "condition": "route is /configuracion/profesor or /configuracion/ciclos-modulos or /configuracion/fechas-senaladas"
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "click",
+              "event": "app:settings-nav-clicked",
+              "response": "Navigates to /configuracion/ano-academico (no-op if already there)"
+            }
+          ]
+        },
+        {
+          "elementId": "key-dates-nav-link",
+          "type": "link",
+          "label": "Fechas señaladas",
+          "props": {},
+          "states": [
+            {
+              "name": "active",
+              "description": "Current screen is this one",
+              "visual_cues": [
+                "highlighted/underlined, centered in the settings nav"
+              ],
+              "condition": "route is /configuracion/fechas-senaladas"
+            },
+            {
+              "name": "inactive",
+              "description": "Current screen is one of the other three",
+              "visual_cues": [
+                "plain link styling"
+              ],
+              "condition": "route is /configuracion/profesor or /configuracion/ciclos-modulos or /configuracion/ano-academico"
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "click",
+              "event": "app:settings-nav-clicked",
+              "response": "Navigates to /configuracion/fechas-senaladas (no-op if already there)"
+            }
+          ]
+        },
+        {
+          "elementId": "academic-key-dates-table",
+          "type": "table",
+          "label": "Fechas clave FP",
+          "props": {
+            "columns": [
+              "nombre",
+              "fecha inicio",
+              "fecha fin"
+            ],
+            "is_editable": true
+          },
+          "states": [
+            {
+              "name": "empty",
+              "description": "No hay fechas creadas todavía en la categoría \"Fechas clave FP\"",
+              "visual_cues": [
+                "empty-state message"
+              ]
+            },
+            {
+              "name": "populated",
+              "description": "Una fila por fecha señalada de esta categoría — cada una un rango de fechas (día/mes – día/mes). Curso escolar, 1º/2º de Grado Superior, presentación de proyectos. Inline-editable per lib/patterns/crud-table-component.md.",
+              "visual_cues": [
+                "table rows"
+              ]
+            }
+          ],
+          "interactions": [],
+          "note": "Curso escolar, 1º/2º de Grado Superior, presentación de proyectos."
+        },
+        {
+          "elementId": "academic-key-dates-table-add-button",
+          "type": "button",
+          "label": "Añadir fechas clave fp",
+          "props": {
+            "variant": "secondary",
+            "size": "sm"
+          },
+          "states": [
+            {
+              "name": "default",
+              "description": "Always enabled — no precondition, unlike Módulos' add-button which needs a selected ciclo",
+              "visual_cues": [
+                "enabled button"
+              ]
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "click",
+              "event": "app:row-add-started",
+              "target_elements": [
+                "academic-key-dates-table"
+              ],
+              "response": "Opens a blank, inline-editable draft row in academic-key-dates-table"
+            }
+          ]
+        },
+        {
+          "elementId": "holidays-table",
+          "type": "table",
+          "label": "Vacaciones",
+          "props": {
+            "columns": [
+              "nombre",
+              "fecha inicio",
+              "fecha fin"
+            ],
+            "is_editable": true
+          },
+          "states": [
+            {
+              "name": "empty",
+              "description": "No hay fechas creadas todavía en la categoría \"Vacaciones\"",
+              "visual_cues": [
+                "empty-state message"
+              ]
+            },
+            {
+              "name": "populated",
+              "description": "Una fila por fecha señalada de esta categoría — cada una un rango de fechas (día/mes – día/mes). Vacaciones de Navidad, Semana Santa. Inline-editable per lib/patterns/crud-table-component.md.",
+              "visual_cues": [
+                "table rows"
+              ]
+            }
+          ],
+          "interactions": [],
+          "note": "Vacaciones de Navidad, Semana Santa."
+        },
+        {
+          "elementId": "holidays-table-add-button",
+          "type": "button",
+          "label": "Añadir vacaciones",
+          "props": {
+            "variant": "secondary",
+            "size": "sm"
+          },
+          "states": [
+            {
+              "name": "default",
+              "description": "Always enabled — no precondition, unlike Módulos' add-button which needs a selected ciclo",
+              "visual_cues": [
+                "enabled button"
+              ]
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "click",
+              "event": "app:row-add-started",
+              "target_elements": [
+                "holidays-table"
+              ],
+              "response": "Opens a blank, inline-editable draft row in holidays-table"
+            }
+          ]
+        },
+        {
+          "elementId": "public-holidays-table",
+          "type": "table",
+          "label": "Días festivos",
+          "props": {
+            "columns": [
+              "nombre",
+              "fecha",
+              "tipo"
+            ],
+            "is_editable": true
+          },
+          "states": [
+            {
+              "name": "empty",
+              "description": "No hay fechas creadas todavía en la categoría \"Días festivos\"",
+              "visual_cues": [
+                "empty-state message"
+              ]
+            },
+            {
+              "name": "populated",
+              "description": "Una fila por fecha señalada de esta categoría — cada una un único día (día/mes), con tipo. Festivos nacionales, autonómicos, insulares y locales, cada uno con su tipo. Inline-editable per lib/patterns/crud-table-component.md.",
+              "visual_cues": [
+                "table rows"
+              ]
+            }
+          ],
+          "interactions": [],
+          "note": "Festivos nacionales, autonómicos, insulares y locales, cada uno con su tipo."
+        },
+        {
+          "elementId": "public-holidays-table-add-button",
+          "type": "button",
+          "label": "Añadir días festivos",
+          "props": {
+            "variant": "secondary",
+            "size": "sm"
+          },
+          "states": [
+            {
+              "name": "default",
+              "description": "Always enabled — no precondition, unlike Módulos' add-button which needs a selected ciclo",
+              "visual_cues": [
+                "enabled button"
+              ]
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "click",
+              "event": "app:row-add-started",
+              "target_elements": [
+                "public-holidays-table"
+              ],
+              "response": "Opens a blank, inline-editable draft row in public-holidays-table"
+            }
+          ]
+        },
+        {
+          "elementId": "free-disposal-days-table",
+          "type": "table",
+          "label": "Días de libre disposición",
+          "props": {
+            "columns": [
+              "nombre",
+              "fecha"
+            ],
+            "is_editable": true
+          },
+          "states": [
+            {
+              "name": "empty",
+              "description": "No hay fechas creadas todavía en la categoría \"Días de libre disposición\"",
+              "visual_cues": [
+                "empty-state message"
+              ]
+            },
+            {
+              "name": "populated",
+              "description": "Una fila por fecha señalada de esta categoría — cada una un único día (día/mes). Días de libre disposición del calendario escolar. Inline-editable per lib/patterns/crud-table-component.md.",
+              "visual_cues": [
+                "table rows"
+              ]
+            }
+          ],
+          "interactions": [],
+          "note": "Días de libre disposición del calendario escolar."
+        },
+        {
+          "elementId": "free-disposal-days-table-add-button",
+          "type": "button",
+          "label": "Añadir días de libre disposición",
+          "props": {
+            "variant": "secondary",
+            "size": "sm"
+          },
+          "states": [
+            {
+              "name": "default",
+              "description": "Always enabled — no precondition, unlike Módulos' add-button which needs a selected ciclo",
+              "visual_cues": [
+                "enabled button"
+              ]
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "click",
+              "event": "app:row-add-started",
+              "target_elements": [
+                "free-disposal-days-table"
+              ],
+              "response": "Opens a blank, inline-editable draft row in free-disposal-days-table"
+            }
+          ]
+        },
+        {
+          "elementId": "evaluations-table",
+          "type": "table",
+          "label": "Evaluaciones",
+          "props": {
+            "columns": [
+              "nombre",
+              "fecha inicio",
+              "fecha fin"
+            ],
+            "is_editable": true
+          },
+          "states": [
+            {
+              "name": "empty",
+              "description": "No hay fechas creadas todavía en la categoría \"Evaluaciones\"",
+              "visual_cues": [
+                "empty-state message"
+              ]
+            },
+            {
+              "name": "populated",
+              "description": "Una fila por fecha señalada de esta categoría — cada una un rango de fechas (día/mes – día/mes). Ventanas de sesión de evaluación y atención familiar por evaluación/curso. Inline-editable per lib/patterns/crud-table-component.md.",
+              "visual_cues": [
+                "table rows"
+              ]
+            }
+          ],
+          "interactions": [],
+          "note": "Ventanas de sesión de evaluación y atención familiar por evaluación/curso."
+        },
+        {
+          "elementId": "evaluations-table-add-button",
+          "type": "button",
+          "label": "Añadir evaluaciones",
+          "props": {
+            "variant": "secondary",
+            "size": "sm"
+          },
+          "states": [
+            {
+              "name": "default",
+              "description": "Always enabled — no precondition, unlike Módulos' add-button which needs a selected ciclo",
+              "visual_cues": [
+                "enabled button"
+              ]
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "click",
+              "event": "app:row-add-started",
+              "target_elements": [
+                "evaluations-table"
+              ],
+              "response": "Opens a blank, inline-editable draft row in evaluations-table"
+            }
+          ]
+        },
+        {
+          "elementId": "feoe-project-days-table",
+          "type": "table",
+          "label": "Proyecto FEOE",
+          "props": {
+            "columns": [
+              "nombre",
+              "fecha"
+            ],
+            "is_editable": true
+          },
+          "states": [
+            {
+              "name": "empty",
+              "description": "No hay fechas creadas todavía en la categoría \"Proyecto FEOE\"",
+              "visual_cues": [
+                "empty-state message"
+              ]
+            },
+            {
+              "name": "populated",
+              "description": "Una fila por fecha señalada de esta categoría — cada una un único día (día/mes). Días de alternancia del Proyecto Basado en Retos / FEOE, por curso. Inline-editable per lib/patterns/crud-table-component.md.",
+              "visual_cues": [
+                "table rows"
+              ]
+            }
+          ],
+          "interactions": [],
+          "note": "Días de alternancia del Proyecto Basado en Retos / FEOE, por curso."
+        },
+        {
+          "elementId": "feoe-project-days-table-add-button",
+          "type": "button",
+          "label": "Añadir proyecto feoe",
+          "props": {
+            "variant": "secondary",
+            "size": "sm"
+          },
+          "states": [
+            {
+              "name": "default",
+              "description": "Always enabled — no precondition, unlike Módulos' add-button which needs a selected ciclo",
+              "visual_cues": [
+                "enabled button"
+              ]
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "click",
+              "event": "app:row-add-started",
+              "target_elements": [
+                "feoe-project-days-table"
+              ],
+              "response": "Opens a blank, inline-editable draft row in feoe-project-days-table"
+            }
+          ]
+        }
+      ],
+      "data_needs": [
+        "key_dates"
+      ],
+      "notes": "Own top-level custom element (app-key-dates-settings-view), fourth sibling to the other three settings screens (Profesor, Ciclos/Módulos, Año académico). Master CRUD over a single shared, global table (key_dates) holding the Canary Islands' official school calendar template — day/month only, no year, not scoped per teacher, not tied to academic_years (see description_fechas-senaladas.md's \"Domain and scope\"). Six independent table sections (no master/detail cascade between them, unlike Ciclos/Módulos), one per key_dates.category value, each following lib/patterns/crud-table-component.md exactly like Ciclos/Módulos' tables: inline add/edit/save/cancel/delete, no modal. Deletion is always unconditional (nothing else in the schema references key_dates). Date fields are single DD/MM-formatted text inputs (not two separate day/month number pickers) — matches the source seed data's own \"12/10\" format and keeps rows narrow; client-side validates the DD/MM format and a real day-in-month before submit (e.g. rejects 31/02), and the backend re-validates regardless, never trusting client input alone. Seeded once from documentation/calendario_dias_clave.json (43 rows across the six categories) via src/backend/src/db/seed-key-dates.ts, auto-run on every DATA_BACKEND=postgres boot exactly like seed-catalog-curriculum.ts — not a UI feature of this screen."
+    }
+  ]
+}

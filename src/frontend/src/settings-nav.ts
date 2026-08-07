@@ -8,6 +8,10 @@
 // between `teacher-nav-link` and `academic-year-nav-link` in `NAV_LINKS`' order, per
 // functional-spec.json's acceptance criteria for that elementId.
 //
+// `key-dates-nav-link` added 2026-08-06 for the Fechas señaladas screen — it sits after
+// `academic-year-nav-link` in `NAV_LINKS`' order, per
+// views/fechas-senaladas/functional-spec.json's acceptance criteria for that elementId.
+//
 // 2026-08-06 visual redesign: matches dashboard-view.ts's top navbar style (card —
 // `bg-white`/`shadow-md`/`rounded-lg` — instead of a bare bottom-border row) for cohesion
 // across the app. Three-zone layout: `settings-nav-heading` ("Configuración") pinned to the
@@ -20,10 +24,10 @@ import { html, nothing, type TemplateResult } from 'lit-html';
 import { classesFor } from './styles/classes-for';
 import { redirectTo } from './navigation';
 
-export type SettingsScreen = 'profesor' | 'ciclos-modulos' | 'ano-academico';
+export type SettingsScreen = 'profesor' | 'ciclos-modulos' | 'ano-academico' | 'fechas-senaladas';
 
 interface NavLinkDef {
-  elementId: 'teacher-nav-link' | 'training-catalog-nav-link' | 'academic-year-nav-link';
+  elementId: 'teacher-nav-link' | 'training-catalog-nav-link' | 'academic-year-nav-link' | 'key-dates-nav-link';
   screen: SettingsScreen;
   label: string;
   route: string;
@@ -42,6 +46,12 @@ const NAV_LINKS: readonly NavLinkDef[] = [
     screen: 'ano-academico',
     label: 'Año académico',
     route: '/configuracion/ano-academico',
+  },
+  {
+    elementId: 'key-dates-nav-link',
+    screen: 'fechas-senaladas',
+    label: 'Fechas señaladas',
+    route: '/configuracion/fechas-senaladas',
   },
 ];
 

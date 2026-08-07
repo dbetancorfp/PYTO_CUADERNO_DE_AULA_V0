@@ -12,17 +12,21 @@ import { InMemoryAcademicYearModuleRepository } from './repositories/in-memory/i
 import { InMemoryAcademicYearRepository } from './repositories/in-memory/in-memory-academic-year.repository';
 import { InMemoryCatalogModuleRepository } from './repositories/in-memory/in-memory-catalog-module.repository';
 import { InMemoryCatalogTrainingCycleRepository } from './repositories/in-memory/in-memory-catalog-training-cycle.repository';
+import { InMemoryKeyDateRepository } from './repositories/in-memory/in-memory-key-date.repository';
 import { InMemorySessionRepository } from './repositories/in-memory/in-memory-session.repository';
 import { InMemoryUserRepository } from './repositories/in-memory/in-memory-user.repository';
+import { KeyDateStore } from './repositories/in-memory/key-date-store';
 import { PgAcademicYearModuleRepository } from './repositories/postgres/pg-academic-year-module.repository';
 import { PgAcademicYearRepository } from './repositories/postgres/pg-academic-year.repository';
 import { PgCatalogModuleRepository } from './repositories/postgres/pg-catalog-module.repository';
 import { PgCatalogTrainingCycleRepository } from './repositories/postgres/pg-catalog-training-cycle.repository';
+import { PgKeyDateRepository } from './repositories/postgres/pg-key-date.repository';
 import { PgUserRepository } from './repositories/postgres/pg-user.repository';
 import type { AcademicYearModuleRepository } from './repositories/academic-year-module.repository';
 import type { AcademicYearRepository } from './repositories/academic-year.repository';
 import type { CatalogModuleRepository } from './repositories/catalog-module.repository';
 import type { CatalogTrainingCycleRepository } from './repositories/catalog-training-cycle.repository';
+import type { KeyDateRepository } from './repositories/key-date.repository';
 import type { User, UserRepository } from './repositories/user.repository';
 import { academicYearModuleRouter } from './routes/academic-year-module.routes';
 import { academicYearRouter } from './routes/academic-year.routes';
@@ -30,11 +34,13 @@ import { authRouter } from './routes/auth.routes';
 import { catalogCycleModulesRouter, catalogModuleRouter } from './routes/catalog-module.routes';
 import { catalogTrainingCycleRouter } from './routes/catalog-training-cycle.routes';
 import { domainErrorHandler } from './routes/error';
+import { keyDateRouter } from './routes/key-date.routes';
 import { teacherSettingsRouter } from './routes/teacher-settings.routes';
 import { AcademicYearService } from './services/academic-year.service';
 import { AuthService } from './services/auth.service';
 import { CatalogModuleService } from './services/catalog-module.service';
 import { CatalogTrainingCycleService } from './services/catalog-training-cycle.service';
+import { KeyDateService } from './services/key-date.service';
 import { SessionService } from './services/session.service';
 import { TeacherSettingsService } from './services/teacher-settings.service';
 
@@ -52,6 +58,7 @@ interface Repositories {
   catalogModuleRepository: CatalogModuleRepository;
   academicYearRepository: AcademicYearRepository;
   academicYearModuleRepository: AcademicYearModuleRepository;
+  keyDateRepository: KeyDateRepository;
 }
 
 function buildRepositories(deps: AppDeps): Repositories {
@@ -64,12 +71,16 @@ function buildRepositories(deps: AppDeps): Repositories {
     // repositories/in-memory/academic-year-store.ts); the módulo repo also reads the
     // catalog's store (read-only) to build the same joined shape Postgres produces via SQL.
     const academicYearStore = new AcademicYearStore();
+    // key_dates is single, shared, global (no FK to users/academic_years, see
+    // repositories/key-date.repository.ts) — its own store, unrelated to the other two.
+    const keyDateStore = new KeyDateStore();
     return {
       userRepository: new InMemoryUserRepository(deps.seedUsers ?? []),
       catalogTrainingCycleRepository: new InMemoryCatalogTrainingCycleRepository(store),
       catalogModuleRepository: new InMemoryCatalogModuleRepository(store),
       academicYearRepository: new InMemoryAcademicYearRepository(academicYearStore),
       academicYearModuleRepository: new InMemoryAcademicYearModuleRepository(academicYearStore, store),
+      keyDateRepository: new InMemoryKeyDateRepository(keyDateStore),
     };
   }
 
@@ -86,6 +97,7 @@ function buildRepositories(deps: AppDeps): Repositories {
     catalogModuleRepository: new PgCatalogModuleRepository(sql),
     academicYearRepository: new PgAcademicYearRepository(sql),
     academicYearModuleRepository: new PgAcademicYearModuleRepository(sql),
+    keyDateRepository: new PgKeyDateRepository(sql),
   };
 }
 
@@ -96,6 +108,7 @@ export function createApp(deps: AppDeps): Express {
     catalogModuleRepository,
     academicYearRepository,
     academicYearModuleRepository,
+    keyDateRepository,
   } = buildRepositories(deps);
 
   const authService = new AuthService(userRepository);
@@ -106,6 +119,7 @@ export function createApp(deps: AppDeps): Express {
   const catalogTrainingCycleService = new CatalogTrainingCycleService(catalogTrainingCycleRepository, academicYearModuleRepository);
   const catalogModuleService = new CatalogModuleService(catalogModuleRepository, catalogTrainingCycleRepository, academicYearModuleRepository);
   const academicYearService = new AcademicYearService(academicYearRepository, academicYearModuleRepository, catalogModuleRepository);
+  const keyDateService = new KeyDateService(keyDateRepository);
 
   const app = express();
   app.use(express.json());
@@ -120,6 +134,7 @@ export function createApp(deps: AppDeps): Express {
   app.use('/api/catalog/modules', catalogModuleRouter(catalogModuleService, sessionService));
   app.use('/api/academic-years', academicYearRouter(academicYearService, sessionService));
   app.use('/api/academic-year-modules', academicYearModuleRouter(academicYearService, sessionService));
+  app.use('/api/key-dates', keyDateRouter(keyDateService, sessionService));
 
   const frontendDist = path.join(import.meta.dir, '..', '..', 'frontend', 'dist');
   const frontendIndex = path.join(import.meta.dir, '..', '..', 'frontend', 'index.html');
@@ -129,6 +144,7 @@ export function createApp(deps: AppDeps): Express {
   app.get('/configuracion/profesor', (_req, res) => res.sendFile(frontendIndex));
   app.get('/configuracion/ciclos-modulos', (_req, res) => res.sendFile(frontendIndex));
   app.get('/configuracion/ano-academico', (_req, res) => res.sendFile(frontendIndex));
+  app.get('/configuracion/fechas-senaladas', (_req, res) => res.sendFile(frontendIndex));
 
   // Must be the LAST app.use(...) — Express 5 auto-forwards exceptions from async route
   // handlers here (see tecnologias/tecnologia_code.md, routes/error.ts).
