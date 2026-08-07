@@ -1,0 +1,150 @@
+{
+  "appOverview": "Calendario is a read-only dashboard screen showing the school calendar (September of a selected school year through the following June) for one módulo the authenticated teacher teaches, with key dates from Fechas señaladas marked in red (fechas clave FP, vacaciones, días festivos, días de libre disposición) or blue (evaluaciones, proyecto FEOE). It never reads key_dates directly: Año académico's 'Guardar selección' flow snapshots key_dates into a new calendario_modulo table (one resolved date range per key_dates entry, per módulo assigned) the moment a módulo is assigned to an academic year, so the calendar persists even if key_dates changes later, and disappears (ON DELETE CASCADE) if the módulo assignment is removed. Three cascading filters (school year carousel -> ciclo -> módulo) pick which módulo's calendario_modulo rows to render.",
+  "elementSpecs": [
+    {
+      "elementId": "calendario-heading",
+      "behavior": "Static text, always 'Calendario', pinned to the far left of the nav bar.",
+      "businessRules": [],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "calendario-heading always renders the text 'Calendario'"
+      ]
+    },
+    {
+      "elementId": "back-to-dashboard-link",
+      "behavior": "Clicking navigates to /dashboard. Always visible, pinned to the far right of the nav bar.",
+      "businessRules": [],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "Clicking back-to-dashboard-link navigates to /dashboard"
+      ]
+    },
+    {
+      "elementId": "academic-year-filter-prev",
+      "behavior": "Moves the school-year carousel one year back. Backward range is restricted to academic_years rows this teacher actually owns with startYear strictly less than the computed current school year; disabled when there's no earlier year to move to.",
+      "businessRules": [
+        "currentSchoolYearStartYear is computed, not read from any academic_years.is_current flag: current calendar month >= 9 (September) -> current calendar year; otherwise -> current calendar year - 1",
+        "Backward: only years present in GET /api/academic-years for this teacher with startYear < currentSchoolYearStartYear are reachable",
+        "Moving the year re-derives cycle-filter and module-filter and reloads calendario-months for the newly selected year"
+      ],
+      "dataNeeds": ["academic_years.start_year", "academic_years.teacher_id"],
+      "acceptanceCriteria": [
+        "academic-year-filter-prev is disabled when the teacher has no academic_years row with startYear less than the currently selected year",
+        "Clicking academic-year-filter-prev when enabled selects the previous available school year and updates academic-year-filter-value",
+        "Clicking academic-year-filter-prev re-derives cycle-filter's options for the newly selected year"
+      ]
+    },
+    {
+      "elementId": "academic-year-filter-value",
+      "behavior": "Shows the currently selected school year as 'startYear-startYear+1'. Defaults to the computed current school year on first load.",
+      "businessRules": [
+        "Default value on load is currentSchoolYearStartYear (see academic-year-filter-prev's businessRules), regardless of whether an academic_years row exists yet for it"
+      ],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "On first load, academic-year-filter-value shows the school year containing today's date (September-cutoff rule), formatted as '<year>-<year+1>'",
+        "academic-year-filter-value updates immediately when either arrow is clicked"
+      ]
+    },
+    {
+      "elementId": "academic-year-filter-next",
+      "behavior": "Moves the school-year carousel one year forward, up to currentSchoolYearStartYear + 5, with no requirement that an academic_years row already exists for the target year.",
+      "businessRules": [
+        "Forward range is unrestricted by data (no academic_years row required) up to currentSchoolYearStartYear + 5",
+        "Selecting a future year with no academic_years row yet leaves cycle-filter and module-filter empty and calendario-months in its empty state"
+      ],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "academic-year-filter-next is disabled once the selected year equals currentSchoolYearStartYear + 5",
+        "Clicking academic-year-filter-next when enabled advances the selected year by 1 and updates academic-year-filter-value",
+        "Selecting a future year with no academic_years row shows cycle-filter in its empty state and calendario-empty-state instead of calendario-months"
+      ]
+    },
+    {
+      "elementId": "cycle-filter",
+      "behavior": "Lists the distinct training cycles the authenticated teacher teaches in the selected school year, derived from that year's academic_year_modules. First cycle selected by default.",
+      "businessRules": [
+        "Cycles are derived client-side from GET /api/academic-years/:id/modules (catalogTrainingCycleId/catalogTrainingCycleName), deduplicated by catalogTrainingCycleId — same derivation academic-year-settings-view.ts already uses for training-cycle-table",
+        "Changing cycle-filter re-derives module-filter's options to that cycle's módulos and selects the first one"
+      ],
+      "dataNeeds": ["academic_year_modules.catalog_module_id", "catalog_modules.catalog_training_cycle_id", "catalog_cycles.name"],
+      "acceptanceCriteria": [
+        "cycle-filter lists exactly the distinct cycles present in the selected year's módulo assignments, no duplicates",
+        "cycle-filter has its first option selected by default when the year has at least one cycle",
+        "Changing cycle-filter updates module-filter to only that cycle's módulos"
+      ]
+    },
+    {
+      "elementId": "module-filter",
+      "behavior": "Lists the módulos of the selected cycle within the selected school year. First módulo selected by default. Selecting a módulo determines which calendario_modulo rows the calendar renders.",
+      "businessRules": [
+        "Options are the selected cycle-filter's módulos, from the same GET /api/academic-years/:id/modules response already fetched for cycle-filter",
+        "Changing module-filter reloads calendario-months for the newly selected academic_year_module_id"
+      ],
+      "dataNeeds": ["academic_year_modules.id", "academic_year_modules.catalog_module_id", "catalog_modules.name", "catalog_modules.course"],
+      "acceptanceCriteria": [
+        "module-filter lists exactly the módulos belonging to the currently selected cycle",
+        "module-filter has its first option selected by default when the cycle has at least one módulo",
+        "Changing module-filter triggers a new GET /api/calendario-modulo request for the newly selected academic_year_module_id"
+      ]
+    },
+    {
+      "elementId": "calendario-months",
+      "behavior": "Renders 10 month cards (September of the selected school year through June of the next) from the selected módulo's calendario_modulo rows. Each day cell shows only its day number, colored per the categories covering it. Hovering a marked day shows calendario-day-toast with its event name(s); leaving it dismisses the toast immediately.",
+      "businessRules": [
+        "Only calendario_modulo rows for the currently selected academic_year_module_id are used — never key_dates directly",
+        "Red categories: academic_key_dates, holidays, public_holidays, free_disposal_days. Blue categories: evaluations, feoe_project_days",
+        "A calendario_modulo range spanning at most 30 days colors every day in [start_date, end_date]; a range spanning more than 30 days colors only start_date and end_date, not the days in between",
+        "A day covered by more than one category's range renders a split background (one color band per active category, hard CSS stops), not just one color chosen arbitrarily",
+        "Week rows start on Monday",
+        "Each month card gets data-element-id=\"calendario-month-<YYYY-MM>\"; each day cell inside it gets data-element-id=\"calendario-month-<YYYY-MM>-day-<DD>\" (documented dynamic pattern, not enumerated per instance)"
+      ],
+      "dataNeeds": [
+        "calendario_modulo.academic_year_module_id",
+        "calendario_modulo.category",
+        "calendario_modulo.name",
+        "calendario_modulo.start_date",
+        "calendario_modulo.end_date"
+      ],
+      "acceptanceCriteria": [
+        "calendario-months renders exactly 10 month cards, from September of the selected school year through June of the following year, in order",
+        "A day inside a <=30-day calendario_modulo range (e.g. Vacaciones de Navidad, 22/12-07/01) is colored red for every day in that range, including the boundary days",
+        "A day inside a >30-day calendario_modulo range (e.g. Curso escolar, 01/09-31/07) is colored only on its start day and its end day, not on the days in between",
+        "A day covered only by an evaluations or feoe_project_days range is colored blue",
+        "A day covered by both a red-category and a blue-category range at once shows both colors, not just one",
+        "Hovering a colored day shows calendario-day-toast with that day's event name(s)",
+        "Moving the mouse off a colored day dismisses calendario-day-toast immediately",
+        "When the selected academic_year_module_id has no calendario_modulo rows, calendario-months is not rendered and calendario-empty-state is shown instead"
+      ]
+    },
+    {
+      "elementId": "calendario-empty-state",
+      "behavior": "Shown instead of calendario-months whenever there's nothing to render: no académico year row for the selected year, no cycles/módulos in it, or a selected módulo with zero calendario_modulo rows.",
+      "businessRules": [],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "calendario-empty-state is shown when the selected school year has no academic_years row for this teacher",
+        "calendario-empty-state is shown when the selected academic_year_module_id has zero calendario_modulo rows"
+      ]
+    },
+    {
+      "elementId": "calendario-day-toast",
+      "behavior": "Reuses toast.ts's ToastController/renderToast with a new 'info' ToastVariant (neither 'error' nor 'success' fits a neutral day-info popup). Shown on mouseenter of a marked day cell, dismissed on mouseleave — not on the default 5s auto-dismiss timer, which stays reserved for action-confirmation toasts elsewhere in the app.",
+      "businessRules": [
+        "Message text lists every calendario_modulo entry's name covering the hovered day, one per line if more than one",
+        "Dismissal on mouseleave is immediate, bypassing the auto-dismiss timer"
+      ],
+      "dataNeeds": ["calendario_modulo.name", "calendario_modulo.category"],
+      "acceptanceCriteria": [
+        "calendario-day-toast shows the exact event name of a hovered single-category day",
+        "calendario-day-toast shows every applicable event name, one per line, when the hovered day is covered by more than one calendario_modulo entry",
+        "calendario-day-toast disappears as soon as the mouse leaves the day cell, without waiting 5 seconds"
+      ]
+    }
+  ],
+  "globalRules": [
+    "Screen requires an authenticated session (role_guard: authenticated) — same redirect-to-/login pattern as every other screen in this app",
+    "Read-only screen: no element here ever creates, updates, or deletes a calendario_modulo row — those are only ever written by Año académico's 'Guardar selección'/'Eliminar' flows (see views/calendario/description_calendario.md)",
+    "calendario_modulo is a snapshot, independent of key_dates after creation — editing or deleting a key_dates row in Fechas señaladas never changes an already-generated calendario_modulo row"
+  ]
+}

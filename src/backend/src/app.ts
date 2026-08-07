@@ -7,9 +7,11 @@ import express, { type Express } from 'express';
 import { createPgClient } from './db/pg-client';
 import type { SqlExecutor } from './db/sql-executor';
 import { AcademicYearStore } from './repositories/in-memory/academic-year-store';
+import { CalendarioModuloStore } from './repositories/in-memory/calendario-modulo-store';
 import { CatalogStore } from './repositories/in-memory/catalog-store';
 import { InMemoryAcademicYearModuleRepository } from './repositories/in-memory/in-memory-academic-year-module.repository';
 import { InMemoryAcademicYearRepository } from './repositories/in-memory/in-memory-academic-year.repository';
+import { InMemoryCalendarioModuloRepository } from './repositories/in-memory/in-memory-calendario-modulo.repository';
 import { InMemoryCatalogModuleRepository } from './repositories/in-memory/in-memory-catalog-module.repository';
 import { InMemoryCatalogTrainingCycleRepository } from './repositories/in-memory/in-memory-catalog-training-cycle.repository';
 import { InMemoryKeyDateRepository } from './repositories/in-memory/in-memory-key-date.repository';
@@ -18,12 +20,14 @@ import { InMemoryUserRepository } from './repositories/in-memory/in-memory-user.
 import { KeyDateStore } from './repositories/in-memory/key-date-store';
 import { PgAcademicYearModuleRepository } from './repositories/postgres/pg-academic-year-module.repository';
 import { PgAcademicYearRepository } from './repositories/postgres/pg-academic-year.repository';
+import { PgCalendarioModuloRepository } from './repositories/postgres/pg-calendario-modulo.repository';
 import { PgCatalogModuleRepository } from './repositories/postgres/pg-catalog-module.repository';
 import { PgCatalogTrainingCycleRepository } from './repositories/postgres/pg-catalog-training-cycle.repository';
 import { PgKeyDateRepository } from './repositories/postgres/pg-key-date.repository';
 import { PgUserRepository } from './repositories/postgres/pg-user.repository';
 import type { AcademicYearModuleRepository } from './repositories/academic-year-module.repository';
 import type { AcademicYearRepository } from './repositories/academic-year.repository';
+import type { CalendarioModuloRepository } from './repositories/calendario-modulo.repository';
 import type { CatalogModuleRepository } from './repositories/catalog-module.repository';
 import type { CatalogTrainingCycleRepository } from './repositories/catalog-training-cycle.repository';
 import type { KeyDateRepository } from './repositories/key-date.repository';
@@ -31,6 +35,7 @@ import type { User, UserRepository } from './repositories/user.repository';
 import { academicYearModuleRouter } from './routes/academic-year-module.routes';
 import { academicYearRouter } from './routes/academic-year.routes';
 import { authRouter } from './routes/auth.routes';
+import { calendarioModuloRouter } from './routes/calendario-modulo.routes';
 import { catalogCycleModulesRouter, catalogModuleRouter } from './routes/catalog-module.routes';
 import { catalogTrainingCycleRouter } from './routes/catalog-training-cycle.routes';
 import { domainErrorHandler } from './routes/error';
@@ -38,6 +43,7 @@ import { keyDateRouter } from './routes/key-date.routes';
 import { teacherSettingsRouter } from './routes/teacher-settings.routes';
 import { AcademicYearService } from './services/academic-year.service';
 import { AuthService } from './services/auth.service';
+import { CalendarioModuloService } from './services/calendario-modulo.service';
 import { CatalogModuleService } from './services/catalog-module.service';
 import { CatalogTrainingCycleService } from './services/catalog-training-cycle.service';
 import { KeyDateService } from './services/key-date.service';
@@ -59,6 +65,7 @@ interface Repositories {
   academicYearRepository: AcademicYearRepository;
   academicYearModuleRepository: AcademicYearModuleRepository;
   keyDateRepository: KeyDateRepository;
+  calendarioModuloRepository: CalendarioModuloRepository;
 }
 
 function buildRepositories(deps: AppDeps): Repositories {
@@ -74,6 +81,9 @@ function buildRepositories(deps: AppDeps): Repositories {
     // key_dates is single, shared, global (no FK to users/academic_years, see
     // repositories/key-date.repository.ts) — its own store, unrelated to the other two.
     const keyDateStore = new KeyDateStore();
+    // calendario_modulo is its own store, keyed only by academic_year_module_id — no
+    // cross-store dependency, mirroring key_dates' isolation.
+    const calendarioModuloStore = new CalendarioModuloStore();
     return {
       userRepository: new InMemoryUserRepository(deps.seedUsers ?? []),
       catalogTrainingCycleRepository: new InMemoryCatalogTrainingCycleRepository(store),
@@ -81,6 +91,7 @@ function buildRepositories(deps: AppDeps): Repositories {
       academicYearRepository: new InMemoryAcademicYearRepository(academicYearStore),
       academicYearModuleRepository: new InMemoryAcademicYearModuleRepository(academicYearStore, store),
       keyDateRepository: new InMemoryKeyDateRepository(keyDateStore),
+      calendarioModuloRepository: new InMemoryCalendarioModuloRepository(calendarioModuloStore),
     };
   }
 
@@ -98,6 +109,7 @@ function buildRepositories(deps: AppDeps): Repositories {
     academicYearRepository: new PgAcademicYearRepository(sql),
     academicYearModuleRepository: new PgAcademicYearModuleRepository(sql),
     keyDateRepository: new PgKeyDateRepository(sql),
+    calendarioModuloRepository: new PgCalendarioModuloRepository(sql),
   };
 }
 
@@ -109,6 +121,7 @@ export function createApp(deps: AppDeps): Express {
     academicYearRepository,
     academicYearModuleRepository,
     keyDateRepository,
+    calendarioModuloRepository,
   } = buildRepositories(deps);
 
   const authService = new AuthService(userRepository);
@@ -118,7 +131,18 @@ export function createApp(deps: AppDeps): Express {
   const teacherSettingsService = new TeacherSettingsService(userRepository);
   const catalogTrainingCycleService = new CatalogTrainingCycleService(catalogTrainingCycleRepository, academicYearModuleRepository);
   const catalogModuleService = new CatalogModuleService(catalogModuleRepository, catalogTrainingCycleRepository, academicYearModuleRepository);
-  const academicYearService = new AcademicYearService(academicYearRepository, academicYearModuleRepository, catalogModuleRepository);
+  const calendarioModuloService = new CalendarioModuloService(
+    calendarioModuloRepository,
+    keyDateRepository,
+    academicYearModuleRepository,
+    academicYearRepository,
+  );
+  const academicYearService = new AcademicYearService(
+    academicYearRepository,
+    academicYearModuleRepository,
+    catalogModuleRepository,
+    calendarioModuloService,
+  );
   const keyDateService = new KeyDateService(keyDateRepository);
 
   const app = express();
@@ -135,6 +159,7 @@ export function createApp(deps: AppDeps): Express {
   app.use('/api/academic-years', academicYearRouter(academicYearService, sessionService));
   app.use('/api/academic-year-modules', academicYearModuleRouter(academicYearService, sessionService));
   app.use('/api/key-dates', keyDateRouter(keyDateService, sessionService));
+  app.use('/api/calendario-modulo', calendarioModuloRouter(calendarioModuloService, sessionService));
 
   const frontendDist = path.join(import.meta.dir, '..', '..', 'frontend', 'dist');
   const frontendIndex = path.join(import.meta.dir, '..', '..', 'frontend', 'index.html');
@@ -145,6 +170,7 @@ export function createApp(deps: AppDeps): Express {
   app.get('/configuracion/ciclos-modulos', (_req, res) => res.sendFile(frontendIndex));
   app.get('/configuracion/ano-academico', (_req, res) => res.sendFile(frontendIndex));
   app.get('/configuracion/fechas-senaladas', (_req, res) => res.sendFile(frontendIndex));
+  app.get('/calendario', (_req, res) => res.sendFile(frontendIndex));
 
   // Must be the LAST app.use(...) — Express 5 auto-forwards exceptions from async route
   // handlers here (see tecnologias/tecnologia_code.md, routes/error.ts).

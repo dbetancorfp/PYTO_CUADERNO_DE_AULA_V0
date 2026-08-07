@@ -11,6 +11,7 @@ import type {
   AcademicYearModuleRepository,
 } from '../repositories/academic-year-module.repository';
 import type { CatalogModuleRepository } from '../repositories/catalog-module.repository';
+import type { CalendarioModuloSeeder } from './calendario-modulo.service';
 
 export interface AcademicYearUpdate {
   startYear?: number;
@@ -31,6 +32,7 @@ export class AcademicYearService {
     private readonly academicYearRepository: AcademicYearRepository,
     private readonly academicYearModuleRepository: AcademicYearModuleRepository,
     private readonly catalogModuleRepository: CatalogModuleRepository,
+    private readonly calendarioModuloSeeder: CalendarioModuloSeeder,
   ) {}
 
   async list(teacherId: string): Promise<AcademicYear[]> {
@@ -112,6 +114,13 @@ export class AcademicYearService {
 
     const academicYear = await this.academicYearRepository.create(teacherId, startYear);
     const moduleCount = await this.academicYearModuleRepository.createMany(academicYear.id, moduleIds);
+
+    // Side effect (UC-06, see views/calendario/use-cases.md): snapshot the full,
+    // just-created módulo set into calendario_modulo — never on the DUPLICATE_NAME/unknown
+    // moduleId early-return paths above, only once the year actually exists.
+    const allModules = await this.academicYearModuleRepository.findAllForYear(academicYear.id);
+    await this.calendarioModuloSeeder.seedForModules(allModules, startYear);
+
     return { academicYear, moduleCount };
   }
 
@@ -129,6 +138,13 @@ export class AcademicYearService {
     if (!allModulesExist) return null;
 
     const addedCount = await this.academicYearModuleRepository.createMany(academicYearId, moduleIds);
+
+    // Side effect (UC-06, see views/calendario/use-cases.md): snapshot the year's full,
+    // updated módulo set (existing + newly added) into calendario_modulo, using this year's
+    // own startYear — never on the unowned-year/unknown-moduleId early-return paths above.
+    const allModules = await this.academicYearModuleRepository.findAllForYear(academicYearId);
+    await this.calendarioModuloSeeder.seedForModules(allModules, year.startYear);
+
     return { addedCount };
   }
 

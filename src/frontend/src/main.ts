@@ -92,6 +92,22 @@ async function bootstrap(): Promise<void> {
     return;
   }
 
+  if (window.location.pathname === '/calendario') {
+    const [{ HttpSessionApiService }, { HttpAcademicYearApiService }, { HttpCalendarioModuloApiService }, { CalendarioView }] =
+      await Promise.all([
+        import('./http-session-api-service'),
+        import('./http-academic-year-api-service'),
+        import('./http-calendario-modulo-api-service'),
+        import('./calendario-view'),
+      ]);
+    const calendarioView = document.createElement('app-calendario-view') as InstanceType<typeof CalendarioView>;
+    calendarioView.sessionService = new HttpSessionApiService();
+    calendarioView.academicYearService = new HttpAcademicYearApiService();
+    calendarioView.calendarioModuloService = new HttpCalendarioModuloApiService();
+    document.body.appendChild(calendarioView);
+    return;
+  }
+
   if (window.location.pathname === '/configuracion/fechas-senaladas') {
     const [{ HttpSessionApiService }, { HttpKeyDateApiService }, { KeyDateSettingsView }] = await Promise.all([
       import('./http-session-api-service'),

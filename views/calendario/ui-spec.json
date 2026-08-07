@@ -1,0 +1,264 @@
+{
+  "view_id": "calendario",
+  "version": 1,
+  "generated_at": "2026-08-07T16:17:00Z",
+  "agent": "view-designer",
+  "model": "claude-sonnet-5",
+  "total_elements": 10,
+  "screens": [
+    {
+      "screen_id": "calendario-screen",
+      "screen_name": "Calendario",
+      "file": "calendario-view.ts",
+      "route": "/calendario",
+      "role_guard": ["authenticated"],
+      "element_ids": [
+        "calendario-heading",
+        "back-to-dashboard-link",
+        "academic-year-filter-prev",
+        "academic-year-filter-value",
+        "academic-year-filter-next",
+        "cycle-filter",
+        "module-filter",
+        "calendario-months",
+        "calendario-empty-state",
+        "calendario-day-toast"
+      ],
+      "components": [
+        {
+          "elementId": "calendario-heading",
+          "type": "heading",
+          "label": "Calendario",
+          "props": {},
+          "states": [
+            {
+              "name": "default",
+              "description": "Always visible, pinned to the far left of the nav bar",
+              "visual_cues": ["plain heading text, far left"]
+            }
+          ],
+          "interactions": []
+        },
+        {
+          "elementId": "back-to-dashboard-link",
+          "type": "link",
+          "label": "Volver",
+          "props": {},
+          "states": [
+            {
+              "name": "default",
+              "description": "Always visible, pinned to the far right of the nav bar",
+              "visual_cues": ["plain link styling, far right"]
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "click",
+              "event": "app:back-to-dashboard-clicked",
+              "response": "Navigates to /dashboard"
+            }
+          ]
+        },
+        {
+          "elementId": "academic-year-filter-prev",
+          "type": "icon-button",
+          "label": "‹",
+          "props": { "variant": "ghost", "size": "sm" },
+          "states": [
+            {
+              "name": "default",
+              "description": "Enabled — moves the carousel one school year back",
+              "visual_cues": ["enabled icon button"]
+            },
+            {
+              "name": "disabled",
+              "description": "No earlier school year exists for this teacher (no academic_years row with a smaller startYear)",
+              "visual_cues": ["disabled/greyed icon button"]
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "click",
+              "event": "app:academic-year-filter-changed",
+              "target_elements": ["academic-year-filter-value", "cycle-filter", "module-filter", "calendario-months"],
+              "response": "Selects the previous school year (startYear - 1) if it exists for this teacher; re-derives cycle-filter/module-filter and reloads the calendar"
+            }
+          ]
+        },
+        {
+          "elementId": "academic-year-filter-value",
+          "type": "paragraph",
+          "props": {},
+          "states": [
+            {
+              "name": "default",
+              "description": "Shows the currently selected school year as \"startYear-startYear+1\" (e.g. \"2026-2027\")",
+              "visual_cues": ["plain text label between the two arrows"]
+            }
+          ],
+          "interactions": []
+        },
+        {
+          "elementId": "academic-year-filter-next",
+          "type": "icon-button",
+          "label": "›",
+          "props": { "variant": "ghost", "size": "sm" },
+          "states": [
+            {
+              "name": "default",
+              "description": "Enabled while the selected year is below currentSchoolYearStartYear + 5",
+              "visual_cues": ["enabled icon button"]
+            },
+            {
+              "name": "disabled",
+              "description": "Selected year has reached currentSchoolYearStartYear + 5, the carousel's forward limit",
+              "visual_cues": ["disabled/greyed icon button"]
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "click",
+              "event": "app:academic-year-filter-changed",
+              "target_elements": ["academic-year-filter-value", "cycle-filter", "module-filter", "calendario-months"],
+              "response": "Selects the next school year (startYear + 1) up to the forward limit; re-derives cycle-filter/module-filter and reloads the calendar"
+            }
+          ]
+        },
+        {
+          "elementId": "cycle-filter",
+          "type": "select",
+          "label": "Ciclo",
+          "props": { "is_reactive": false },
+          "states": [
+            {
+              "name": "populated",
+              "description": "Lists the distinct training cycles the authenticated teacher teaches in the selected school year, first one selected by default",
+              "visual_cues": ["dropdown with options"]
+            },
+            {
+              "name": "empty",
+              "description": "Selected school year has no academic_years row yet (a future year never saved in Año académico), or has one but no módulos assigned",
+              "visual_cues": ["disabled dropdown, no options"]
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "change",
+              "event": "app:cycle-filter-changed",
+              "target_elements": ["module-filter", "calendario-months"],
+              "response": "Re-derives module-filter's options to this cycle's módulos, selects the first one, reloads the calendar"
+            }
+          ]
+        },
+        {
+          "elementId": "module-filter",
+          "type": "select",
+          "label": "Módulo",
+          "props": { "is_reactive": false },
+          "states": [
+            {
+              "name": "populated",
+              "description": "Lists the módulos of the selected cycle (within the selected school year), first one selected by default",
+              "visual_cues": ["dropdown with options"]
+            },
+            {
+              "name": "empty",
+              "description": "No cycle selected, or the selected cycle has no módulos in this school year",
+              "visual_cues": ["disabled dropdown, no options"]
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "change",
+              "event": "app:module-filter-changed",
+              "target_elements": ["calendario-months"],
+              "response": "Reloads the calendar for the newly selected academic_year_module_id"
+            }
+          ]
+        },
+        {
+          "elementId": "calendario-months",
+          "type": "list",
+          "props": { "is_read_only": true },
+          "states": [
+            {
+              "name": "populated",
+              "description": "10 month cards, September of the selected school year through June of the next — each a plain element (not a nested custom element) inside app-calendario-view's single Shadow DOM, per CLAUDE.md's no-nested-Shadow-DOM rule. Each card's own elementId is data-element-id=\"calendario-month-<YYYY-MM>\" (e.g. calendario-month-2026-09); each day cell inside it is data-element-id=\"calendario-month-<YYYY-MM>-day-<DD>\" (e.g. calendario-month-2026-09-day-05) — this dynamic per-day naming is a documented pattern, not enumerated as individual static elementIds here, mirroring how key-date-settings-view.ts's row ids are generated per data row rather than declared statically.",
+              "visual_cues": [
+                "grid of 10 month cards",
+                "days marked red for academic_key_dates/holidays/public_holidays/free_disposal_days",
+                "days marked blue for evaluations/feoe_project_days",
+                "days spanning >30-day ranges show color only on their start and end day, not every day in between",
+                "days with more than one active category split their background into color stripes"
+              ]
+            },
+            {
+              "name": "empty",
+              "description": "No módulo selected yet, or the selected academic_year_module_id has no calendario_modulo rows",
+              "visual_cues": ["calendario-empty-state shown instead"]
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "mouseenter",
+              "event": "app:calendario-day-hovered",
+              "target_elements": ["calendario-day-toast"],
+              "response": "Shows calendario-day-toast with the name(s) of every key_dates entry covering that day"
+            },
+            {
+              "trigger": "mouseleave",
+              "event": "app:calendario-day-unhovered",
+              "target_elements": ["calendario-day-toast"],
+              "response": "Dismisses calendario-day-toast immediately, without waiting for its auto-dismiss timer"
+            }
+          ]
+        },
+        {
+          "elementId": "calendario-empty-state",
+          "type": "paragraph",
+          "props": {},
+          "states": [
+            {
+              "name": "default",
+              "description": "\"Este módulo todavía no tiene calendario generado\" (or equivalent) — shown when calendario-months is in its empty state",
+              "visual_cues": ["empty-state message"]
+            }
+          ],
+          "interactions": []
+        },
+        {
+          "elementId": "calendario-day-toast",
+          "type": "badge",
+          "props": {},
+          "states": [
+            {
+              "name": "hidden",
+              "description": "No day currently hovered",
+              "visual_cues": ["not rendered"]
+            },
+            {
+              "name": "visible",
+              "description": "A marked day is currently hovered — shows the event name(s) for that day, reusing toast.ts's ToastController/renderToast with a new neutral 'info' ToastVariant (neither 'error' nor 'success' fits a day-info popup)",
+              "visual_cues": ["fixed-position popup, bottom-right, neutral accent color"]
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "mouseleave (on the hovered day, bubbles up)",
+              "event": "app:calendario-day-unhovered",
+              "response": "Dismisses immediately"
+            }
+          ]
+        }
+      ],
+      "data_needs": [
+        "academic_years",
+        "academic_year_modules",
+        "catalog_modules",
+        "catalog_cycles",
+        "calendario_modulo (new table — see views/calendario/description_calendario.md)"
+      ],
+      "notes": "Own top-level custom element (app-calendario-view), reachable from the dashboard's existing calendar-card (src/frontend/src/dashboard-view.ts:22, route /calendario already wired, screen not yet implemented). Read-only — no CRUD from this screen. Renders exclusively from calendario_modulo, a snapshot table populated as a side effect of Año académico's 'Guardar selección' flow (see views/calendario/description_calendario.md) — never reads key_dates directly. Own single-use nav bar (not renderSettingsNav, which is specific to the four Configuración screens), same visual pattern (classesFor('card'), heading far left, link far right). The three filters cascade left to right: school year (simulated carousel, arrows, no real <select>) -> cycle -> módulo, each derived client-side from GET /api/academic-years/:id/modules the same way academic-year-settings-view.ts already derives training-cycle-table's distinct cycles."
+    }
+  ]
+}
