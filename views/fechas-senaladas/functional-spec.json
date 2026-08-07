@@ -1,0 +1,267 @@
+{
+  "appOverview": "Fechas señaladas — the fourth Configuración screen. Master CRUD over key_dates, a single shared, global table holding the Canary Islands' official school calendar template (day/month only, no year): fechas clave FP, vacaciones, días festivos, días de libre disposición, evaluaciones and proyecto FEOE, each rendered as its own independent inline-edit table section, all following the same lib/patterns/crud-table-component.md shape Ciclos/Módulos already uses. Seeded once from documentation/calendario_dias_clave.json on every backend boot.",
+  "elementSpecs": [
+    {
+      "elementId": "back-to-dashboard-link",
+      "behavior": "Plain navigation link, always visible, pinned to the far right of the settings nav.",
+      "businessRules": [
+        "No permission check beyond being authenticated (requireAuth already gates the whole screen)."
+      ],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "Clicking it navigates to /dashboard"
+      ]
+    },
+    {
+      "elementId": "teacher-nav-link",
+      "behavior": "Navigates to /configuracion/profesor when clicked, unless already there (no-op). Rendered active (highlighted) when the current route is /configuracion/profesor.",
+      "businessRules": [
+        "Shared across all four Configuración screens via settings-nav.ts — one render function, not duplicated per screen."
+      ],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "teacher-nav-link shows aria-current=\"page\" and highlighted styling when the current route is /configuracion/profesor",
+        "Clicking teacher-nav-link navigates to /configuracion/profesor"
+      ]
+    },
+    {
+      "elementId": "training-catalog-nav-link",
+      "behavior": "Navigates to /configuracion/ciclos-modulos when clicked, unless already there (no-op). Rendered active (highlighted) when the current route is /configuracion/ciclos-modulos.",
+      "businessRules": [
+        "Shared across all four Configuración screens via settings-nav.ts — one render function, not duplicated per screen."
+      ],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "training-catalog-nav-link shows aria-current=\"page\" and highlighted styling when the current route is /configuracion/ciclos-modulos",
+        "Clicking training-catalog-nav-link navigates to /configuracion/ciclos-modulos"
+      ]
+    },
+    {
+      "elementId": "academic-year-nav-link",
+      "behavior": "Navigates to /configuracion/ano-academico when clicked, unless already there (no-op). Rendered active (highlighted) when the current route is /configuracion/ano-academico.",
+      "businessRules": [
+        "Shared across all four Configuración screens via settings-nav.ts — one render function, not duplicated per screen."
+      ],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "academic-year-nav-link shows aria-current=\"page\" and highlighted styling when the current route is /configuracion/ano-academico",
+        "Clicking academic-year-nav-link navigates to /configuracion/ano-academico"
+      ]
+    },
+    {
+      "elementId": "key-dates-nav-link",
+      "behavior": "Navigates to /configuracion/fechas-senaladas when clicked, unless already there (no-op). Rendered active (highlighted) when the current route is /configuracion/fechas-senaladas.",
+      "businessRules": [
+        "Shared across all four Configuración screens via settings-nav.ts — one render function, not duplicated per screen."
+      ],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "key-dates-nav-link shows aria-current=\"page\" and highlighted styling when the current route is /configuracion/fechas-senaladas",
+        "Clicking key-dates-nav-link navigates to /configuracion/fechas-senaladas"
+      ]
+    },
+    {
+      "elementId": "academic-key-dates-table",
+      "behavior": "Lists every key_dates row where category = 'academic_key_dates', inline-editable per lib/patterns/crud-table-component.md. No master/detail relationship with any other table on this screen — the six category tables are independent of each other.",
+      "businessRules": [
+        "category is fixed for this table — never editable per-row (a row can't move between categories).",
+        "Deletion is always unconditional — nothing else in the schema references key_dates rows.",
+        "fecha (and fecha inicio/fecha fin, for range categories) must be a real day/month combination — client and server both validate (e.g. reject 31/02)."
+      ],
+      "dataNeeds": [
+        "key_dates"
+      ],
+      "acceptanceCriteria": [
+        "academic-key-dates-table shows an empty-state message when the \"Fechas clave FP\" category has no rows",
+        "academic-key-dates-table shows one row per key_dates row in the \"Fechas clave FP\" category, with columns: nombre, fecha inicio, fecha fin",
+        "Clicking academic-key-dates-table-add-button opens a blank, inline-editable draft row in academic-key-dates-table",
+        "Saving the draft row with a valid nombre and fecha (DD/MM) persists a new key_dates row via POST /api/key-dates and it appears in academic-key-dates-table",
+        "Saving with an invalid date (e.g. 31/02, or missing DD/MM format) shows an inline error and does not submit",
+        "Clicking a row's Editar switches it to inline-editable inputs for nombre, fecha inicio, fecha fin",
+        "Clicking a row's Eliminar deletes it via DELETE /api/key-dates/:id unconditionally (no confirmation, no dependency check) and it disappears from academic-key-dates-table",
+        "academic-key-dates-table displays a row's date as \"DD/MM – DD/MM\" when start and end differ, or a single \"DD/MM\" when they're equal"
+      ]
+    },
+    {
+      "elementId": "academic-key-dates-table-add-button",
+      "behavior": "Opens a blank draft row in academic-key-dates-table, pre-set to category 'academic_key_dates'.",
+      "businessRules": [
+        "Always enabled — no precondition (unlike Módulos' add-button, which needs a selected ciclo)."
+      ],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "Clicking academic-key-dates-table-add-button shows a draft row with blank nombre/fecha inputs in academic-key-dates-table"
+      ]
+    },
+    {
+      "elementId": "holidays-table",
+      "behavior": "Lists every key_dates row where category = 'holidays', inline-editable per lib/patterns/crud-table-component.md. No master/detail relationship with any other table on this screen — the six category tables are independent of each other.",
+      "businessRules": [
+        "category is fixed for this table — never editable per-row (a row can't move between categories).",
+        "Deletion is always unconditional — nothing else in the schema references key_dates rows.",
+        "fecha (and fecha inicio/fecha fin, for range categories) must be a real day/month combination — client and server both validate (e.g. reject 31/02)."
+      ],
+      "dataNeeds": [
+        "key_dates"
+      ],
+      "acceptanceCriteria": [
+        "holidays-table shows an empty-state message when the \"Vacaciones\" category has no rows",
+        "holidays-table shows one row per key_dates row in the \"Vacaciones\" category, with columns: nombre, fecha inicio, fecha fin",
+        "Clicking holidays-table-add-button opens a blank, inline-editable draft row in holidays-table",
+        "Saving the draft row with a valid nombre and fecha (DD/MM) persists a new key_dates row via POST /api/key-dates and it appears in holidays-table",
+        "Saving with an invalid date (e.g. 31/02, or missing DD/MM format) shows an inline error and does not submit",
+        "Clicking a row's Editar switches it to inline-editable inputs for nombre, fecha inicio, fecha fin",
+        "Clicking a row's Eliminar deletes it via DELETE /api/key-dates/:id unconditionally (no confirmation, no dependency check) and it disappears from holidays-table",
+        "holidays-table displays a row's date as \"DD/MM – DD/MM\" when start and end differ, or a single \"DD/MM\" when they're equal"
+      ]
+    },
+    {
+      "elementId": "holidays-table-add-button",
+      "behavior": "Opens a blank draft row in holidays-table, pre-set to category 'holidays'.",
+      "businessRules": [
+        "Always enabled — no precondition (unlike Módulos' add-button, which needs a selected ciclo)."
+      ],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "Clicking holidays-table-add-button shows a draft row with blank nombre/fecha inputs in holidays-table"
+      ]
+    },
+    {
+      "elementId": "public-holidays-table",
+      "behavior": "Lists every key_dates row where category = 'public_holidays', inline-editable per lib/patterns/crud-table-component.md. No master/detail relationship with any other table on this screen — the six category tables are independent of each other.",
+      "businessRules": [
+        "category is fixed for this table — never editable per-row (a row can't move between categories).",
+        "Deletion is always unconditional — nothing else in the schema references key_dates rows.",
+        "fecha (and fecha inicio/fecha fin, for range categories) must be a real day/month combination — client and server both validate (e.g. reject 31/02).",
+        "tipo is free text when provided — no closed domain/CHECK constraint (seed values include parenthetical locations)."
+      ],
+      "dataNeeds": [
+        "key_dates"
+      ],
+      "acceptanceCriteria": [
+        "public-holidays-table shows an empty-state message when the \"Días festivos\" category has no rows",
+        "public-holidays-table shows one row per key_dates row in the \"Días festivos\" category, with columns: nombre, fecha, tipo",
+        "Clicking public-holidays-table-add-button opens a blank, inline-editable draft row in public-holidays-table",
+        "Saving the draft row with a valid nombre and fecha (DD/MM) persists a new key_dates row via POST /api/key-dates and it appears in public-holidays-table",
+        "Saving with an invalid date (e.g. 31/02, or missing DD/MM format) shows an inline error and does not submit",
+        "Clicking a row's Editar switches it to inline-editable inputs for nombre, fecha, tipo",
+        "Clicking a row's Eliminar deletes it via DELETE /api/key-dates/:id unconditionally (no confirmation, no dependency check) and it disappears from public-holidays-table",
+        "public-holidays-table shows each row's tipo (free text) alongside its fecha"
+      ]
+    },
+    {
+      "elementId": "public-holidays-table-add-button",
+      "behavior": "Opens a blank draft row in public-holidays-table, pre-set to category 'public_holidays'.",
+      "businessRules": [
+        "Always enabled — no precondition (unlike Módulos' add-button, which needs a selected ciclo)."
+      ],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "Clicking public-holidays-table-add-button shows a draft row with blank nombre/fecha inputs in public-holidays-table"
+      ]
+    },
+    {
+      "elementId": "free-disposal-days-table",
+      "behavior": "Lists every key_dates row where category = 'free_disposal_days', inline-editable per lib/patterns/crud-table-component.md. No master/detail relationship with any other table on this screen — the six category tables are independent of each other.",
+      "businessRules": [
+        "category is fixed for this table — never editable per-row (a row can't move between categories).",
+        "Deletion is always unconditional — nothing else in the schema references key_dates rows.",
+        "fecha (and fecha inicio/fecha fin, for range categories) must be a real day/month combination — client and server both validate (e.g. reject 31/02)."
+      ],
+      "dataNeeds": [
+        "key_dates"
+      ],
+      "acceptanceCriteria": [
+        "free-disposal-days-table shows an empty-state message when the \"Días de libre disposición\" category has no rows",
+        "free-disposal-days-table shows one row per key_dates row in the \"Días de libre disposición\" category, with columns: nombre, fecha",
+        "Clicking free-disposal-days-table-add-button opens a blank, inline-editable draft row in free-disposal-days-table",
+        "Saving the draft row with a valid nombre and fecha (DD/MM) persists a new key_dates row via POST /api/key-dates and it appears in free-disposal-days-table",
+        "Saving with an invalid date (e.g. 31/02, or missing DD/MM format) shows an inline error and does not submit",
+        "Clicking a row's Editar switches it to inline-editable inputs for nombre, fecha",
+        "Clicking a row's Eliminar deletes it via DELETE /api/key-dates/:id unconditionally (no confirmation, no dependency check) and it disappears from free-disposal-days-table"
+      ]
+    },
+    {
+      "elementId": "free-disposal-days-table-add-button",
+      "behavior": "Opens a blank draft row in free-disposal-days-table, pre-set to category 'free_disposal_days'.",
+      "businessRules": [
+        "Always enabled — no precondition (unlike Módulos' add-button, which needs a selected ciclo)."
+      ],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "Clicking free-disposal-days-table-add-button shows a draft row with blank nombre/fecha inputs in free-disposal-days-table"
+      ]
+    },
+    {
+      "elementId": "evaluations-table",
+      "behavior": "Lists every key_dates row where category = 'evaluations', inline-editable per lib/patterns/crud-table-component.md. No master/detail relationship with any other table on this screen — the six category tables are independent of each other.",
+      "businessRules": [
+        "category is fixed for this table — never editable per-row (a row can't move between categories).",
+        "Deletion is always unconditional — nothing else in the schema references key_dates rows.",
+        "fecha (and fecha inicio/fecha fin, for range categories) must be a real day/month combination — client and server both validate (e.g. reject 31/02)."
+      ],
+      "dataNeeds": [
+        "key_dates"
+      ],
+      "acceptanceCriteria": [
+        "evaluations-table shows an empty-state message when the \"Evaluaciones\" category has no rows",
+        "evaluations-table shows one row per key_dates row in the \"Evaluaciones\" category, with columns: nombre, fecha inicio, fecha fin",
+        "Clicking evaluations-table-add-button opens a blank, inline-editable draft row in evaluations-table",
+        "Saving the draft row with a valid nombre and fecha (DD/MM) persists a new key_dates row via POST /api/key-dates and it appears in evaluations-table",
+        "Saving with an invalid date (e.g. 31/02, or missing DD/MM format) shows an inline error and does not submit",
+        "Clicking a row's Editar switches it to inline-editable inputs for nombre, fecha inicio, fecha fin",
+        "Clicking a row's Eliminar deletes it via DELETE /api/key-dates/:id unconditionally (no confirmation, no dependency check) and it disappears from evaluations-table",
+        "evaluations-table displays a row's date as \"DD/MM – DD/MM\" when start and end differ, or a single \"DD/MM\" when they're equal"
+      ]
+    },
+    {
+      "elementId": "evaluations-table-add-button",
+      "behavior": "Opens a blank draft row in evaluations-table, pre-set to category 'evaluations'.",
+      "businessRules": [
+        "Always enabled — no precondition (unlike Módulos' add-button, which needs a selected ciclo)."
+      ],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "Clicking evaluations-table-add-button shows a draft row with blank nombre/fecha inputs in evaluations-table"
+      ]
+    },
+    {
+      "elementId": "feoe-project-days-table",
+      "behavior": "Lists every key_dates row where category = 'feoe_project_days', inline-editable per lib/patterns/crud-table-component.md. No master/detail relationship with any other table on this screen — the six category tables are independent of each other.",
+      "businessRules": [
+        "category is fixed for this table — never editable per-row (a row can't move between categories).",
+        "Deletion is always unconditional — nothing else in the schema references key_dates rows.",
+        "fecha (and fecha inicio/fecha fin, for range categories) must be a real day/month combination — client and server both validate (e.g. reject 31/02)."
+      ],
+      "dataNeeds": [
+        "key_dates"
+      ],
+      "acceptanceCriteria": [
+        "feoe-project-days-table shows an empty-state message when the \"Proyecto FEOE\" category has no rows",
+        "feoe-project-days-table shows one row per key_dates row in the \"Proyecto FEOE\" category, with columns: nombre, fecha",
+        "Clicking feoe-project-days-table-add-button opens a blank, inline-editable draft row in feoe-project-days-table",
+        "Saving the draft row with a valid nombre and fecha (DD/MM) persists a new key_dates row via POST /api/key-dates and it appears in feoe-project-days-table",
+        "Saving with an invalid date (e.g. 31/02, or missing DD/MM format) shows an inline error and does not submit",
+        "Clicking a row's Editar switches it to inline-editable inputs for nombre, fecha",
+        "Clicking a row's Eliminar deletes it via DELETE /api/key-dates/:id unconditionally (no confirmation, no dependency check) and it disappears from feoe-project-days-table"
+      ]
+    },
+    {
+      "elementId": "feoe-project-days-table-add-button",
+      "behavior": "Opens a blank draft row in feoe-project-days-table, pre-set to category 'feoe_project_days'.",
+      "businessRules": [
+        "Always enabled — no precondition (unlike Módulos' add-button, which needs a selected ciclo)."
+      ],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "Clicking feoe-project-days-table-add-button shows a draft row with blank nombre/fecha inputs in feoe-project-days-table"
+      ]
+    }
+  ],
+  "globalRules": [
+    "key_dates is global/shared — not scoped per teacher, no FK to users, no FK to academic_years. Any signed-in teacher sees and edits the same six category lists.",
+    "Every date column stores day/month only (integers 1-31 / 1-12) — no year. This screen never shows or asks for a year.",
+    "A single-day entry (categories without a range) stores the same day/month in both the start and end columns internally — the UI shows and edits only one fecha field for those categories, never a redundant end-date field.",
+    "key_dates is seeded once from documentation/calendario_dias_clave.json (43 rows) automatically on every DATA_BACKEND=postgres backend boot, idempotently — not a manual import feature of this screen."
+  ]
+}
