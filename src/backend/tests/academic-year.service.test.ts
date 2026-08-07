@@ -4,6 +4,10 @@
 // Real backend as of the 2026-08-05 redesign — academic_years/academic_year_modules are
 // per-teacher, built on top of the shared, global catalog_cycles/catalog_modules (see
 // views/configuracion/schema-changes.sql).
+//
+// 2026-08-07: AcademicYearService also takes a CalendarioModuloSeeder — see
+// "calendario_modulo snapshot" below for views/calendario/use-cases.md's UC-06 (the
+// createWithSelection/extendSelection side effect that populates calendario_modulo).
 import { describe, it, expect } from 'bun:test';
 import { AcademicYearService } from '../src/services/academic-year.service';
 import { DomainError } from '../src/errors/domain-error';
@@ -14,6 +18,7 @@ import type {
   AcademicYearModuleRepository,
 } from '../src/repositories/academic-year-module.repository';
 import type { CatalogModule, CatalogModuleRepository } from '../src/repositories/catalog-module.repository';
+import type { CalendarioModuloSeeder } from '../src/services/calendario-modulo.service';
 
 const TEACHER = 'teacher-1';
 
@@ -29,6 +34,8 @@ interface FakeRepos {
   academicYearRepository: AcademicYearRepository;
   academicYearModuleRepository: AcademicYearModuleRepository;
   catalogModuleRepository: CatalogModuleRepository;
+  calendarioModuloSeeder: CalendarioModuloSeeder;
+  seedForModulesCalls: { modules: AcademicYearModuleDetail[]; startYear: number }[];
 }
 
 function fakeRepos(overrides: Partial<{
@@ -40,6 +47,12 @@ function fakeRepos(overrides: Partial<{
   const years = overrides.years ?? [];
   const moduleRefs = overrides.moduleRefs ?? {};
   const catalogModules = overrides.catalogModules ?? { m1: makeCatalogModule() };
+  const seedForModulesCalls: { modules: AcademicYearModuleDetail[]; startYear: number }[] = [];
+  const calendarioModuloSeeder: CalendarioModuloSeeder = {
+    seedForModules: async (modules: AcademicYearModuleDetail[], startYear: number) => {
+      seedForModulesCalls.push({ modules, startYear });
+    },
+  };
 
   const academicYearRepository: AcademicYearRepository = {
     findAllForTeacher: async (teacherId: string) => years.filter((y) => y.teacherId === teacherId),
@@ -71,11 +84,16 @@ function fakeRepos(overrides: Partial<{
     delete: async () => {},
   };
 
-  return { academicYearRepository, academicYearModuleRepository, catalogModuleRepository };
+  return { academicYearRepository, academicYearModuleRepository, catalogModuleRepository, calendarioModuloSeeder, seedForModulesCalls };
 }
 
 function makeService(repos: FakeRepos): AcademicYearService {
-  return new AcademicYearService(repos.academicYearRepository, repos.academicYearModuleRepository, repos.catalogModuleRepository);
+  return new AcademicYearService(
+    repos.academicYearRepository,
+    repos.academicYearModuleRepository,
+    repos.catalogModuleRepository,
+    repos.calendarioModuloSeeder,
+  );
 }
 
 describe('elementId: academic-year-table', () => {
@@ -293,5 +311,79 @@ describe('elementId: training-cycle-table-add-cycle-button, module-selection-sav
     await service.extendSelection(TEACHER, 'y1', ['m1']);
 
     expect(renameCalled).toBe(false);
+  });
+});
+
+describe('elementId: module-selection-save-button (calendario_modulo snapshot — UC-06)', () => {
+  const YEAR_MODULES: AcademicYearModuleDetail[] = [
+    { id: 'am1', catalogModuleId: 'm1', catalogTrainingCycleId: 'c1', catalogTrainingCycleName: 'DAW', course: 1, name: 'Programación' },
+  ];
+
+  it('createWithSelection seeds calendario_modulo for the resulting módulo set with the year´s startYear', async () => {
+    const repos = fakeRepos({ years: [], moduleDetails: YEAR_MODULES });
+    const service = makeService(repos);
+
+    await service.createWithSelection(TEACHER, 2026, ['m1']);
+
+    expect(repos.seedForModulesCalls).toHaveLength(1);
+    expect(repos.seedForModulesCalls[0]!.modules).toEqual(YEAR_MODULES);
+    expect(repos.seedForModulesCalls[0]!.startYear).toBe(2026);
+  });
+
+  it('createWithSelection does not call seedForModules when moduleIds is empty and the year ends up with no módulos', async () => {
+    const repos = fakeRepos({ years: [], moduleDetails: [] });
+    const service = makeService(repos);
+
+    await service.createWithSelection(TEACHER, 2026, []);
+
+    expect(repos.seedForModulesCalls).toHaveLength(1);
+    expect(repos.seedForModulesCalls[0]!.modules).toEqual([]);
+  });
+
+  it('createWithSelection never calls seedForModules when startYear is a duplicate (request rejected before any módulo is touched)', async () => {
+    const repos = fakeRepos({ years: [makeYear({ id: 'y1', startYear: 2026 })] });
+    const service = makeService(repos);
+
+    await expect(service.createWithSelection(TEACHER, 2026, [])).rejects.toThrow(DomainError);
+
+    expect(repos.seedForModulesCalls).toHaveLength(0);
+  });
+
+  it('createWithSelection never calls seedForModules when a moduleId does not exist in the catalog', async () => {
+    const repos = fakeRepos({ years: [], catalogModules: {} });
+    const service = makeService(repos);
+
+    await service.createWithSelection(TEACHER, 2026, ['unknown-module']);
+
+    expect(repos.seedForModulesCalls).toHaveLength(0);
+  });
+
+  it('extendSelection seeds calendario_modulo for the year´s full, updated módulo set (existing + newly added)', async () => {
+    const repos = fakeRepos({ years: [makeYear({ id: 'y1', startYear: 2027 })], moduleDetails: YEAR_MODULES, catalogModules: { m2: makeCatalogModule({ id: 'm2' }) } });
+    const service = makeService(repos);
+
+    await service.extendSelection(TEACHER, 'y1', ['m2']);
+
+    expect(repos.seedForModulesCalls).toHaveLength(1);
+    expect(repos.seedForModulesCalls[0]!.modules).toEqual(YEAR_MODULES);
+    expect(repos.seedForModulesCalls[0]!.startYear).toBe(2027);
+  });
+
+  it('extendSelection never calls seedForModules when the academic year does not belong to this teacher', async () => {
+    const repos = fakeRepos({ years: [makeYear({ id: 'y1', teacherId: 'other' })] });
+    const service = makeService(repos);
+
+    await service.extendSelection(TEACHER, 'y1', ['m1']);
+
+    expect(repos.seedForModulesCalls).toHaveLength(0);
+  });
+
+  it('extendSelection never calls seedForModules when a moduleId does not exist in the catalog', async () => {
+    const repos = fakeRepos({ years: [makeYear({ id: 'y1' })], catalogModules: {} });
+    const service = makeService(repos);
+
+    await service.extendSelection(TEACHER, 'y1', ['unknown-module']);
+
+    expect(repos.seedForModulesCalls).toHaveLength(0);
   });
 });

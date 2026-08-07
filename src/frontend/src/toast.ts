@@ -11,7 +11,7 @@
 import { html, type TemplateResult } from 'lit-html';
 import { classesFor } from './styles/classes-for';
 
-export type ToastVariant = 'error' | 'success';
+export type ToastVariant = 'error' | 'success' | 'info';
 
 export interface ToastState {
   message: string;
@@ -24,6 +24,7 @@ const DEFAULT_AUTO_DISMISS_MS = 5000;
 const VARIANT_ACCENT_CLASSES: Record<ToastVariant, string> = {
   error: 'border-l-4 border-red-600 text-red-700',
   success: 'border-l-4 border-emerald-600 text-emerald-700',
+  info: 'border-l-4 border-slate-400 text-slate-700',
 };
 
 /**
@@ -81,7 +82,7 @@ export function renderToast(elementId: string, state: ToastState | null, onDismi
       role="status"
       aria-live="assertive"
     >
-      <p class="${classesFor('paragraph')}">${state.message}</p>
+      <p class="${classesFor('paragraph')} whitespace-pre-line">${state.message}</p>
       <button
         type="button"
         class="${classesFor('icon-button')}"

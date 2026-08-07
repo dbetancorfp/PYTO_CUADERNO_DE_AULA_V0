@@ -9,7 +9,10 @@
 // check without repeating it per handler.
 import type { NextFunction, Request, Response } from 'express';
 
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** Exported for routes that validate a UUID coming from somewhere other than a `:id` route
+ * param (e.g. a query string, which `router.param` can't reach) — see
+ * `calendario-modulo.routes.ts`. */
+export const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function requireValidUuidParam(req: Request, res: Response, next: NextFunction, value: string): void {
   if (!UUID_PATTERN.test(value)) {
