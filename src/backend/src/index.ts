@@ -48,5 +48,5 @@ export async function main(deps: MainDeps = defaultDeps): Promise<Server> {
 }
 
 if (import.meta.main) {
-  void main();
+  await main();
 }
