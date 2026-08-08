@@ -3,11 +3,14 @@
 // each view's e2e-engineer pass with whatever accounts its own specs need — see
 // tecnologias/tecnologia_qa.md.
 import { SQL } from 'bun';
+import { bootstrapSchema } from '../src/backend/src/db/schema-bootstrap';
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
   throw new Error('DATABASE_URL is required to seed e2e fixtures.');
 }
+
+await bootstrapSchema(databaseUrl);
 
 const sql = new SQL(databaseUrl);
 
