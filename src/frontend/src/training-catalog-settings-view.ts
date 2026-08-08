@@ -1,9 +1,10 @@
 import { html, render, type TemplateResult } from 'lit-html';
-import { attachSharedStyles } from './styles/shadow-styles';
 import { classesFor } from './styles/classes-for';
 import { redirectTo } from './navigation';
-import { handleSettingsNavClick, renderSettingsNav } from './settings-nav';
+import { renderSettingsNav } from './settings-nav';
 import { parseRowAction, type RowAction } from './row-action';
+import { RequiredRef } from './required-ref';
+import { SettingsScreenBase } from './settings-screen-base';
 import type { SessionApiService } from './session-api-service';
 import type { CatalogTrainingCycle, CatalogTrainingCycleApiService } from './catalog-training-cycle-api-service';
 import type { CatalogModuleApiService, CatalogModuleRecord } from './catalog-module-api-service';
@@ -30,10 +31,16 @@ const DUPLICATE_MODULE_NAME_MESSAGE = 'Ya existe un módulo con ese nombre y cur
  * saves immediately (no confirmation modal), unlike the old training_cycles/modules pair
  * that used to back Año académico.
  */
-export class TrainingCatalogSettingsView extends HTMLElement {
-  private _sessionService: SessionApiService | null = null;
-  private _trainingCycleService: CatalogTrainingCycleApiService | null = null;
-  private _moduleService: CatalogModuleApiService | null = null;
+export class TrainingCatalogSettingsView extends SettingsScreenBase {
+  private readonly _sessionServiceRef = new RequiredRef<SessionApiService>(
+    'TrainingCatalogSettingsView.sessionService must be set before use',
+  );
+  private readonly _trainingCycleServiceRef = new RequiredRef<CatalogTrainingCycleApiService>(
+    'TrainingCatalogSettingsView.trainingCycleService must be set before use',
+  );
+  private readonly _moduleServiceRef = new RequiredRef<CatalogModuleApiService>(
+    'TrainingCatalogSettingsView.moduleService must be set before use',
+  );
 
   private _authenticated = false;
   private _loaded = false;
@@ -48,59 +55,31 @@ export class TrainingCatalogSettingsView extends HTMLElement {
   private _addingModule = false;
   private _moduleRowError: string | null = null;
 
-  private _disposables: Array<() => void> = [];
-
   set sessionService(value: SessionApiService) {
-    this._sessionService = value;
+    this._sessionServiceRef.set(value);
   }
 
   get sessionService(): SessionApiService {
-    if (this._sessionService === null) {
-      throw new Error('TrainingCatalogSettingsView.sessionService must be set before use');
-    }
-    return this._sessionService;
+    return this._sessionServiceRef.get();
   }
 
   set trainingCycleService(value: CatalogTrainingCycleApiService) {
-    this._trainingCycleService = value;
+    this._trainingCycleServiceRef.set(value);
   }
 
   get trainingCycleService(): CatalogTrainingCycleApiService {
-    if (this._trainingCycleService === null) {
-      throw new Error('TrainingCatalogSettingsView.trainingCycleService must be set before use');
-    }
-    return this._trainingCycleService;
+    return this._trainingCycleServiceRef.get();
   }
 
   set moduleService(value: CatalogModuleApiService) {
-    this._moduleService = value;
+    this._moduleServiceRef.set(value);
   }
 
   get moduleService(): CatalogModuleApiService {
-    if (this._moduleService === null) {
-      throw new Error('TrainingCatalogSettingsView.moduleService must be set before use');
-    }
-    return this._moduleService;
+    return this._moduleServiceRef.get();
   }
 
-  connectedCallback(): void {
-    if (!this.shadowRoot) this.attachShadow({ mode: 'open' });
-    attachSharedStyles(this.shadowRoot!);
-    this._render();
-
-    const onClick = (event: Event): void => this._handleClick(event);
-    this.shadowRoot!.addEventListener('click', onClick);
-    this._disposables.push(() => this.shadowRoot!.removeEventListener('click', onClick));
-
-    void this._init();
-  }
-
-  disconnectedCallback(): void {
-    this._disposables.forEach((dispose) => dispose());
-    this._disposables = [];
-  }
-
-  private async _init(): Promise<void> {
+  protected async _onConnected(): Promise<void> {
     const outcome = await this.sessionService.getSession();
     if (!outcome.authenticated) {
       redirectTo('/login');
@@ -118,21 +97,11 @@ export class TrainingCatalogSettingsView extends HTMLElement {
     }
   }
 
-  private _query<T extends Element>(elementId: string): T {
-    return this.shadowRoot!.querySelector<T>(`[data-element-id="${elementId}"]`)!;
-  }
-
   // ---------------------------------------------------------------------------------------
   // Event delegation
   // ---------------------------------------------------------------------------------------
 
-  private _handleClick(event: Event): void {
-    const target = (event.target as HTMLElement).closest<HTMLElement>('[data-element-id]');
-    if (!target) return;
-    const elementId = target.dataset.elementId!;
-
-    if (handleSettingsNavClick(elementId)) return;
-
+  protected _onElementClick(elementId: string): void {
     switch (elementId) {
       case 'catalog-training-cycle-table-add-button':
         this._startAddCycle();
@@ -357,7 +326,7 @@ export class TrainingCatalogSettingsView extends HTMLElement {
   // Rendering
   // ---------------------------------------------------------------------------------------
 
-  private _render(): void {
+  protected _render(): void {
     if (!this._authenticated || !this._loaded) {
       render(html``, this.shadowRoot!);
       return;

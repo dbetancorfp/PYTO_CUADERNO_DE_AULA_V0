@@ -1,8 +1,9 @@
 import { html, render } from 'lit-html';
-import { attachSharedStyles } from './styles/shadow-styles';
 import { classesFor } from './styles/classes-for';
 import { redirectTo } from './navigation';
-import { handleSettingsNavClick, renderSettingsNav } from './settings-nav';
+import { renderSettingsNav } from './settings-nav';
+import { RequiredRef } from './required-ref';
+import { SettingsScreenBase } from './settings-screen-base';
 import type { SessionApiService } from './session-api-service';
 import type { TeacherSettingsApiService } from './teacher-settings-api-service';
 
@@ -26,10 +27,16 @@ interface SaveMessage {
  * views/configuracion/use-cases.md UC-01/UC-02/UC-03 for the business rules implemented
  * here. `teacher-nav-link`/`academic-year-nav-link` are shared with
  * `academic-year-settings-view.ts` via the plain `renderSettingsNav` function.
+ * `connectedCallback`/`disconnectedCallback`/`_query`/click-delegation are shared with the
+ * other Configuración screens via `SettingsScreenBase`.
  */
-export class TeacherSettingsView extends HTMLElement {
-  private _sessionService: SessionApiService | null = null;
-  private _settingsService: TeacherSettingsApiService | null = null;
+export class TeacherSettingsView extends SettingsScreenBase {
+  private readonly _sessionServiceRef = new RequiredRef<SessionApiService>(
+    'TeacherSettingsView.sessionService must be set before use',
+  );
+  private readonly _settingsServiceRef = new RequiredRef<TeacherSettingsApiService>(
+    'TeacherSettingsView.settingsService must be set before use',
+  );
 
   private _authenticated = false;
   private _fullName: string | null = null;
@@ -44,48 +51,23 @@ export class TeacherSettingsView extends HTMLElement {
   private _passwordSaving = false;
   private _passwordMessage: SaveMessage | null = null;
 
-  private _disposables: Array<() => void> = [];
-
   set sessionService(value: SessionApiService) {
-    this._sessionService = value;
+    this._sessionServiceRef.set(value);
   }
 
   get sessionService(): SessionApiService {
-    if (this._sessionService === null) {
-      throw new Error('TeacherSettingsView.sessionService must be set before use');
-    }
-    return this._sessionService;
+    return this._sessionServiceRef.get();
   }
 
   set settingsService(value: TeacherSettingsApiService) {
-    this._settingsService = value;
+    this._settingsServiceRef.set(value);
   }
 
   get settingsService(): TeacherSettingsApiService {
-    if (this._settingsService === null) {
-      throw new Error('TeacherSettingsView.settingsService must be set before use');
-    }
-    return this._settingsService;
+    return this._settingsServiceRef.get();
   }
 
-  connectedCallback(): void {
-    if (!this.shadowRoot) this.attachShadow({ mode: 'open' });
-    attachSharedStyles(this.shadowRoot!);
-    this._render();
-
-    const onClick = (event: Event): void => this._handleClick(event);
-    this.shadowRoot!.addEventListener('click', onClick);
-    this._disposables.push(() => this.shadowRoot!.removeEventListener('click', onClick));
-
-    void this._loadSession();
-  }
-
-  disconnectedCallback(): void {
-    this._disposables.forEach((dispose) => dispose());
-    this._disposables = [];
-  }
-
-  private async _loadSession(): Promise<void> {
+  protected async _onConnected(): Promise<void> {
     const outcome = await this.sessionService.getSession();
 
     if (!outcome.authenticated) {
@@ -98,17 +80,7 @@ export class TeacherSettingsView extends HTMLElement {
     this._render();
   }
 
-  private _query<T extends Element>(elementId: string): T {
-    return this.shadowRoot!.querySelector<T>(`[data-element-id="${elementId}"]`)!;
-  }
-
-  private _handleClick(event: Event): void {
-    const target = (event.target as HTMLElement).closest<HTMLElement>('[data-element-id]');
-    if (!target) return;
-    const elementId = target.dataset.elementId!;
-
-    if (handleSettingsNavClick(elementId)) return;
-
+  protected _onElementClick(elementId: string): void {
     if (elementId === 'teacher-save-name-button') {
       void this._handleSaveName();
       return;
@@ -184,7 +156,7 @@ export class TeacherSettingsView extends HTMLElement {
     this._query<HTMLInputElement>('teacher-repeat-password-input').value = '';
   }
 
-  private _render(): void {
+  protected _render(): void {
     if (!this._authenticated) {
       render(html``, this.shadowRoot!);
       return;

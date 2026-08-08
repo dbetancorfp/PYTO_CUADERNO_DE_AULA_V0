@@ -1,10 +1,11 @@
 import { html, render, type TemplateResult } from 'lit-html';
-import { attachSharedStyles } from './styles/shadow-styles';
 import { classesFor } from './styles/classes-for';
 import { redirectTo } from './navigation';
-import { handleSettingsNavClick, renderSettingsNav } from './settings-nav';
+import { renderSettingsNav } from './settings-nav';
 import { parseRowAction, type RowAction } from './row-action';
 import { ToastController, renderToast } from './toast';
+import { RequiredRef } from './required-ref';
+import { SettingsScreenBase } from './settings-screen-base';
 import type { SessionApiService } from './session-api-service';
 import type { CatalogTrainingCycle, CatalogTrainingCycleApiService } from './catalog-training-cycle-api-service';
 import type { CatalogModuleApiService, CatalogModuleRecord } from './catalog-module-api-service';
@@ -52,11 +53,19 @@ interface DistinctCycle {
  *   disabled (can't be re-added or re-sent). Saving calls
  *   `academicYearService.extendSelection`.
  */
-export class AcademicYearSettingsView extends HTMLElement {
-  private _sessionService: SessionApiService | null = null;
-  private _academicYearService: AcademicYearApiService | null = null;
-  private _catalogCycleService: CatalogTrainingCycleApiService | null = null;
-  private _catalogModuleService: CatalogModuleApiService | null = null;
+export class AcademicYearSettingsView extends SettingsScreenBase {
+  private readonly _sessionServiceRef = new RequiredRef<SessionApiService>(
+    'AcademicYearSettingsView.sessionService must be set before use',
+  );
+  private readonly _academicYearServiceRef = new RequiredRef<AcademicYearApiService>(
+    'AcademicYearSettingsView.academicYearService must be set before use',
+  );
+  private readonly _catalogCycleServiceRef = new RequiredRef<CatalogTrainingCycleApiService>(
+    'AcademicYearSettingsView.catalogCycleService must be set before use',
+  );
+  private readonly _catalogModuleServiceRef = new RequiredRef<CatalogModuleApiService>(
+    'AcademicYearSettingsView.catalogModuleService must be set before use',
+  );
 
   private _authenticated = false;
   private _loaded = false;
@@ -88,73 +97,39 @@ export class AcademicYearSettingsView extends HTMLElement {
 
   private readonly _toast: ToastController = new ToastController(() => this._render());
 
-  private _disposables: Array<() => void> = [];
-
   set sessionService(value: SessionApiService) {
-    this._sessionService = value;
+    this._sessionServiceRef.set(value);
   }
 
   get sessionService(): SessionApiService {
-    if (this._sessionService === null) {
-      throw new Error('AcademicYearSettingsView.sessionService must be set before use');
-    }
-    return this._sessionService;
+    return this._sessionServiceRef.get();
   }
 
   set academicYearService(value: AcademicYearApiService) {
-    this._academicYearService = value;
+    this._academicYearServiceRef.set(value);
   }
 
   get academicYearService(): AcademicYearApiService {
-    if (this._academicYearService === null) {
-      throw new Error('AcademicYearSettingsView.academicYearService must be set before use');
-    }
-    return this._academicYearService;
+    return this._academicYearServiceRef.get();
   }
 
   set catalogCycleService(value: CatalogTrainingCycleApiService) {
-    this._catalogCycleService = value;
+    this._catalogCycleServiceRef.set(value);
   }
 
   get catalogCycleService(): CatalogTrainingCycleApiService {
-    if (this._catalogCycleService === null) {
-      throw new Error('AcademicYearSettingsView.catalogCycleService must be set before use');
-    }
-    return this._catalogCycleService;
+    return this._catalogCycleServiceRef.get();
   }
 
   set catalogModuleService(value: CatalogModuleApiService) {
-    this._catalogModuleService = value;
+    this._catalogModuleServiceRef.set(value);
   }
 
   get catalogModuleService(): CatalogModuleApiService {
-    if (this._catalogModuleService === null) {
-      throw new Error('AcademicYearSettingsView.catalogModuleService must be set before use');
-    }
-    return this._catalogModuleService;
+    return this._catalogModuleServiceRef.get();
   }
 
-  connectedCallback(): void {
-    if (!this.shadowRoot) this.attachShadow({ mode: 'open' });
-    attachSharedStyles(this.shadowRoot!);
-    this._render();
-
-    const onClick = (event: Event): void => this._handleClick(event);
-    const onChange = (event: Event): void => this._handleChange(event);
-    this.shadowRoot!.addEventListener('click', onClick);
-    this.shadowRoot!.addEventListener('change', onChange);
-    this._disposables.push(() => this.shadowRoot!.removeEventListener('click', onClick));
-    this._disposables.push(() => this.shadowRoot!.removeEventListener('change', onChange));
-
-    void this._init();
-  }
-
-  disconnectedCallback(): void {
-    this._disposables.forEach((dispose) => dispose());
-    this._disposables = [];
-  }
-
-  private async _init(): Promise<void> {
+  protected async _onConnected(): Promise<void> {
     const outcome = await this.sessionService.getSession();
     if (!outcome.authenticated) {
       redirectTo('/login');
@@ -173,21 +148,11 @@ export class AcademicYearSettingsView extends HTMLElement {
     this._render();
   }
 
-  private _query<T extends Element>(elementId: string): T {
-    return this.shadowRoot!.querySelector<T>(`[data-element-id="${elementId}"]`)!;
-  }
-
   // ---------------------------------------------------------------------------------------
   // Event delegation
   // ---------------------------------------------------------------------------------------
 
-  private _handleClick(event: Event): void {
-    const target = (event.target as HTMLElement).closest<HTMLElement>('[data-element-id]');
-    if (!target) return;
-    const elementId = target.dataset.elementId!;
-
-    if (handleSettingsNavClick(elementId)) return;
-
+  protected _onElementClick(elementId: string): void {
     if (elementId === 'academic-year-table-add-button') {
       this._startAddYear();
       return;
@@ -224,10 +189,7 @@ export class AcademicYearSettingsView extends HTMLElement {
     }
   }
 
-  private _handleChange(event: Event): void {
-    const target = (event.target as HTMLElement).closest<HTMLElement>('[data-element-id]');
-    if (!target) return;
-    const elementId = target.dataset.elementId!;
+  protected _onElementChange(elementId: string, target: HTMLElement): void {
     const checked = (target as HTMLInputElement).checked;
 
     const cycleAction = parseRowAction(elementId, 'training-cycle-table');
@@ -563,7 +525,7 @@ export class AcademicYearSettingsView extends HTMLElement {
   // Rendering
   // ---------------------------------------------------------------------------------------
 
-  private _render(): void {
+  protected _render(): void {
     if (!this._authenticated || !this._loaded) {
       render(html``, this.shadowRoot!);
       return;

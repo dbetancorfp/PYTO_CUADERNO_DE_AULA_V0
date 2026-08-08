@@ -1,9 +1,10 @@
 import { html, render, type TemplateResult } from 'lit-html';
-import { attachSharedStyles } from './styles/shadow-styles';
 import { classesFor } from './styles/classes-for';
 import { redirectTo } from './navigation';
-import { handleSettingsNavClick, renderSettingsNav } from './settings-nav';
+import { renderSettingsNav } from './settings-nav';
 import { parseRowAction, type RowAction } from './row-action';
+import { RequiredRef } from './required-ref';
+import { SettingsScreenBase } from './settings-screen-base';
 import type { SessionApiService } from './session-api-service';
 import type { KeyDate, KeyDateApiService, KeyDateCreateData } from './key-date-api-service';
 
@@ -133,9 +134,13 @@ interface CategoryState {
  * end-date input) and displays only one `DD/MM`; a range category displays `"DD/MM – DD/MM"`
  * when start and end differ.
  */
-export class KeyDateSettingsView extends HTMLElement {
-  private _sessionService: SessionApiService | null = null;
-  private _keyDateService: KeyDateApiService | null = null;
+export class KeyDateSettingsView extends SettingsScreenBase {
+  private readonly _sessionServiceRef = new RequiredRef<SessionApiService>(
+    'KeyDateSettingsView.sessionService must be set before use',
+  );
+  private readonly _keyDateServiceRef = new RequiredRef<KeyDateApiService>(
+    'KeyDateSettingsView.keyDateService must be set before use',
+  );
 
   private _authenticated = false;
   private _loaded = false;
@@ -144,48 +149,23 @@ export class KeyDateSettingsView extends HTMLElement {
     CATEGORIES.map((catDef) => [catDef.category, { rows: [], editingRowId: null, rowError: null }]),
   );
 
-  private _disposables: Array<() => void> = [];
-
   set sessionService(value: SessionApiService) {
-    this._sessionService = value;
+    this._sessionServiceRef.set(value);
   }
 
   get sessionService(): SessionApiService {
-    if (this._sessionService === null) {
-      throw new Error('KeyDateSettingsView.sessionService must be set before use');
-    }
-    return this._sessionService;
+    return this._sessionServiceRef.get();
   }
 
   set keyDateService(value: KeyDateApiService) {
-    this._keyDateService = value;
+    this._keyDateServiceRef.set(value);
   }
 
   get keyDateService(): KeyDateApiService {
-    if (this._keyDateService === null) {
-      throw new Error('KeyDateSettingsView.keyDateService must be set before use');
-    }
-    return this._keyDateService;
+    return this._keyDateServiceRef.get();
   }
 
-  connectedCallback(): void {
-    if (!this.shadowRoot) this.attachShadow({ mode: 'open' });
-    attachSharedStyles(this.shadowRoot!);
-    this._render();
-
-    const onClick = (event: Event): void => this._handleClick(event);
-    this.shadowRoot!.addEventListener('click', onClick);
-    this._disposables.push(() => this.shadowRoot!.removeEventListener('click', onClick));
-
-    void this._init();
-  }
-
-  disconnectedCallback(): void {
-    this._disposables.forEach((dispose) => dispose());
-    this._disposables = [];
-  }
-
-  private async _init(): Promise<void> {
+  protected async _onConnected(): Promise<void> {
     const outcome = await this.sessionService.getSession();
     if (!outcome.authenticated) {
       redirectTo('/login');
@@ -203,10 +183,6 @@ export class KeyDateSettingsView extends HTMLElement {
     this._render();
   }
 
-  private _query<T extends Element>(elementId: string): T {
-    return this.shadowRoot!.querySelector<T>(`[data-element-id="${elementId}"]`)!;
-  }
-
   private _stateFor(category: string): CategoryState {
     const state = this._categoryState.get(category);
     if (!state) {
@@ -219,13 +195,7 @@ export class KeyDateSettingsView extends HTMLElement {
   // Event delegation
   // ---------------------------------------------------------------------------------------
 
-  private _handleClick(event: Event): void {
-    const target = (event.target as HTMLElement).closest<HTMLElement>('[data-element-id]');
-    if (!target) return;
-    const elementId = target.dataset.elementId!;
-
-    if (handleSettingsNavClick(elementId)) return;
-
+  protected _onElementClick(elementId: string): void {
     const addCatDef = CATEGORIES.find((catDef) => catDef.addButtonId === elementId);
     if (addCatDef) {
       this._startAdd(addCatDef.category);
@@ -340,7 +310,7 @@ export class KeyDateSettingsView extends HTMLElement {
   // Rendering
   // ---------------------------------------------------------------------------------------
 
-  private _render(): void {
+  protected _render(): void {
     if (!this._authenticated || !this._loaded) {
       render(html``, this.shadowRoot!);
       return;
