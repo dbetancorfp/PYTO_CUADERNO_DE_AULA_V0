@@ -108,8 +108,8 @@ describe('elementId: training-catalog-nav-link, teacher-nav-link, academic-year-
     const el = await mountView();
 
     expect(el.shadowRoot!.querySelector('[data-element-id="training-catalog-nav-link"]')!.getAttribute('aria-current')).toBe('page');
-    expect((el.shadowRoot!.querySelector('[data-element-id="teacher-nav-link"]')!.getAttribute('aria-current')) === null).toBe(true);
-    expect((el.shadowRoot!.querySelector('[data-element-id="academic-year-nav-link"]')!.getAttribute('aria-current')) === null).toBe(true);
+    expect(el.shadowRoot!.querySelector('[data-element-id="teacher-nav-link"]')!.getAttribute('aria-current')).toBeNull();
+    expect(el.shadowRoot!.querySelector('[data-element-id="academic-year-nav-link"]')!.getAttribute('aria-current')).toBeNull();
 
     el.remove();
   });
@@ -144,7 +144,7 @@ describe('elementId: catalog-training-cycle-table (UC-04)', () => {
     const el = await mountView({ trainingCycle: fakeTrainingCycleService({ list: async () => [] }) });
 
     expect(el.shadowRoot!.querySelector('[data-element-id="catalog-training-cycle-table"]')!.textContent).toBeTruthy();
-    expect((el.shadowRoot!.querySelector('[data-element-id="catalog-training-cycle-table-row-c1"]')) === null).toBe(true);
+    expect(el.shadowRoot!.querySelector('[data-element-id="catalog-training-cycle-table-row-c1"]')).toBeNull();
 
     el.remove();
   });
@@ -154,8 +154,8 @@ describe('elementId: catalog-training-cycle-table (UC-04)', () => {
       trainingCycle: fakeTrainingCycleService({ list: async () => [{ id: 'c1', name: 'DAW' }, { id: 'c2', name: 'DAM' }] }),
     });
 
-    expect((el.shadowRoot!.querySelector('[data-element-id="catalog-training-cycle-table-row-c1"]')) === null).toBe(false);
-    expect((el.shadowRoot!.querySelector('[data-element-id="catalog-training-cycle-table-row-c2"]')) === null).toBe(false);
+    expect(el.shadowRoot!.querySelector('[data-element-id="catalog-training-cycle-table-row-c1"]')).not.toBeNull();
+    expect(el.shadowRoot!.querySelector('[data-element-id="catalog-training-cycle-table-row-c2"]')).not.toBeNull();
 
     el.remove();
   });
@@ -173,7 +173,7 @@ describe('elementId: catalog-training-cycle-table (UC-04)', () => {
     });
 
     expect(calls.requested).toContain('c1');
-    expect((el.shadowRoot!.querySelector('[data-element-id="catalog-module-table-row-m1"]')) === null).toBe(false);
+    expect(el.shadowRoot!.querySelector('[data-element-id="catalog-module-table-row-m1"]')).not.toBeNull();
 
     el.remove();
   });
@@ -247,7 +247,7 @@ describe('elementId: catalog-training-cycle-table (UC-04)', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(calls.requested).toContain('c-new');
-    expect((el.shadowRoot!.querySelector('[data-element-id="catalog-module-table-row-m1"]')) === null).toBe(true);
+    expect(el.shadowRoot!.querySelector('[data-element-id="catalog-module-table-row-m1"]')).toBeNull();
 
     el.remove();
   });
@@ -268,7 +268,7 @@ describe('elementId: catalog-training-cycle-table (UC-04)', () => {
     el.shadowRoot!.querySelector<HTMLElement>('[data-element-id="catalog-training-cycle-table-row-c1-save"]')!.click();
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect((el.shadowRoot!.querySelector('[data-element-id="catalog-training-cycle-table-row-c1"]')) === null).toBe(false);
+    expect(el.shadowRoot!.querySelector('[data-element-id="catalog-training-cycle-table-row-c1"]')).not.toBeNull();
 
     el.remove();
   });
@@ -287,7 +287,7 @@ describe('elementId: catalog-training-cycle-table (UC-04)', () => {
     el.shadowRoot!.querySelector<HTMLElement>('[data-element-id="catalog-training-cycle-table-row-c1-delete"]')!.click();
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect((el.shadowRoot!.querySelector('[data-element-id="catalog-training-cycle-table-row-c1"]')) === null).toBe(true);
+    expect(el.shadowRoot!.querySelector('[data-element-id="catalog-training-cycle-table-row-c1"]')).toBeNull();
 
     el.remove();
   });
@@ -298,7 +298,7 @@ describe('elementId: catalog-module-table (UC-05)', () => {
     const el = await mountView({ trainingCycle: fakeTrainingCycleService({ list: async () => [] }) });
 
     expect(el.shadowRoot!.querySelector('[data-element-id="catalog-module-table"]')!.textContent).toBeTruthy();
-    expect((el.shadowRoot!.querySelector('[data-element-id="catalog-module-table-row-m1"]')) === null).toBe(true);
+    expect(el.shadowRoot!.querySelector('[data-element-id="catalog-module-table-row-m1"]')).toBeNull();
 
     el.remove();
   });
@@ -361,7 +361,7 @@ describe('elementId: catalog-module-table (UC-05)', () => {
     el.shadowRoot!.querySelector<HTMLElement>('[data-element-id="catalog-module-table-row-m1-save"]')!.click();
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect((el.shadowRoot!.querySelector('[data-element-id="catalog-module-table-row-m1"]')) === null).toBe(false);
+    expect(el.shadowRoot!.querySelector('[data-element-id="catalog-module-table-row-m1"]')).not.toBeNull();
 
     el.remove();
   });
@@ -377,7 +377,7 @@ describe('elementId: catalog-module-table (UC-05)', () => {
     el.shadowRoot!.querySelector<HTMLElement>('[data-element-id="catalog-module-table-row-m1-delete"]')!.click();
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect((el.shadowRoot!.querySelector('[data-element-id="catalog-module-table-row-m1"]')) === null).toBe(true);
+    expect(el.shadowRoot!.querySelector('[data-element-id="catalog-module-table-row-m1"]')).toBeNull();
 
     el.remove();
   });

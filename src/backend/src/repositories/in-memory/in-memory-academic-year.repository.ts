@@ -12,7 +12,7 @@ export class InMemoryAcademicYearRepository implements AcademicYearRepository {
 
   async findById(teacherId: string, id: string): Promise<AcademicYear | null> {
     const year = this.store.academicYears.get(id);
-    return year && year.teacherId === teacherId ? year : null;
+    return year?.teacherId === teacherId ? year : null;
   }
 
   async findByStartYear(teacherId: string, startYear: number): Promise<AcademicYear | null> {

@@ -249,10 +249,12 @@ export class CalendarioView extends HTMLElement {
     this.shadowRoot!.addEventListener('change', onChange);
     this.shadowRoot!.addEventListener('mouseover', onDayMouseOver);
     this.shadowRoot!.addEventListener('mouseout', onDayMouseOut);
-    this._disposables.push(() => this.shadowRoot!.removeEventListener('click', onClick));
-    this._disposables.push(() => this.shadowRoot!.removeEventListener('change', onChange));
-    this._disposables.push(() => this.shadowRoot!.removeEventListener('mouseover', onDayMouseOver));
-    this._disposables.push(() => this.shadowRoot!.removeEventListener('mouseout', onDayMouseOut));
+    this._disposables.push(
+      () => this.shadowRoot!.removeEventListener('click', onClick),
+      () => this.shadowRoot!.removeEventListener('change', onChange),
+      () => this.shadowRoot!.removeEventListener('mouseover', onDayMouseOver),
+      () => this.shadowRoot!.removeEventListener('mouseout', onDayMouseOut),
+    );
 
     void this._init();
   }

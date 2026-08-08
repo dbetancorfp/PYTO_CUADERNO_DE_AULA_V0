@@ -77,7 +77,7 @@ describe('PgAcademicYearModuleRepository', () => {
     const insertedCount = await repo.createMany('y1', ['m1', 'm2']);
 
     expect(insertedCount).toBe(1);
-    expect(fakeSql.calls.length).toBe(2);
+    expect(fakeSql.calls).toHaveLength(2);
     expect(sqlTextOf(fakeSql.calls[0])).toContain('INSERT INTO academic_year_modules');
   });
 
@@ -88,7 +88,7 @@ describe('PgAcademicYearModuleRepository', () => {
     const insertedCount = await repo.createMany('y1', []);
 
     expect(insertedCount).toBe(0);
-    expect(fakeSql.calls.length).toBe(0);
+    expect(fakeSql.calls).toHaveLength(0);
   });
 
   it('delete sends a DELETE for the given id', async () => {

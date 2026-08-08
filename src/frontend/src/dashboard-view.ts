@@ -145,7 +145,7 @@ export class DashboardView extends HTMLElement {
     render(
       html`
         <div class="flex flex-col gap-6 p-4">
-          <nav class="${classesFor('card', undefined, undefined)} flex items-center justify-between px-4 py-3">
+          <nav class="${classesFor('card')} flex items-center justify-between px-4 py-3">
             <h1 class="${classesFor('heading')}" data-element-id="app-logo">Cuaderno de Aula</h1>
             <div class="flex items-center gap-4">
               <button
@@ -157,7 +157,7 @@ export class DashboardView extends HTMLElement {
               >
                 Config
               </button>
-              <p class="${classesFor('paragraph', undefined, undefined)}" data-element-id="welcome-message">
+              <p class="${classesFor('paragraph')}" data-element-id="welcome-message">
                 Bienvenido, ${this._fullName}
               </p>
               <a class="${classesFor('link', 'link')}" data-element-id="logout-link" tabindex="0" role="link">
@@ -171,11 +171,7 @@ export class DashboardView extends HTMLElement {
               (card) => html`
                 <button
                   type="button"
-                  class="${classesFor(
-                    'card',
-                    'interactive',
-                    undefined,
-                  )} flex flex-col items-center gap-2 p-6 text-center"
+                  class="${classesFor('card', 'interactive')} flex flex-col items-center gap-2 p-6 text-center"
                   data-element-id="${card.elementId}"
                 >
                   <span aria-hidden="true" class="text-xs uppercase tracking-wide text-slate-400">${card.icon}</span>

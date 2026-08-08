@@ -184,7 +184,7 @@ export class AcademicYearSettingsView extends SettingsScreenBase {
     }
 
     const moduleAction = parseRowAction(elementId, 'module-table');
-    if (moduleAction && moduleAction.action === 'delete') {
+    if (moduleAction?.action === 'delete') {
       void this._removeModule(moduleAction.rowId);
     }
   }
@@ -193,13 +193,13 @@ export class AcademicYearSettingsView extends SettingsScreenBase {
     const checked = (target as HTMLInputElement).checked;
 
     const cycleAction = parseRowAction(elementId, 'training-cycle-table');
-    if (cycleAction && cycleAction.action === 'checkbox') {
+    if (cycleAction?.action === 'checkbox') {
       this._toggleCycleChecked(cycleAction.rowId, checked);
       return;
     }
 
     const selectionAction = parseRowAction(elementId, 'module-selection-table');
-    if (selectionAction && selectionAction.action === 'checkbox') {
+    if (selectionAction?.action === 'checkbox') {
       this._toggleModuleSelected(selectionAction.rowId, checked);
     }
   }
@@ -735,16 +735,20 @@ export class AcademicYearSettingsView extends SettingsScreenBase {
               <th></th>
             </tr>
           </thead>
-          <tbody>
-            ${this._selectedCycleId === null
-              ? html`<tr><td colspan="3">Elige un ciclo para ver sus módulos.</td></tr>`
-              : rows.length === 0
-                ? html`<tr><td colspan="3">Este ciclo no tiene módulos asignados a este año académico.</td></tr>`
-                : this._renderModuleRows(rows)}
-          </tbody>
+          <tbody>${this._renderModuleTableBody(rows)}</tbody>
         </table>
       </section>
     `;
+  }
+
+  private _renderModuleTableBody(rows: AcademicYearModuleDetail[]): TemplateResult {
+    if (this._selectedCycleId === null) {
+      return html`<tr><td colspan="3">Elige un ciclo para ver sus módulos.</td></tr>`;
+    }
+    if (rows.length === 0) {
+      return html`<tr><td colspan="3">Este ciclo no tiene módulos asignados a este año académico.</td></tr>`;
+    }
+    return this._renderModuleRows(rows);
   }
 
   private _renderModuleRows(rows: AcademicYearModuleDetail[]): TemplateResult {

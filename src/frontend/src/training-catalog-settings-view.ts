@@ -469,16 +469,20 @@ export class TrainingCatalogSettingsView extends SettingsScreenBase {
               <th></th>
             </tr>
           </thead>
-          <tbody>
-            ${this._selectedCycleId === null
-              ? html`<tr><td colspan="3">Elige o crea un ciclo para ver sus módulos.</td></tr>`
-              : rows.length === 0
-                ? html`<tr><td colspan="3">Este ciclo todavía no tiene módulos.</td></tr>`
-                : this._renderModuleRows(rows)}
-          </tbody>
+          <tbody>${this._renderModuleTableBody(rows)}</tbody>
         </table>
       </section>
     `;
+  }
+
+  private _renderModuleTableBody(rows: CatalogModuleRecord[]): TemplateResult {
+    if (this._selectedCycleId === null) {
+      return html`<tr><td colspan="3">Elige o crea un ciclo para ver sus módulos.</td></tr>`;
+    }
+    if (rows.length === 0) {
+      return html`<tr><td colspan="3">Este ciclo todavía no tiene módulos.</td></tr>`;
+    }
+    return this._renderModuleRows(rows);
   }
 
   private _renderModuleRows(rows: CatalogModuleRecord[]): TemplateResult {

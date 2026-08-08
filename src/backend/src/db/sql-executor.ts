@@ -3,6 +3,4 @@
 // double (see src/backend/tests/helpers/fake-sql.ts) instead of a real Postgres connection.
 // See tecnologias/tecnologia_bbdd.md "Client / driver".
 
-export interface SqlExecutor {
-  (strings: TemplateStringsArray, ...values: unknown[]): Promise<Record<string, unknown>[]>;
-}
+export type SqlExecutor = (strings: TemplateStringsArray, ...values: unknown[]) => Promise<Record<string, unknown>[]>;

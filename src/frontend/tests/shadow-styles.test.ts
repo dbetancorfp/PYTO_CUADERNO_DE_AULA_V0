@@ -38,8 +38,8 @@ describe('attachSharedStyles', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(fetchCalls).toBe(1);
-    expect(shadowA.adoptedStyleSheets.length).toBe(1);
-    expect(shadowB.adoptedStyleSheets.length).toBe(1);
+    expect(shadowA.adoptedStyleSheets).toHaveLength(1);
+    expect(shadowB.adoptedStyleSheets).toHaveLength(1);
     expect(shadowA.adoptedStyleSheets[0]).toBe(shadowB.adoptedStyleSheets[0]);
   });
 
@@ -54,7 +54,7 @@ describe('attachSharedStyles', () => {
     attachSharedStyles(shadow);
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(shadow.adoptedStyleSheets.length).toBe(1);
+    expect(shadow.adoptedStyleSheets).toHaveLength(1);
   });
 
   it('leaves the shadow root unstyled when the response is not ok', async () => {
@@ -66,7 +66,7 @@ describe('attachSharedStyles', () => {
     attachSharedStyles(shadow);
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(shadow.adoptedStyleSheets.length).toBe(0);
+    expect(shadow.adoptedStyleSheets).toHaveLength(0);
   });
 
   it('leaves the shadow root unstyled, without throwing, when fetch itself rejects', async () => {
@@ -80,6 +80,6 @@ describe('attachSharedStyles', () => {
     expect(() => attachSharedStyles(shadow)).not.toThrow();
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(shadow.adoptedStyleSheets.length).toBe(0);
+    expect(shadow.adoptedStyleSheets).toHaveLength(0);
   });
 });

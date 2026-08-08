@@ -141,8 +141,8 @@ describe('elementId: training-catalog-nav-link, teacher-nav-link, academic-year-
     const el = await mountView();
 
     expect(el.shadowRoot!.querySelector('[data-element-id="academic-year-nav-link"]')!.getAttribute('aria-current')).toBe('page');
-    expect((el.shadowRoot!.querySelector('[data-element-id="teacher-nav-link"]')!.getAttribute('aria-current')) === null).toBe(true);
-    expect((el.shadowRoot!.querySelector('[data-element-id="training-catalog-nav-link"]')!.getAttribute('aria-current')) === null).toBe(true);
+    expect(el.shadowRoot!.querySelector('[data-element-id="teacher-nav-link"]')!.getAttribute('aria-current')).toBeNull();
+    expect(el.shadowRoot!.querySelector('[data-element-id="training-catalog-nav-link"]')!.getAttribute('aria-current')).toBeNull();
 
     el.remove();
   });

@@ -31,9 +31,7 @@ async function loadSharedStyleSheet(): Promise<CSSStyleSheet | null> {
  * instance. Safe to call from every component's `connectedCallback`.
  */
 export function attachSharedStyles(shadowRoot: ShadowRoot): void {
-  if (sharedStyleSheetPromise === null) {
-    sharedStyleSheetPromise = loadSharedStyleSheet();
-  }
+  sharedStyleSheetPromise ??= loadSharedStyleSheet();
 
   void sharedStyleSheetPromise.then((sheet) => {
     if (sheet === null) {

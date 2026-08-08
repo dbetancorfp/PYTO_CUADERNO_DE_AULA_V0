@@ -31,7 +31,7 @@ describe('seedKeyDates', () => {
 
     await seedKeyDates(fakeSql);
 
-    expect(fakeSql.calls.length).toBe(43);
+    expect(fakeSql.calls).toHaveLength(43);
     for (const call of fakeSql.calls) {
       expect(sqlTextOf(call)).toContain('INSERT INTO key_dates');
     }

@@ -1,4 +1,4 @@
-import { html, render } from 'lit-html';
+import { html, render, type TemplateResult } from 'lit-html';
 import { classesFor } from './styles/classes-for';
 import { redirectTo } from './navigation';
 import { renderSettingsNav } from './settings-nav';
@@ -18,6 +18,17 @@ const PASSWORD_SAVED_MESSAGE = 'Contraseña actualizada';
 interface SaveMessage {
   kind: 'success' | 'error';
   text: string;
+}
+
+function computeRepeatPasswordError(repeat: string, next: string): string | null {
+  if (repeat.length === 0) return REPEAT_PASSWORD_REQUIRED_MESSAGE;
+  return repeat !== next ? REPEAT_PASSWORD_MISMATCH_MESSAGE : null;
+}
+
+function saveMessageClasses(message: SaveMessage): string {
+  const toneClass = message.kind === 'error' ? 'danger' : undefined;
+  const successClass = message.kind === 'success' ? 'text-green-700' : '';
+  return `${classesFor('paragraph', toneClass, 'sm')} ${successClass}`;
 }
 
 /**
@@ -122,12 +133,7 @@ export class TeacherSettingsView extends SettingsScreenBase {
 
     this._currentPasswordError = current.length === 0 ? CURRENT_PASSWORD_REQUIRED_MESSAGE : null;
     this._newPasswordError = next.length === 0 ? NEW_PASSWORD_REQUIRED_MESSAGE : null;
-    this._repeatPasswordError =
-      repeat.length === 0
-        ? REPEAT_PASSWORD_REQUIRED_MESSAGE
-        : repeat !== next
-          ? REPEAT_PASSWORD_MISMATCH_MESSAGE
-          : null;
+    this._repeatPasswordError = computeRepeatPasswordError(repeat, next);
 
     if (this._currentPasswordError !== null || this._newPasswordError !== null || this._repeatPasswordError !== null) {
       this._render();
@@ -168,116 +174,119 @@ export class TeacherSettingsView extends SettingsScreenBase {
           ${renderSettingsNav('profesor')}
 
           <div class="mx-auto flex w-full max-w-2xl flex-col gap-8">
-          <section class="${classesFor('card', undefined, undefined)} flex flex-col gap-4 p-6">
-            <h2 class="${classesFor('heading')}">Datos del profesor</h2>
-
-            <div>
-              <input
-                class="${classesFor('text-input', undefined, 'md')}"
-                data-element-id="teacher-full-name-input"
-                type="text"
-                placeholder="Nombre completo"
-                aria-label="Nombre"
-                .value=${this._fullName ?? ''}
-              />
-              ${this._nameError !== null
-                ? html`<p class="${classesFor('paragraph', 'danger', 'sm')}">${this._nameError}</p>`
-                : ''}
-            </div>
-
-            <button
-              type="button"
-              class="${classesFor('submit-button', 'primary', 'md')}"
-              data-element-id="teacher-save-name-button"
-              ?disabled=${this._nameSaving}
-            >
-              ${this._nameSaving ? 'Guardando…' : 'Guardar nombre'}
-            </button>
-
-            ${this._nameMessage !== null
-              ? html`<p
-                  class="${classesFor('paragraph', this._nameMessage.kind === 'error' ? 'danger' : undefined, 'sm')} ${this
-                    ._nameMessage.kind === 'success'
-                    ? 'text-green-700'
-                    : ''}"
-                  data-element-id="teacher-name-save-message"
-                  aria-live="polite"
-                >
-                  ${this._nameMessage.text}
-                </p>`
-              : ''}
-          </section>
-
-          <section class="${classesFor('card', undefined, undefined)} flex flex-col gap-4 p-6">
-            <h2 class="${classesFor('heading')}">Cambiar contraseña</h2>
-
-            <div>
-              <input
-                class="${classesFor('password-input', undefined, 'md')}"
-                data-element-id="teacher-current-password-input"
-                type="password"
-                placeholder="Contraseña actual"
-                aria-label="Contraseña actual"
-              />
-              ${this._currentPasswordError !== null
-                ? html`<p class="${classesFor('paragraph', 'danger', 'sm')}">${this._currentPasswordError}</p>`
-                : ''}
-            </div>
-
-            <div>
-              <input
-                class="${classesFor('password-input', undefined, 'md')}"
-                data-element-id="teacher-new-password-input"
-                type="password"
-                placeholder="Nueva contraseña"
-                aria-label="Nueva contraseña"
-              />
-              ${this._newPasswordError !== null
-                ? html`<p class="${classesFor('paragraph', 'danger', 'sm')}">${this._newPasswordError}</p>`
-                : ''}
-            </div>
-
-            <div>
-              <input
-                class="${classesFor('password-input', undefined, 'md')}"
-                data-element-id="teacher-repeat-password-input"
-                type="password"
-                placeholder="Repite la nueva contraseña"
-                aria-label="Repite la nueva contraseña"
-              />
-              ${this._repeatPasswordError !== null
-                ? html`<p class="${classesFor('paragraph', 'danger', 'sm')}">${this._repeatPasswordError}</p>`
-                : ''}
-            </div>
-
-            <button
-              type="button"
-              class="${classesFor('submit-button', 'primary', 'md')}"
-              data-element-id="teacher-save-password-button"
-              ?disabled=${this._passwordSaving}
-            >
-              ${this._passwordSaving ? 'Guardando…' : 'Cambiar contraseña'}
-            </button>
-
-            ${this._passwordMessage !== null
-              ? html`<p
-                  class="${classesFor(
-                    'paragraph',
-                    this._passwordMessage.kind === 'error' ? 'danger' : undefined,
-                    'sm',
-                  )} ${this._passwordMessage.kind === 'success' ? 'text-green-700' : ''}"
-                  data-element-id="teacher-password-save-message"
-                  aria-live="polite"
-                >
-                  ${this._passwordMessage.text}
-                </p>`
-              : ''}
-          </section>
+            ${this._renderNameSection()} ${this._renderPasswordSection()}
           </div>
         </div>
       `,
       this.shadowRoot!,
     );
+  }
+
+  private _renderNameSection(): TemplateResult {
+    return html`
+      <section class="${classesFor('card')} flex flex-col gap-4 p-6">
+        <h2 class="${classesFor('heading')}">Datos del profesor</h2>
+
+        <div>
+          <input
+            class="${classesFor('text-input', undefined, 'md')}"
+            data-element-id="teacher-full-name-input"
+            type="text"
+            placeholder="Nombre completo"
+            aria-label="Nombre"
+            .value=${this._fullName ?? ''}
+          />
+          ${this._nameError !== null
+            ? html`<p class="${classesFor('paragraph', 'danger', 'sm')}">${this._nameError}</p>`
+            : ''}
+        </div>
+
+        <button
+          type="button"
+          class="${classesFor('submit-button', 'primary', 'md')}"
+          data-element-id="teacher-save-name-button"
+          ?disabled=${this._nameSaving}
+        >
+          ${this._nameSaving ? 'Guardando…' : 'Guardar nombre'}
+        </button>
+
+        ${this._nameMessage !== null
+          ? html`<p
+              class="${saveMessageClasses(this._nameMessage)}"
+              data-element-id="teacher-name-save-message"
+              aria-live="polite"
+            >
+              ${this._nameMessage.text}
+            </p>`
+          : ''}
+      </section>
+    `;
+  }
+
+  private _renderPasswordSection(): TemplateResult {
+    return html`
+      <section class="${classesFor('card')} flex flex-col gap-4 p-6">
+        <h2 class="${classesFor('heading')}">Cambiar contraseña</h2>
+
+        <div>
+          <input
+            class="${classesFor('password-input', undefined, 'md')}"
+            data-element-id="teacher-current-password-input"
+            type="password"
+            placeholder="Contraseña actual"
+            aria-label="Contraseña actual"
+          />
+          ${this._currentPasswordError !== null
+            ? html`<p class="${classesFor('paragraph', 'danger', 'sm')}">${this._currentPasswordError}</p>`
+            : ''}
+        </div>
+
+        <div>
+          <input
+            class="${classesFor('password-input', undefined, 'md')}"
+            data-element-id="teacher-new-password-input"
+            type="password"
+            placeholder="Nueva contraseña"
+            aria-label="Nueva contraseña"
+          />
+          ${this._newPasswordError !== null
+            ? html`<p class="${classesFor('paragraph', 'danger', 'sm')}">${this._newPasswordError}</p>`
+            : ''}
+        </div>
+
+        <div>
+          <input
+            class="${classesFor('password-input', undefined, 'md')}"
+            data-element-id="teacher-repeat-password-input"
+            type="password"
+            placeholder="Repite la nueva contraseña"
+            aria-label="Repite la nueva contraseña"
+          />
+          ${this._repeatPasswordError !== null
+            ? html`<p class="${classesFor('paragraph', 'danger', 'sm')}">${this._repeatPasswordError}</p>`
+            : ''}
+        </div>
+
+        <button
+          type="button"
+          class="${classesFor('submit-button', 'primary', 'md')}"
+          data-element-id="teacher-save-password-button"
+          ?disabled=${this._passwordSaving}
+        >
+          ${this._passwordSaving ? 'Guardando…' : 'Cambiar contraseña'}
+        </button>
+
+        ${this._passwordMessage !== null
+          ? html`<p
+              class="${saveMessageClasses(this._passwordMessage)}"
+              data-element-id="teacher-password-save-message"
+              aria-live="polite"
+            >
+              ${this._passwordMessage.text}
+            </p>`
+          : ''}
+      </section>
+    `;
   }
 }
 

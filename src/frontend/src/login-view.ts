@@ -64,8 +64,10 @@ export class LoginView extends HTMLElement {
     const onClick = (event: Event): void => this._handleClick(event);
     this.shadowRoot!.addEventListener('input', onInput);
     this.shadowRoot!.addEventListener('click', onClick);
-    this._disposables.push(() => this.shadowRoot!.removeEventListener('input', onInput));
-    this._disposables.push(() => this.shadowRoot!.removeEventListener('click', onClick));
+    this._disposables.push(
+      () => this.shadowRoot!.removeEventListener('input', onInput),
+      () => this.shadowRoot!.removeEventListener('click', onClick),
+    );
   }
 
   disconnectedCallback(): void {
@@ -116,6 +118,11 @@ export class LoginView extends HTMLElement {
     }
   }
 
+  private _computeEmailError(emailValid: boolean, email: string): string | null {
+    if (emailValid) return null;
+    return email.length === 0 ? EMAIL_REQUIRED_MESSAGE : EMAIL_INVALID_MESSAGE;
+  }
+
   private _togglePasswordVisibility(): void {
     this._passwordVisible = !this._passwordVisible;
     this.dispatchEvent(
@@ -137,7 +144,7 @@ export class LoginView extends HTMLElement {
     const emailValid = isEmailShaped(email);
     const passwordValid = password.length > 0;
 
-    this._emailError = emailValid ? null : email.length === 0 ? EMAIL_REQUIRED_MESSAGE : EMAIL_INVALID_MESSAGE;
+    this._emailError = this._computeEmailError(emailValid, email);
     this._passwordError = passwordValid ? null : PASSWORD_REQUIRED_MESSAGE;
 
     if (!emailValid || !passwordValid) {
@@ -170,7 +177,7 @@ export class LoginView extends HTMLElement {
   private _render(): void {
     render(
       html`
-        <div class="${classesFor('card', undefined, undefined)} mx-auto flex max-w-sm flex-col gap-4 p-6">
+        <div class="${classesFor('card')} mx-auto flex max-w-sm flex-col gap-4 p-6">
           <h1 class="${classesFor('heading')}" data-element-id="login-heading">App</h1>
 
           <div>

@@ -61,5 +61,7 @@ export abstract class SettingsScreenBase extends HTMLElement {
   protected abstract _onElementClick(elementId: string, target: HTMLElement, event: Event): void;
 
   /** No-op by default — only screens with checkbox columns (e.g. `academic-year-settings-view.ts`) override it. */
-  protected _onElementChange(_elementId: string, _target: HTMLElement, _event: Event): void {}
+  protected _onElementChange(_elementId: string, _target: HTMLElement, _event: Event): void {
+    // Intentionally empty — see doc comment above.
+  }
 }
