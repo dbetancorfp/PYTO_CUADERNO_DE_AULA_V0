@@ -10,9 +10,9 @@ if (!databaseUrl) {
   throw new Error('DATABASE_URL is required to seed e2e fixtures.');
 }
 
-await bootstrapSchema(databaseUrl);
-
 const sql = new SQL(databaseUrl);
+
+await bootstrapSchema(sql);
 
 async function seedLoginFixtures(): Promise<void> {
   const validPasswordHash = await Bun.password.hash('CorrectHorseBattery1');

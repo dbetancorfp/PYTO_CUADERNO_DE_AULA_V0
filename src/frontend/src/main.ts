@@ -9,11 +9,9 @@
 // session), so that race left it permanently unrendered. `document.createElement` first,
 // wire `.service`, append last — the same order every unit test already uses — avoids the
 // race entirely, for every view, not just this one.
-document.addEventListener('DOMContentLoaded', () => {
-  void bootstrap();
-});
+document.addEventListener('DOMContentLoaded', () => void bootstrap());
 
-async function bootstrap(): Promise<void> {
+export async function bootstrap(): Promise<void> {
   if (window.location.pathname === '/dashboard') {
     const [{ HttpSessionApiService }, { DashboardView }] = await Promise.all([
       import('./http-session-api-service'),
