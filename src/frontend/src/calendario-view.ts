@@ -25,6 +25,13 @@ const BLUE_CATEGORIES: readonly string[] = ['evaluations', 'feoe_project_days'];
 const RED_HEX = '#fca5a5';
 const BLUE_HEX = '#93c5fd';
 const FALLBACK_HEX = '#cbd5e1';
+/** Plain Saturday/Sunday with no `public_holidays` entry — same shade `RED_HEX` already
+ * gives `holidays`/`free_disposal_days`/`academic_key_dates`, so a weekend day carrying one
+ * of those categories renders identically either way. */
+const WEEKEND_RED_HEX = RED_HEX;
+/** Saturday/Sunday that's also a `public_holidays` entry — darker than `WEEKEND_RED_HEX` to
+ * flag the coincidence. */
+const WEEKEND_HOLIDAY_RED_HEX = '#b91c1c';
 
 const CATEGORY_COLOR_HEX: Record<string, string> = {
   ...Object.fromEntries(RED_CATEGORIES.map((category) => [category, RED_HEX])),
@@ -140,6 +147,23 @@ function backgroundStyleForCategories(categories: readonly string[]): string {
     .map((color, index) => `${color} ${index * bandWidth}%, ${color} ${(index + 1) * bandWidth}%`)
     .join(', ');
   return `background-image: linear-gradient(90deg, ${stops});`;
+}
+
+/** Saturdays/Sundays always get a red background, darker when `public_holidays` also
+ * covers that day — unless a blue category (`evaluations`/`feoe_project_days`) also covers
+ * it, in which case that real academic event wins and the day renders exactly like a
+ * weekday would (via `backgroundStyleForCategories`). */
+function backgroundStyleForDay(weekday: number, categories: readonly string[]): string {
+  const isWeekend = weekday >= 5;
+  const hasBlueCategory = categories.some((category) => BLUE_CATEGORIES.includes(category));
+
+  if (isWeekend && !hasBlueCategory) {
+    const color = categories.includes('public_holidays') ? WEEKEND_HOLIDAY_RED_HEX : WEEKEND_RED_HEX;
+    return `background-color: ${color};`;
+  }
+
+  if (categories.length === 0) return '';
+  return backgroundStyleForCategories(categories);
 }
 
 function parseDayElementId(elementId: string): string | null {
@@ -568,7 +592,8 @@ export class CalendarioView extends HTMLElement {
   private _renderDayCell(year: number, month: number, day: number): TemplateResult {
     const dayDate = dayDateString(year, month, day);
     const categories = categoriesForDay(this._calendarEntries, dayDate);
-    const style = categories.length > 0 ? backgroundStyleForCategories(categories) : '';
+    const weekday = mondayFirstWeekday(year, month, day);
+    const style = backgroundStyleForDay(weekday, categories);
 
     return html`
       <div

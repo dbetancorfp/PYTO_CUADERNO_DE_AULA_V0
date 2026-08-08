@@ -117,6 +117,10 @@ function dayCategories(el: CalendarioView, monthId: string, day: string): string
   return el.shadowRoot!.querySelector(`[data-element-id="${monthId}-day-${day}"]`)?.getAttribute('data-calendario-day-categories') ?? null;
 }
 
+function dayStyle(el: CalendarioView, monthId: string, day: string): string | null {
+  return el.shadowRoot!.querySelector(`[data-element-id="${monthId}-day-${day}"]`)?.getAttribute('style') ?? null;
+}
+
 describe('elementId: calendario-heading, back-to-dashboard-link', () => {
   it('calendario-heading renders "Calendario"', async () => {
     const el = await mountView();
@@ -354,6 +358,62 @@ describe('elementId: calendario-months, calendario-empty-state', () => {
     const categories = dayCategories(el, 'calendario-month-2026-03', '01')!.split(',');
     expect(categories).toContain('public_holidays');
     expect(categories).toContain('evaluations');
+
+    el.remove();
+  });
+
+  it('a plain Saturday/Sunday with no calendario_modulo entry is colored red', async () => {
+    // 2025-12-06/07 is a Saturday/Sunday not covered by the fixture's one entry (which
+    // starts on the 22nd) — an unrelated entry keeps calendario-months rendered instead of
+    // calendario-empty-state, same as "colors every day of a <=30-day range" above.
+    const el = await mountView({
+      today: new Date('2026-08-07T12:00:00Z'),
+      calendarioModulo: fakeCalendarioModuloService({
+        findForModule: async () => [
+          { id: 'cm1', category: 'holidays', name: 'Vacaciones de Navidad.', startDate: '2025-12-22', endDate: '2026-01-07' },
+        ],
+      }),
+    });
+
+    expect(dayCategories(el, 'calendario-month-2025-12', '06')).toBeNull();
+    expect(dayStyle(el, 'calendario-month-2025-12', '06')).toContain('#fca5a5');
+    expect(dayStyle(el, 'calendario-month-2025-12', '07')).toContain('#fca5a5');
+
+    el.remove();
+  });
+
+  it('a Saturday/Sunday that is also a public_holidays entry is colored a darker red', async () => {
+    // 2025-12-07 is a Sunday.
+    const el = await mountView({
+      today: new Date('2026-08-07T12:00:00Z'),
+      calendarioModulo: fakeCalendarioModuloService({
+        findForModule: async () => [
+          { id: 'cm1', category: 'public_holidays', name: 'Festivo de fin de semana.', startDate: '2025-12-07', endDate: '2025-12-07' },
+        ],
+      }),
+    });
+
+    expect(dayCategories(el, 'calendario-month-2025-12', '07')).toBe('public_holidays');
+    expect(dayStyle(el, 'calendario-month-2025-12', '07')).toContain('#b91c1c');
+
+    el.remove();
+  });
+
+  it('a Saturday/Sunday covered by an evaluations/feoe_project_days entry keeps the blue coloring, not weekend red', async () => {
+    // 2026-03-07 is a Saturday.
+    const el = await mountView({
+      today: new Date('2026-08-07T12:00:00Z'),
+      calendarioModulo: fakeCalendarioModuloService({
+        findForModule: async () => [
+          { id: 'cm1', category: 'evaluations', name: 'Sesión de evaluación de sábado.', startDate: '2026-03-07', endDate: '2026-03-07' },
+        ],
+      }),
+    });
+
+    expect(dayCategories(el, 'calendario-month-2026-03', '07')).toBe('evaluations');
+    expect(dayStyle(el, 'calendario-month-2026-03', '07')).toContain('#93c5fd');
+    expect(dayStyle(el, 'calendario-month-2026-03', '07')).not.toContain('#fca5a5');
+    expect(dayStyle(el, 'calendario-month-2026-03', '07')).not.toContain('#b91c1c');
 
     el.remove();
   });
