@@ -1,5 +1,24 @@
 # Review Report — calendario — 2026-08-09 (amendment: UC-08 `final_exams`)
 
+**Post-merge direction fix (2026-08-09, branch `view/calendario-final-exams-fix`)**: user
+reported, after the first merge, that "Examen de recuperación final" was landing *after*
+"Último día para poner notas" instead of before — the original request's direction for
+this specific date ("2 días o más ... del Último día de notas") was ambiguous and never
+explicitly confirmed as an inference (a process gap: `requirement-architect` should have
+flagged it `[INFERENCE — verify with the user]` in UC-08 like it did for A2, and didn't).
+Confirmed with the user: "Último día para poner notas" is the deadline for *every* grade,
+including the resit's, to already be entered — so both exams must conclude before it, not
+after. Fix: `computeFinalExamsEntries` now calls `subtractLaborableDays` (was
+`addLaborableDays`) for the retake date; "Examen final" stays `subtractLaborableDays` from
+the retake date, unchanged (already correct — it was always meant to be the earliest of
+the three). Only `calendario-modulo.service.ts` changed (one call swapped); `business-day.ts`
+itself untouched. `calendario-modulo.service.test.ts`'s three date-asserting UC-08 tests
+were updated to the corrected dates first (confirmed red against the old code), then the
+implementation fixed to match — same TDD discipline as the original cycle. Re-verified
+live against real Postgres (four evaluación prefixes, all four confirmed retake-before-
+deadline and final-before-retake) and the full Cypress suite (76/76, 33 specs) green
+afterward. `use-cases.md` UC-08 updated to state the corrected direction explicitly.
+
 **Post-e2e bugfix note (same day, same cycle)**: `e2e-engineer`'s real-Postgres Cypress run
 found `business-day.ts`'s `shiftByOneDay` throwing `RangeError: Invalid Date` for a 5+ digit
 `startYear` (used by pre-existing Configuración/Año académico specs for collision-avoidance,

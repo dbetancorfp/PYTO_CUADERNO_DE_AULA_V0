@@ -68,9 +68,10 @@ describe('UC-08: final_exams dates computed when calendario_modulo is generated'
                 const final1a = finalExams.find((e) => e.name === '1ª Evaluación - Examen final.');
                 expect(recuperacion1a, 'recuperación final for 1ª Evaluación').to.exist;
                 expect(final1a, '1ª Evaluación - Examen final.').to.exist;
-                // The retake exam is always the later date of the pair (computed forward from
-                // "Último día de notas"); the final exam is always earlier (computed backward
-                // from the retake date) — see UC-08.
+                // The retake exam is always the later date of the pair (computed backward from
+                // "Último día de notas", -2 business days — both exams conclude before the grade
+                // deadline); the final exam is always earlier still (computed backward from the
+                // retake date, a further -4 business days) — see UC-08.
                 expect(new Date(final1a!.startDate).getTime()).to.be.lessThan(new Date(recuperacion1a!.startDate).getTime());
 
                 cy.visit('/calendario');

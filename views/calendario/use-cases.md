@@ -309,10 +309,13 @@ dates, not `key_dates`' day/month template.
    already resolved for this módulo in the same pass (`academic_key_dates` is excluded —
    its ranges, e.g. "Curso escolar", are informational spans, not actual days off).
 3. Compute `"<prefix> - Examen de recuperación final."` = `<prefix>`'s "Último día para
-   poner notas" date + 2 business days (walking forward, skipping every non-working day
-   from step 2, landing on the 2nd business day found).
+   poner notas" date − 2 business days (walking backward, skipping every non-working day
+   from step 2, landing on the 2nd business day found) — **before** the grade deadline,
+   confirmed with the user 2026-08-09: "Último día para poner notas" is the deadline for
+   every grade, including the resit's, to already be entered, so the resit exam itself
+   must conclude before it, not after.
 4. Compute `"<prefix> - Examen final."` = the date from step 3 − 4 business days (walking
-   backward, same non-working set).
+   backward further, same non-working set) — still earlier than the retake date.
 5. Both are inserted as single-day `calendario_modulo` rows (`start_date = end_date`),
    `category = 'final_exams'`.
 6. Insertion is idempotent, same natural key and `ON CONFLICT DO NOTHING` as every other
@@ -341,8 +344,8 @@ dates, not `key_dates`' day/month template.
 
 - [x] For a módulo whose resolved `evaluations` include `"1ª Evaluación - Último día
       para poner notas."` on a given date, `calendario_modulo` gains
-      `"1ª Evaluación - Examen de recuperación final."` on that date + 2 business days
-      and `"1ª Evaluación - Examen final."` 4 business days before that
+      `"1ª Evaluación - Examen de recuperación final."` 2 business days before that date
+      and `"1ª Evaluación - Examen final."` a further 4 business days before that
 - [x] The business-day walk skips Saturdays and Sundays
 - [x] The business-day walk skips days inside that módulo's resolved `holidays`,
       `public_holidays` and `free_disposal_days` ranges

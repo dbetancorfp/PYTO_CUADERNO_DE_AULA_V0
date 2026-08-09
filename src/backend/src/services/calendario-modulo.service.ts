@@ -14,7 +14,7 @@ import type {
 import type { KeyDateRepository } from '../repositories/key-date.repository';
 import type { AcademicYearRepository } from '../repositories/academic-year.repository';
 import type { AcademicYearModuleDetail, AcademicYearModuleRepository } from '../repositories/academic-year-module.repository';
-import { addLaborableDays, subtractLaborableDays, type DateRange } from './business-day';
+import { subtractLaborableDays, type DateRange } from './business-day';
 
 /** Narrow seam `AcademicYearService` depends on (ISP) — it only ever needs to trigger
  * seeding, never to read `calendario_modulo` back. */
@@ -59,23 +59,25 @@ function computeFinalExamsEntries(
     if (!match) continue;
     const prefix = match[1];
 
-    const retakeExamDate = addLaborableDays(entry.startDate, 2, nonWorkingRanges);
+    const retakeExamDate = subtractLaborableDays(entry.startDate, 2, nonWorkingRanges);
     const finalExamDate = subtractLaborableDays(retakeExamDate, 4, nonWorkingRanges);
 
-    finalExamsEntries.push({
-      academicYearModuleId,
-      category: 'final_exams',
-      name: `${prefix} - Examen de recuperación final.`,
-      startDate: retakeExamDate,
-      endDate: retakeExamDate,
-    });
-    finalExamsEntries.push({
-      academicYearModuleId,
-      category: 'final_exams',
-      name: `${prefix} - Examen final.`,
-      startDate: finalExamDate,
-      endDate: finalExamDate,
-    });
+    finalExamsEntries.push(
+      {
+        academicYearModuleId,
+        category: 'final_exams',
+        name: `${prefix} - Examen de recuperación final.`,
+        startDate: retakeExamDate,
+        endDate: retakeExamDate,
+      },
+      {
+        academicYearModuleId,
+        category: 'final_exams',
+        name: `${prefix} - Examen final.`,
+        startDate: finalExamDate,
+        endDate: finalExamDate,
+      },
+    );
   }
   return finalExamsEntries;
 }
