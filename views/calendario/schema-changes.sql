@@ -39,3 +39,24 @@ CREATE TABLE IF NOT EXISTS calendario_modulo (
 
 CREATE INDEX IF NOT EXISTS calendario_modulo_academic_year_module_id_idx
   ON calendario_modulo (academic_year_module_id);
+
+-- Migration (2026-08-09) — 'final_exams' category, added to the already-live
+-- calendario_modulo table (CREATE TABLE IF NOT EXISTS above is a no-op against it now).
+-- Introspected via `psql "$DATABASE_URL" -c "\d calendario_modulo"` before writing this:
+-- the CHECK constraint's real name is the Postgres default for an unnamed inline CHECK
+-- on this column, "calendario_modulo_category_check" — confirmed against the live dev
+-- database, not assumed.
+--
+-- 'final_exams' rows are computed, not copied from key_dates (key_dates stays day/month
+-- only, six categories — see views/fechas-senaladas/schema-changes.sql, unchanged): for
+-- every 'evaluations' row already resolved in this same seeding pass whose name matches
+-- "<prefix> - Último día para poner notas.", CalendarioModuloService.seedForModules
+-- computes and inserts two single-day 'final_exams' rows —
+-- "<prefix> - Examen de recuperación final." (Último día de notas + 2 business days) and
+-- "<prefix> - Examen final." (Examen de recuperación final − 4 business days) — see
+-- views/calendario/use-cases.md UC-08.
+ALTER TABLE calendario_modulo DROP CONSTRAINT IF EXISTS calendario_modulo_category_check;
+ALTER TABLE calendario_modulo ADD CONSTRAINT calendario_modulo_category_check CHECK (category IN (
+  'academic_key_dates','holidays','public_holidays',
+  'free_disposal_days','evaluations','feoe_project_days','final_exams'
+));

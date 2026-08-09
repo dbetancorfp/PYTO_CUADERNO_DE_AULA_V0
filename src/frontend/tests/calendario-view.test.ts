@@ -344,6 +344,24 @@ describe('elementId: calendario-months, calendario-empty-state', () => {
     el.remove();
   });
 
+  it('a day covered only by a final_exams entry is colored light green (category-tagged)', async () => {
+    // today=2026-08-07 (before September) -> school year Sept 2025-June 2026, same as the
+    // blue-category test above — 2025-12-09, not 2026-12-09, falls inside that window.
+    const el = await mountView({
+      today: new Date('2026-08-07T12:00:00Z'),
+      calendarioModulo: fakeCalendarioModuloService({
+        findForModule: async () => [
+          { id: 'cm1', category: 'final_exams', name: '1ª Evaluación - Examen final.', startDate: '2025-12-09', endDate: '2025-12-09' },
+        ],
+      }),
+    });
+
+    expect(dayCategories(el, 'calendario-month-2025-12', '09')).toBe('final_exams');
+    expect(dayStyle(el, 'calendario-month-2025-12', '09')).toContain('#bbf7d0');
+
+    el.remove();
+  });
+
   it('a day covered by both a red and a blue category shows both categories', async () => {
     const el = await mountView({
       today: new Date('2026-08-07T12:00:00Z'),

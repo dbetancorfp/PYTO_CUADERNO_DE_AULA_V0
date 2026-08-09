@@ -1,5 +1,5 @@
 {
-  "appOverview": "Calendario is a read-only dashboard screen showing the school calendar (September of a selected school year through the following June) for one módulo the authenticated teacher teaches, with key dates from Fechas señaladas marked in red (fechas clave FP, vacaciones, días festivos, días de libre disposición) or blue (evaluaciones, proyecto FEOE). It never reads key_dates directly: Año académico's 'Guardar selección' flow snapshots key_dates into a new calendario_modulo table (one resolved date range per key_dates entry, per módulo assigned) the moment a módulo is assigned to an academic year, so the calendar persists even if key_dates changes later, and disappears (ON DELETE CASCADE) if the módulo assignment is removed. Three cascading filters (school year carousel -> ciclo -> módulo) pick which módulo's calendario_modulo rows to render.",
+  "appOverview": "Calendario is a read-only dashboard screen showing the school calendar (September of a selected school year through the following June) for one módulo the authenticated teacher teaches, with key dates from Fechas señaladas marked in red (fechas clave FP, vacaciones, días festivos, días de libre disposición), blue (evaluaciones, proyecto FEOE), or light green (final_exams — Examen final / Examen de recuperación final, computed from each evaluación's 'Último día para poner notas', not copied from key_dates). It never reads key_dates directly: Año académico's 'Guardar selección' flow snapshots key_dates into a new calendario_modulo table (one resolved date range per key_dates entry, per módulo assigned) the moment a módulo is assigned to an academic year, so the calendar persists even if key_dates changes later, and disappears (ON DELETE CASCADE) if the módulo assignment is removed. Three cascading filters (school year carousel -> ciclo -> módulo) pick which módulo's calendario_modulo rows to render.",
   "elementSpecs": [
     {
       "elementId": "calendario-heading",
@@ -93,7 +93,7 @@
       "behavior": "Renders 10 month cards (September of the selected school year through June of the next) from the selected módulo's calendario_modulo rows. Each day cell shows only its day number, colored per the categories covering it. Hovering a marked day shows calendario-day-toast with its event name(s); leaving it dismisses the toast immediately.",
       "businessRules": [
         "Only calendario_modulo rows for the currently selected academic_year_module_id are used — never key_dates directly",
-        "Red categories: academic_key_dates, holidays, public_holidays, free_disposal_days. Blue categories: evaluations, feoe_project_days",
+        "Red categories: academic_key_dates, holidays, public_holidays, free_disposal_days. Blue categories: evaluations, feoe_project_days. Green category (#bbf7d0): final_exams",
         "A calendario_modulo range spanning at most 30 days colors every day in [start_date, end_date]; a range spanning more than 30 days colors only start_date and end_date, not the days in between",
         "A day covered by more than one category's range renders a split background (one color band per active category, hard CSS stops), not just one color chosen arbitrarily",
         "Week rows start on Monday",
@@ -111,6 +111,7 @@
         "A day inside a <=30-day calendario_modulo range (e.g. Vacaciones de Navidad, 22/12-07/01) is colored red for every day in that range, including the boundary days",
         "A day inside a >30-day calendario_modulo range (e.g. Curso escolar, 01/09-31/07) is colored only on its start day and its end day, not on the days in between",
         "A day covered only by an evaluations or feoe_project_days range is colored blue",
+        "A day covered only by a final_exams entry is colored light green (#bbf7d0)",
         "A day covered by both a red-category and a blue-category range at once shows both colors, not just one",
         "Hovering a colored day shows calendario-day-toast with that day's event name(s)",
         "Moving the mouse off a colored day dismisses calendario-day-toast immediately",

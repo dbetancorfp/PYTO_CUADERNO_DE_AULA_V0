@@ -163,6 +163,123 @@ describe('elementId: calendario-months (seeding — UC-06)', () => {
   });
 });
 
+describe('elementId: calendario-months (final_exams generation — UC-08)', () => {
+  const EVALUACION_1 = makeKeyDate({
+    id: 'kd-eval-1',
+    category: 'evaluations',
+    name: '1ª Evaluación - Último día para poner notas.',
+    startDay: 11,
+    startMonth: 12,
+    endDay: 11,
+    endMonth: 12,
+  });
+  const CURSO_ESCOLAR = makeKeyDate({
+    id: 'kd-academic',
+    category: 'academic_key_dates',
+    name: 'Curso escolar',
+    startDay: 1,
+    startMonth: 9,
+    endDay: 31,
+    endMonth: 7,
+  });
+
+  it('generates "Examen de recuperación final" (+2 business days) and "Examen final" (-4 business days from it)', async () => {
+    const deps = fakeDeps({ keyDates: [EVALUACION_1] });
+    const service = makeService(deps);
+
+    await service.seedForModules([makeModule({ id: 'am1' })], 2026);
+
+    const inserted = deps.createManyCalls.flat();
+    expect(inserted).toContainEqual({
+      academicYearModuleId: 'am1',
+      category: 'final_exams',
+      name: '1ª Evaluación - Examen de recuperación final.',
+      startDate: '2026-12-15',
+      endDate: '2026-12-15',
+    });
+    expect(inserted).toContainEqual({
+      academicYearModuleId: 'am1',
+      category: 'final_exams',
+      name: '1ª Evaluación - Examen final.',
+      startDate: '2026-12-09',
+      endDate: '2026-12-09',
+    });
+  });
+
+  it('does not skip days inside an academic_key_dates range when walking business days (informational only, not a day off)', async () => {
+    const deps = fakeDeps({ keyDates: [EVALUACION_1, CURSO_ESCOLAR] });
+    const service = makeService(deps);
+
+    await service.seedForModules([makeModule({ id: 'am1' })], 2026);
+
+    // Curso escolar (01/09-31/07) covers the whole walk window — if it were wrongly
+    // treated as non-working, these dates would land somewhere past 2027-07-31 instead.
+    const finalExams = deps.createManyCalls.flat().filter((e) => e.category === 'final_exams');
+    expect(finalExams).toContainEqual({
+      academicYearModuleId: 'am1',
+      category: 'final_exams',
+      name: '1ª Evaluación - Examen de recuperación final.',
+      startDate: '2026-12-15',
+      endDate: '2026-12-15',
+    });
+    expect(finalExams).toContainEqual({
+      academicYearModuleId: 'am1',
+      category: 'final_exams',
+      name: '1ª Evaluación - Examen final.',
+      startDate: '2026-12-09',
+      endDate: '2026-12-09',
+    });
+  });
+
+  it('generates one pair per distinct "Último día para poner notas" prefix, preserving course-suffixed names', async () => {
+    const deps = fakeDeps({
+      keyDates: [
+        makeKeyDate({ id: 'kd-2a', category: 'evaluations', name: '2ª Evaluación (2º) - Último día para poner notas.', startDay: 17, startMonth: 2, endDay: 17, endMonth: 2 }),
+        makeKeyDate({ id: 'kd-3a', category: 'evaluations', name: '3ª Evaluación (1º) - Último día para poner notas.', startDay: 11, startMonth: 6, endDay: 11, endMonth: 6 }),
+      ],
+    });
+    const service = makeService(deps);
+
+    await service.seedForModules([makeModule({ id: 'am1' })], 2026);
+
+    const finalExams = deps.createManyCalls.flat().filter((e) => e.category === 'final_exams');
+    expect(finalExams).toHaveLength(4);
+    expect(finalExams).toContainEqual({ academicYearModuleId: 'am1', category: 'final_exams', name: '2ª Evaluación (2º) - Examen de recuperación final.', startDate: '2027-02-19', endDate: '2027-02-19' });
+    expect(finalExams).toContainEqual({ academicYearModuleId: 'am1', category: 'final_exams', name: '2ª Evaluación (2º) - Examen final.', startDate: '2027-02-15', endDate: '2027-02-15' });
+    expect(finalExams).toContainEqual({ academicYearModuleId: 'am1', category: 'final_exams', name: '3ª Evaluación (1º) - Examen de recuperación final.', startDate: '2027-06-15', endDate: '2027-06-15' });
+    expect(finalExams).toContainEqual({ academicYearModuleId: 'am1', category: 'final_exams', name: '3ª Evaluación (1º) - Examen final.', startDate: '2027-06-09', endDate: '2027-06-09' });
+  });
+
+  it('generates final_exams only for the matching entry, ignoring an evaluations entry that does not fit the pattern (UC-08/A1)', async () => {
+    const deps = fakeDeps({
+      keyDates: [
+        EVALUACION_1,
+        makeKeyDate({ category: 'evaluations', name: 'Sesión de evaluación sin nota.', startDay: 19, startMonth: 10, endDay: 21, endMonth: 10 }),
+      ],
+    });
+    const service = makeService(deps);
+
+    await service.seedForModules([makeModule({ id: 'am1' })], 2026);
+
+    const finalExams = deps.createManyCalls.flat().filter((e) => e.category === 'final_exams');
+    expect(finalExams).toHaveLength(2);
+    expect(finalExams.every((e) => e.name.startsWith('1ª Evaluación -'))).toBe(true);
+  });
+
+  it('every generated final_exams row is a single day (startDate === endDate)', async () => {
+    const deps = fakeDeps({ keyDates: [EVALUACION_1] });
+    const service = makeService(deps);
+
+    await service.seedForModules([makeModule({ id: 'am1' })], 2026);
+
+    const finalExams = deps.createManyCalls.flat().filter((e) => e.category === 'final_exams');
+    expect(finalExams.length).toBeGreaterThan(0);
+    for (const entry of finalExams) {
+      expect(entry.startDate).toBe(entry.endDate);
+    }
+  });
+});
+
 describe('elementId: calendario-months, calendario-empty-state (reading — UC-04)', () => {
   it('findForTeacher returns the entries when the academic_year_module is owned by the teacher', async () => {
     const entry: CalendarioModuloEntry = {

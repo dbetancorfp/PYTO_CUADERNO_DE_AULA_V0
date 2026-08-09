@@ -3,7 +3,7 @@
 // (views/calendario/use-cases.md). Exercises the real cross-view side effect end to end:
 // assigning a módulo via Año académico's existing POST /api/academic-years/selection (see
 // UC-06) really populates calendario_modulo from the live, Postgres-seeded key_dates (43
-// rows), and this screen renders it — not a stub.
+// rows + 8 computed final_exams rows, see UC-08), and this screen renders it — not a stub.
 
 import { signInAsE2eUser } from './support/sign-in';
 
