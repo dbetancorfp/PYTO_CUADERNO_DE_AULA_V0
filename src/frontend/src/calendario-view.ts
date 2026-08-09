@@ -21,9 +21,14 @@ type CalendarioAcademicYearApiService = Pick<AcademicYearApiService, 'list' | 'l
 
 const RED_CATEGORIES: readonly string[] = ['academic_key_dates', 'holidays', 'public_holidays', 'free_disposal_days'];
 const BLUE_CATEGORIES: readonly string[] = ['evaluations', 'feoe_project_days'];
+/** Final/resit exam days (`calendario_modulo.category = 'final_exams'`) are always computed
+ * as business days (see `views/calendario/use-cases.md` UC-08), so unlike `BLUE_CATEGORIES`
+ * this never needs to participate in `backgroundStyleForDay`'s weekend override. */
+const GREEN_CATEGORIES: readonly string[] = ['final_exams'];
 
 const RED_HEX = '#fca5a5';
 const BLUE_HEX = '#93c5fd';
+const GREEN_HEX = '#bbf7d0';
 const FALLBACK_HEX = '#cbd5e1';
 /** Plain Saturday/Sunday with no `public_holidays` entry — same shade `RED_HEX` already
  * gives `holidays`/`free_disposal_days`/`academic_key_dates`, so a weekend day carrying one
@@ -36,6 +41,7 @@ const WEEKEND_HOLIDAY_RED_HEX = '#b91c1c';
 const CATEGORY_COLOR_HEX: Record<string, string> = {
   ...Object.fromEntries(RED_CATEGORIES.map((category) => [category, RED_HEX])),
   ...Object.fromEntries(BLUE_CATEGORIES.map((category) => [category, BLUE_HEX])),
+  ...Object.fromEntries(GREEN_CATEGORIES.map((category) => [category, GREEN_HEX])),
 };
 
 const FORWARD_YEAR_WINDOW = 5;

@@ -1,4 +1,130 @@
-# Review Report — calendario — 2026-08-07
+# Review Report — calendario — 2026-08-09 (amendment: UC-08 `final_exams`)
+
+**Post-e2e bugfix note (same day, same cycle)**: `e2e-engineer`'s real-Postgres Cypress run
+found `business-day.ts`'s `shiftByOneDay` throwing `RangeError: Invalid Date` for a 5+ digit
+`startYear` (used by pre-existing Configuración/Año académico specs for collision-avoidance,
+unrelated to this feature) — `new Date(string)` caps ISO parsing at a 4-digit year.
+`backend-implementer` fixed it by replacing string-based `Date` parsing with numeric
+`Date.UTC(year, month-1, day)` construction and manual `"YYYY-MM-DD"` formatting (no
+`.toISOString()`, which also switches format outside the 4-digit-year range). Public
+signatures unchanged, `business-day.test.ts`/`calendario-modulo.service.test.ts` untouched
+and still green (29/29), re-verified 100% Lines/Funcs on `business-day.ts` (37/37, 9/9) after
+the fix. Re-audited: still no SOLID violations, still pure/side-effect-free. Full Cypress
+suite (76 tests, 33 specs, including this view's 4) green afterward — see below.
+
+Original pass (2026-08-07, UC-01..UC-07) stays below, unchanged and still valid — none of
+its files were touched by this cycle except as noted. This amendment audits the
+`final_exams` addition only: `src/backend/src/services/business-day.ts` (new),
+`src/backend/src/services/calendario-modulo.service.ts` (extended), `src/frontend/src/
+calendario-view.ts` (extended: `GREEN_CATEGORIES`/`GREEN_HEX`), plus the corresponding
+test files.
+
+## Result: PASS ✅
+
+## Layers implicated: none
+
+## SOLID violations found
+
+None.
+
+- **SRP**: `business-day.ts` has exactly one responsibility — pure date-walking, no
+  categories, no I/O. `computeFinalExamsEntries` (in `calendario-modulo.service.ts`) is
+  factored out as its own module-level function rather than inlined into
+  `seedForModules`, keeping the class method's own responsibility (orchestrating the
+  seed + insert) separate from the calculation itself.
+- **OCP**: no `if/else`/`switch` growing with category count — `computeFinalExamsEntries`
+  matches evaluación entries by regex against a fixed suffix, not by enumerating known
+  evaluación names; `NON_WORKING_CATEGORIES` is a `Set`, extending it needs no branch.
+  `calendario-view.ts` follows its own already-established pattern
+  (`GREEN_CATEGORIES`/`GREEN_HEX` mirrors `RED_CATEGORIES`/`BLUE_CATEGORIES` exactly,
+  merged into `CATEGORY_COLOR_HEX` the same way) — a fourth color would cost one more
+  array, not a rewritten conditional.
+- **LSP**: n/a — no new subtypes introduced.
+- **ISP**: n/a — no new interfaces; `DateRange` is a plain data shape, not a
+  behavioral contract with unused members.
+- **DIP**: `computeFinalExamsEntries`/`isLaborable`/`addLaborableDays`/
+  `subtractLaborableDays` are pure functions with no hidden dependencies (no `Date.now()`,
+  no I/O) — `seedForModules` calls them directly, which is fine since they aren't a
+  swappable collaborator (DIP is about decoupling from concrete *external* effects, not
+  every function call). No `new Concrete...` introduced anywhere in this diff.
+
+Dead code / explicit types: no `any` in any new or modified line. No unused imports,
+no declared-and-unused variables.
+
+**Non-blocking observations** (neither costs coverage nor violates SOLID, not worth a
+redo cycle):
+1. `business-day.ts`'s `addLaborableDays`/`subtractLaborableDays` are near-mirrors
+   (identical loop shape, differing only in the sign passed to the shared
+   `shiftByOneDay` helper). Already minimized via that shared helper plus the shared
+   `isLaborable` predicate — a further unification into one `walkLaborableDays(start,
+   days, direction, ranges)` is a legitimate future simplification, not a duplication
+   problem today (well under the 3% gate, see below).
+2. `nonWorkingRanges: DateRange[]` (mutable) on `isLaborable`/`addLaborableDays`/
+   `subtractLaborableDays` breaks with this codebase's own established convention for
+   pure-function array parameters — `calendario-view.ts`'s `backgroundStyleForDay`
+   already takes `categories: readonly string[]`. Worth `readonly DateRange[]` on a
+   future touch of `business-day.ts`; doesn't affect behavior or coverage.
+
+## Supervisor notes adjudicated
+| Note | Resolution |
+|------|------------|
+| `GET /api/calendario-modulo`'s real response includes `academicYearModuleId` per entry, a field `api-contracts.md`'s example doesn't list. | **Accepted as-is, pre-existing.** Confirmed via `git diff main -- src/backend/src/routes/calendario-modulo.routes.ts` that this route wasn't touched by this cycle's diff — the drift predates `final_exams` and isn't something `backend-implementer` introduced now. Harmless: `CalendarioModuloEntry` on the frontend (`calendario-modulo-api-service.ts`) declares only the five documented fields and ignores the extra one (structural typing). Left for a future, unrelated touch of `api-contracts.md`/the route, not this cycle's scope. |
+
+## SonarCloud Quality Gate
+| Metric | Threshold | Backend | Frontend | Result |
+|--------|-----------|---------|----------|--------|
+| Coverage (lines) | 100% | 100.00% | 100.00% | ✅ |
+| Bugs | 0 | 0 | 0 | ✅ |
+| Vulnerabilities | 0 | 0 | 0 | ✅ |
+| Duplication | ≤ 3% | ~1% (see observation 1 above) | 0% | ✅ |
+| Maintainability rating | A | A | A | ✅ |
+
+`bun test --coverage --coverage-reporter=lcov` (whole-repo run, no SonarCloud wiring yet):
+- `src/backend/src/services/business-day.ts`: **100.00% Lines** (28/28), **100.00% Funcs**
+  (7/7) — new file, fully covered.
+- `src/backend/src/services/calendario-modulo.service.ts`: **100.00% Lines** (68/68),
+  **100.00% Funcs** (12/12).
+- `src/frontend/src/calendario-view.ts`: **100.00% Lines** (347/347), 96.20% Funcs
+  (76/79). Verified this gap is **pre-existing, not introduced by this cycle**: stashed
+  this diff and re-measured against `main` — 78 Funcs/75 covered there already (the exact
+  same 3-function gap noted and accepted in the original 2026-08-07 review report, same
+  convention: Lines is the metric the gate is keyed to). This diff's own new function
+  (the `GREEN_CATEGORIES.map(...)` callback) is itself covered — 79/76 vs. the prior
+  78/75 is a net +1/+1.
+
+Full backend + frontend suite: 534 pass, 0 fail (279 backend + 255 frontend).
+
+## Acceptance criteria marked (use-cases.md)
+| Criterion | Test that verifies it |
+|-----------|------------------------|
+| UC-04: day covered only by `final_exams` is light green (`#bbf7d0`) | `calendario-view.test.ts` "a day covered only by a final_exams entry is colored light green (category-tagged)" |
+| UC-08: `+2`/`−4` business-day pair from "Último día para poner notas" | `calendario-modulo.service.test.ts` "generates 'Examen de recuperación final' (+2 business days) and 'Examen final' (-4 business days from it)" |
+| UC-08: walk skips Saturdays/Sundays | `business-day.test.ts` "skips a weekend entirely..." (×2, `addLaborableDays`/`subtractLaborableDays`) + `isLaborable` weekend tests |
+| UC-08: walk skips `holidays`/`public_holidays`/`free_disposal_days` | `business-day.test.ts` "skips a public holiday...", "skips an entire long holidays range...", "skips a free-disposal single day...", "skips several disjoint non-working ranges combined" |
+| UC-08: walk does **not** skip `academic_key_dates` | `calendario-modulo.service.test.ts` "does not skip days inside an academic_key_dates range..." **+ reviewer's own live-Postgres verification this pass** (real `seedForModules` call against real Postgres, dates unaffected by the seeded "Curso escolar" row) |
+| UC-08: `final_exams` rows are single-day | `calendario-modulo.service.test.ts` "every generated final_exams row is a single day..." |
+| UC-08: re-seeding never duplicates `final_exams` | **Reviewer's own live-Postgres verification this pass** (pure-HTTP/unit tests can't distinguish "never inserted a duplicate" from "correctly no-opped" without a real re-seed against a real unique constraint, same class of criterion as the original pass's UC-06/UC-07 cascade checks): called `CalendarioModuloService.seedForModules` twice directly against a real `academic_year_module_id`, confirmed row count and `final_exams` count identical after both calls (51 total / 8 `final_exams`, unchanged) |
+| UC-08: N distinct prefixes → 2×N `final_exams` rows | `calendario-modulo.service.test.ts` "generates one pair per distinct 'Último día para poner notas' prefix, preserving course-suffixed names" (N=2 → 4 rows) |
+| UC-08/A1: non-matching evaluations entry generates nothing | `calendario-modulo.service.test.ts` "generates final_exams only for the matching entry, ignoring an evaluations entry that does not fit the pattern" |
+
+## Criteria without verifiable coverage
+
+None for this amendment — all 9 new/changed criteria above are backed by a green test or
+(for the two idempotency/exclusion criteria noted) a direct, reviewer-performed
+live-Postgres verification this pass.
+
+## Deferred to e2e-engineer
+
+None new this cycle — `final_exams` is a pure backend-computation + color-mapping change
+to an already-Cypress-covered screen (`calendario-months`'s existing specs already drive
+`app-calendario-view` end to end); no new route, no new build/static-serving concern.
+`e2e-engineer`'s existing specs should incidentally start seeing green-colored days once
+real seed data produces a matching "Último día para poner notas" entry — worth a
+dedicated assertion added on that pass, not a blocker for this one.
+
+---
+
+# Review Report — calendario — 2026-08-07 (original pass, UC-01..UC-07)
 
 ## Result: PASS ✅
 

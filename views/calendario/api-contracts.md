@@ -41,6 +41,10 @@ to one of their own `academic_years`
 `calendario-empty-state` renders on an empty array, same "empty is a valid 200, not an
 error" convention every other list endpoint in this app already follows.
 
+`category` is one of `academic_key_dates`, `holidays`, `public_holidays`,
+`free_disposal_days`, `evaluations`, `feoe_project_days`, `final_exams` — the last one
+computed, not copied from `key_dates` (see `views/calendario/use-cases.md` UC-08).
+
 #### Errors
 
 | Code | Condition |
@@ -61,17 +65,18 @@ codes and existing error conditions are untouched.
 ### POST /api/academic-years/selection
 
 **New side effect**: after creating the academic year and its `academic_year_modules`
-rows, resolves and inserts a full 43-row `calendario_modulo` snapshot for every módulo now
-assigned to it (see `views/calendario/use-cases.md` UC-06). Purely additive — response
-shape (`{ academicYear, moduleCount }`) is unchanged; the snapshot step never fails the
-request (idempotent insert, `ON CONFLICT DO NOTHING`, no new error codes).
+rows, resolves and inserts a full `calendario_modulo` snapshot (43 rows plus the computed
+`final_exams` rows — see `views/calendario/use-cases.md` UC-06/UC-08) for every módulo now
+assigned to it. Purely additive — response shape (`{ academicYear, moduleCount }`) is
+unchanged; the snapshot step never fails the request (idempotent insert, `ON CONFLICT DO
+NOTHING`, no new error codes).
 **Elements**: `module-selection-save-button` (`views/configuracion/`)
 
 ### POST /api/academic-years/:id/modules
 
-**New side effect**: same snapshot generation as above, scoped to the newly added
-módulos of this already-existing academic year. Response shape (`{ addedCount }`)
-unchanged.
+**New side effect**: same snapshot generation as above (including `final_exams`), scoped
+to the newly added módulos of this already-existing academic year. Response shape
+(`{ addedCount }`) unchanged.
 **Elements**: `module-selection-save-button` (`views/configuracion/`)
 
 ### DELETE /api/academic-year-modules/:id

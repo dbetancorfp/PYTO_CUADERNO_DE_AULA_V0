@@ -134,7 +134,8 @@ selected
 3. `calendario-months` renders 10 month cards, September of the selected school year
    through June of the next, each day cell colored per the categories covering it (red:
    `academic_key_dates`, `holidays`, `public_holidays`, `free_disposal_days`; blue:
-   `evaluations`, `feoe_project_days`).
+   `evaluations`, `feoe_project_days`; light green (`#bbf7d0`): `final_exams` — see
+   UC-08).
 4. Teacher changes `module-filter`; `calendario-months` reloads for the newly selected
    `academic_year_module_id`.
 
@@ -172,6 +173,7 @@ selected
 - [x] A day inside a >30-day `calendario_modulo` range (e.g. Curso escolar, 01/09–31/07)
       is colored only on its start day and its end day, not on the days in between
 - [x] A day covered only by an `evaluations` or `feoe_project_days` range is colored blue
+- [x] A day covered only by a `final_exams` entry is colored light green (`#bbf7d0`)
 - [x] A day covered by both a red-category and a blue-category range at once shows both
       colors, not just one
 - [x] When the selected `academic_year_module_id` has no `calendario_modulo` rows,
@@ -229,21 +231,25 @@ view's spec, not Año académico's (whose own `use-cases.md` doesn't change).
    rows) to real dates for that year's `startYear` (month ≥ 9 → `startYear`; month ≤ 8 →
    `startYear + 1`) and inserts them into `calendario_modulo`, one row per resolved
    `key_dates` entry per módulo.
-3. Insertion is idempotent (`ON CONFLICT DO NOTHING` on the natural key) — a módulo that
+3. In the same pass, `final_exams` rows are computed from the just-resolved `evaluations`
+   rows and inserted alongside them — see UC-08.
+4. Insertion is idempotent (`ON CONFLICT DO NOTHING` on the natural key) — a módulo that
    already has its snapshot generated is never duplicated.
 
 ### Postconditions
 
-- Every `academic_year_modules` row for that academic year has a full 43-row
-  `calendario_modulo` snapshot (or already had one).
+- Every `academic_year_modules` row for that academic year has a full
+  `calendario_modulo` snapshot of 43 + 2×`E` rows (or already had one), where `E` is the
+  number of `evaluations` rows in that snapshot whose name matches
+  "`<prefix>` - Último día para poner notas." (currently 4, see UC-08 — not hardcoded,
+  tracks whatever `key_dates`' `evaluations` category holds at seed time).
 
 ### Acceptance criteria
 
-- [x] Saving a new academic year with N módulos generates 43 `calendario_modulo` rows
-      for each of the N módulos
-- [x] Extending an existing academic year with an additional módulo generates 43
-      `calendario_modulo` rows for that módulo, without touching already-existing
-      módulos' rows
+- [x] Saving a new academic year with N módulos generates a full snapshot (43 + 2×`E`
+      rows, see Postconditions) for each of the N módulos
+- [x] Extending an existing academic year with an additional módulo generates a full
+      snapshot for that módulo, without touching already-existing módulos' rows
 - [x] Saving the same selection twice never duplicates `calendario_modulo` rows
 
 ---
@@ -273,3 +279,77 @@ snapshot
 - [x] Deleting a módulo assignment removes every `calendario_modulo` row tied to it
 - [x] Deleting a módulo assignment never removes `calendario_modulo` rows belonging to
       other módulos
+
+---
+
+## UC-08: `final_exams` dates are computed when `calendario_modulo` is generated (Año académico)
+
+**Primary actor**: Any signed-in teacher, on `/configuracion/ano-academico`
+**Preconditions**: Same as UC-06 — this is the same generation pass, not a separate
+trigger.
+**Elements**: `module-selection-save-button` (existing element, `views/configuracion/`),
+`calendario-months` (renders the result — see UC-04)
+
+Cross-view backend side effect, same nature as UC-06: documented here, not in Año
+académico's own `use-cases.md`, because `calendario_modulo` is this view's data source.
+Runs as a second step of `CalendarioModuloService.seedForModules`, after the six
+`key_dates` categories are resolved to real dates for the módulo (UC-06 step 2) and
+before they're inserted — so the `evaluations`/`holidays`/`public_holidays`/
+`free_disposal_days` rows this step reads are that módulo's own just-resolved real
+dates, not `key_dates`' day/month template.
+
+### Main flow
+
+1. From the módulo's just-resolved `evaluations` rows, find every one whose `name`
+   matches `"<prefix> - Último día para poner notas."` (e.g. `"1ª Evaluación"`, `"2ª
+   Evaluación (2º)"`, `"2ª Evaluación (1º)"`, `"3ª Evaluación (1º)"` — whichever prefixes
+   are present in this batch; no fixed count, no filtering by the módulo's own course).
+2. For each `<prefix>` found, build that módulo's non-working set: Saturdays, Sundays,
+   and every day inside a `holidays`, `public_holidays` or `free_disposal_days` range
+   already resolved for this módulo in the same pass (`academic_key_dates` is excluded —
+   its ranges, e.g. "Curso escolar", are informational spans, not actual days off).
+3. Compute `"<prefix> - Examen de recuperación final."` = `<prefix>`'s "Último día para
+   poner notas" date + 2 business days (walking forward, skipping every non-working day
+   from step 2, landing on the 2nd business day found).
+4. Compute `"<prefix> - Examen final."` = the date from step 3 − 4 business days (walking
+   backward, same non-working set).
+5. Both are inserted as single-day `calendario_modulo` rows (`start_date = end_date`),
+   `category = 'final_exams'`.
+6. Insertion is idempotent, same natural key and `ON CONFLICT DO NOTHING` as every other
+   `calendario_modulo` row (UC-06 step 4) — re-saving a selection never duplicates these
+   either.
+
+### Alternative flows
+
+- **A1 — No matching evaluación**: a módulo's resolved `evaluations` rows contain no
+  `"... - Último día para poner notas."` entry for some prefix (e.g. a future `key_dates`
+  edit removes the 3ª evaluación row) — no `final_exams` pair is generated for that
+  prefix; the other prefixes present are unaffected.
+- **A2 — Insufficient run-up**: `[INFERENCE — verify with the user]` no minimum-distance
+  validation against the start of the module's teaching period, or against earlier
+  `evaluations` entries, is performed — the business-day walk always produces a date,
+  even one that lands earlier than seems intended for a very compressed calendar. Flagged
+  for the user to confirm this is acceptable rather than an error condition.
+
+### Postconditions
+
+- Every `evaluations` "Último día para poner notas" entry resolved for a módulo has a
+  matching pair of `final_exams` rows in that módulo's `calendario_modulo` snapshot (see
+  UC-06 Postconditions for the row-count formula).
+
+### Acceptance criteria
+
+- [x] For a módulo whose resolved `evaluations` include `"1ª Evaluación - Último día
+      para poner notas."` on a given date, `calendario_modulo` gains
+      `"1ª Evaluación - Examen de recuperación final."` on that date + 2 business days
+      and `"1ª Evaluación - Examen final."` 4 business days before that
+- [x] The business-day walk skips Saturdays and Sundays
+- [x] The business-day walk skips days inside that módulo's resolved `holidays`,
+      `public_holidays` and `free_disposal_days` ranges
+- [x] The business-day walk does **not** skip days inside `academic_key_dates` ranges
+      (e.g. it may land inside "Curso escolar" — that range is informational only)
+- [x] Every generated `final_exams` row has `start_date = end_date` (single day)
+- [x] Re-running the generation for an already-snapshotted módulo never duplicates
+      `final_exams` rows
+- [x] A módulo whose resolved `evaluations` include N distinct "Último día para poner
+      notas." prefixes gains exactly 2×N `final_exams` rows
