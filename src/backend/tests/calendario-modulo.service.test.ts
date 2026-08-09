@@ -183,7 +183,7 @@ describe('elementId: calendario-months (final_exams generation — UC-08)', () =
     endMonth: 7,
   });
 
-  it('generates "Examen de recuperación final" (+2 business days) and "Examen final" (-4 business days from it)', async () => {
+  it('generates "Examen de recuperación final" (-2 business days) and "Examen final" (a further -4 business days), both before the grade deadline', async () => {
     const deps = fakeDeps({ keyDates: [EVALUACION_1] });
     const service = makeService(deps);
 
@@ -194,15 +194,15 @@ describe('elementId: calendario-months (final_exams generation — UC-08)', () =
       academicYearModuleId: 'am1',
       category: 'final_exams',
       name: '1ª Evaluación - Examen de recuperación final.',
-      startDate: '2026-12-15',
-      endDate: '2026-12-15',
+      startDate: '2026-12-09',
+      endDate: '2026-12-09',
     });
     expect(inserted).toContainEqual({
       academicYearModuleId: 'am1',
       category: 'final_exams',
       name: '1ª Evaluación - Examen final.',
-      startDate: '2026-12-09',
-      endDate: '2026-12-09',
+      startDate: '2026-12-03',
+      endDate: '2026-12-03',
     });
   });
 
@@ -213,21 +213,21 @@ describe('elementId: calendario-months (final_exams generation — UC-08)', () =
     await service.seedForModules([makeModule({ id: 'am1' })], 2026);
 
     // Curso escolar (01/09-31/07) covers the whole walk window — if it were wrongly
-    // treated as non-working, these dates would land somewhere past 2027-07-31 instead.
+    // treated as non-working, these dates would land somewhere before 2026-09-01 instead.
     const finalExams = deps.createManyCalls.flat().filter((e) => e.category === 'final_exams');
     expect(finalExams).toContainEqual({
       academicYearModuleId: 'am1',
       category: 'final_exams',
       name: '1ª Evaluación - Examen de recuperación final.',
-      startDate: '2026-12-15',
-      endDate: '2026-12-15',
+      startDate: '2026-12-09',
+      endDate: '2026-12-09',
     });
     expect(finalExams).toContainEqual({
       academicYearModuleId: 'am1',
       category: 'final_exams',
       name: '1ª Evaluación - Examen final.',
-      startDate: '2026-12-09',
-      endDate: '2026-12-09',
+      startDate: '2026-12-03',
+      endDate: '2026-12-03',
     });
   });
 
@@ -244,10 +244,10 @@ describe('elementId: calendario-months (final_exams generation — UC-08)', () =
 
     const finalExams = deps.createManyCalls.flat().filter((e) => e.category === 'final_exams');
     expect(finalExams).toHaveLength(4);
-    expect(finalExams).toContainEqual({ academicYearModuleId: 'am1', category: 'final_exams', name: '2ª Evaluación (2º) - Examen de recuperación final.', startDate: '2027-02-19', endDate: '2027-02-19' });
-    expect(finalExams).toContainEqual({ academicYearModuleId: 'am1', category: 'final_exams', name: '2ª Evaluación (2º) - Examen final.', startDate: '2027-02-15', endDate: '2027-02-15' });
-    expect(finalExams).toContainEqual({ academicYearModuleId: 'am1', category: 'final_exams', name: '3ª Evaluación (1º) - Examen de recuperación final.', startDate: '2027-06-15', endDate: '2027-06-15' });
-    expect(finalExams).toContainEqual({ academicYearModuleId: 'am1', category: 'final_exams', name: '3ª Evaluación (1º) - Examen final.', startDate: '2027-06-09', endDate: '2027-06-09' });
+    expect(finalExams).toContainEqual({ academicYearModuleId: 'am1', category: 'final_exams', name: '2ª Evaluación (2º) - Examen de recuperación final.', startDate: '2027-02-15', endDate: '2027-02-15' });
+    expect(finalExams).toContainEqual({ academicYearModuleId: 'am1', category: 'final_exams', name: '2ª Evaluación (2º) - Examen final.', startDate: '2027-02-09', endDate: '2027-02-09' });
+    expect(finalExams).toContainEqual({ academicYearModuleId: 'am1', category: 'final_exams', name: '3ª Evaluación (1º) - Examen de recuperación final.', startDate: '2027-06-09', endDate: '2027-06-09' });
+    expect(finalExams).toContainEqual({ academicYearModuleId: 'am1', category: 'final_exams', name: '3ª Evaluación (1º) - Examen final.', startDate: '2027-06-03', endDate: '2027-06-03' });
   });
 
   it('generates final_exams only for the matching entry, ignoring an evaluations entry that does not fit the pattern (UC-08/A1)', async () => {
