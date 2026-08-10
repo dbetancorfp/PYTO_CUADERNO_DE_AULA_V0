@@ -119,12 +119,14 @@ codes and existing error conditions are untouched.
 ### POST /api/academic-years/selection
 
 **New side effect**: after creating the academic year and its `academic_year_modules`
-rows, resolves and inserts a full `calendario_modulo` snapshot (43 rows plus the computed
-`final_exams` rows — see `views/calendario/use-cases.md` UC-06/UC-08) for every módulo now
-assigned to it, and a `calendario_evaluation_working_days` row per evaluación that módulo
-has data for (see UC-09). Purely additive — response shape (`{ academicYear, moduleCount
-}`) is unchanged; neither snapshot step ever fails the request (idempotent insert, `ON
-CONFLICT DO NOTHING`, no new error codes).
+rows, resolves and inserts a full, **course-filtered** `calendario_modulo` snapshot
+(2026-08-10: only `key_dates` entries applicable to that módulo's own `course` — see
+`views/calendario/use-cases.md` UC-06/A1 — currently 33 rows for course 1 / 31 for course
+2, plus the computed `final_exams` rows — see UC-06/UC-08) for every módulo now assigned
+to it, and a `calendario_evaluation_working_days` row per evaluación that módulo has data
+for (see UC-09). Purely additive — response shape (`{ academicYear, moduleCount }`) is
+unchanged; neither snapshot step ever fails the request (idempotent insert, `ON CONFLICT
+DO NOTHING`, no new error codes).
 **Elements**: `module-selection-save-button` (`views/configuracion/`)
 
 ### POST /api/academic-years/:id/modules

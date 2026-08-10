@@ -41,6 +41,16 @@ function toIsoDate(year: number, month: number, day: number): string {
  * assumption about a fixed evaluación/curso format (see UC-08 step 1). */
 const LAST_DAY_FOR_GRADES_PATTERN = /^(.+) - Último día para poner notas\.$/;
 
+/** Resolves the course a `key_dates.name` is exclusive to, per the UC-06/A1 token table —
+ * `null` means course-agnostic (applies to both). The masculine ordinal `º` (course token)
+ * never collides with the feminine `ª` (evaluación-number token, `1ª`/`2ª`/`3ª`), so no
+ * explicit exclusion is needed for names like "1ª Evaluación - ...". */
+function courseTokenFor(name: string): 1 | 2 | null {
+  if (name.includes('1º de Grado') || name.startsWith('1º ') || name.startsWith('1º-') || name.includes('(1º)')) return 1;
+  if (name.includes('2º de Grado') || name.startsWith('2º ') || name.startsWith('2º-') || name.includes('(2º)')) return 2;
+  return null;
+}
+
 /** Categories that count as an actual day off for the business-day walk. `academic_key_dates`
  * is deliberately excluded — its ranges (e.g. "Curso escolar") are informational spans, not
  * real non-working days (see UC-08 step 2 and its A1/last acceptance criterion). */
@@ -147,12 +157,14 @@ export class CalendarioModuloService implements CalendarioModuloSeeder {
     private readonly academicYearRepository: AcademicYearRepository,
   ) {}
 
-  /** Snapshots every `key_dates` category (no filtering — all 6) for every módulo passed in,
-   * resolved to real dates for `startYear`, then computes and appends the `final_exams` rows
-   * derived from those just-resolved `evaluations` entries (UC-08), and finally computes and
-   * inserts the `calendario_evaluation_working_days` rows derived from those `final_exams`
-   * dates (UC-09). Idempotent at the repository layer (`ON CONFLICT DO NOTHING`), so
-   * re-seeding an already-snapshotted módulo never duplicates rows in either table. */
+  /** Snapshots every `key_dates` category (all 6) for every módulo passed in, resolved to
+   * real dates for `startYear` and filtered to the entries applicable to that módulo's own
+   * `course` (see `courseTokenFor` and UC-06/A1), then computes and appends the
+   * `final_exams` rows derived from those just-resolved, already course-filtered
+   * `evaluations` entries (UC-08), and finally computes and inserts the
+   * `calendario_evaluation_working_days` rows derived from those `final_exams` dates
+   * (UC-09). Idempotent at the repository layer (`ON CONFLICT DO NOTHING`), so re-seeding
+   * an already-snapshotted módulo never duplicates rows in either table. */
   async seedForModules(modules: AcademicYearModuleDetail[], startYear: number): Promise<void> {
     const keyDates = await this.keyDateRepository.findAll();
     const resolvedKeyDates = keyDates.map((keyDate) => ({
@@ -166,10 +178,15 @@ export class CalendarioModuloService implements CalendarioModuloSeeder {
     const entries: CalendarioModuloInsert[] = [];
     const workingDaysEntries: CalendarioEvaluationWorkingDaysInsert[] = [];
     for (const module of modules) {
-      const moduleEntries: CalendarioModuloInsert[] = resolvedKeyDates.map((resolved) => ({
-        academicYearModuleId: module.id,
-        ...resolved,
-      }));
+      const moduleEntries: CalendarioModuloInsert[] = resolvedKeyDates
+        .filter((resolved) => {
+          const courseToken = courseTokenFor(resolved.name);
+          return courseToken === null || courseToken === module.course;
+        })
+        .map((resolved) => ({
+          academicYearModuleId: module.id,
+          ...resolved,
+        }));
       const finalExamsEntries = computeFinalExamsEntries(module.id, moduleEntries);
       entries.push(...moduleEntries, ...finalExamsEntries);
       workingDaysEntries.push(...computeEvaluationWorkingDaysEntries(module, moduleEntries, finalExamsEntries));

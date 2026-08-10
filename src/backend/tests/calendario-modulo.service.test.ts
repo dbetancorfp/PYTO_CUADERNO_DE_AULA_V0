@@ -279,20 +279,23 @@ describe('elementId: calendario-months (final_exams generation — UC-08)', () =
   });
 
   it('generates one pair per distinct "Último día para poner notas" prefix, preserving course-suffixed names', async () => {
+    // Both entries tagged (1º) here — a course-1 módulo (makeModule()'s default) is
+    // applicable to both, so this test stays about "multiple distinct prefixes", not the
+    // cross-course exclusion (see the dedicated "course filtering" describe block below).
     const deps = fakeDeps({
       keyDates: [
-        makeKeyDate({ id: 'kd-2a', category: 'evaluations', name: '2ª Evaluación (2º) - Último día para poner notas.', startDay: 17, startMonth: 2, endDay: 17, endMonth: 2 }),
+        makeKeyDate({ id: 'kd-2a', category: 'evaluations', name: '2ª Evaluación (1º) - Último día para poner notas.', startDay: 17, startMonth: 2, endDay: 17, endMonth: 2 }),
         makeKeyDate({ id: 'kd-3a', category: 'evaluations', name: '3ª Evaluación (1º) - Último día para poner notas.', startDay: 11, startMonth: 6, endDay: 11, endMonth: 6 }),
       ],
     });
     const service = makeService(deps);
 
-    await service.seedForModules([makeModule({ id: 'am1' })], 2026);
+    await service.seedForModules([makeModule({ id: 'am1', course: 1 })], 2026);
 
     const finalExams = deps.createManyCalls.flat().filter((e) => e.category === 'final_exams');
     expect(finalExams).toHaveLength(4);
-    expect(finalExams).toContainEqual({ academicYearModuleId: 'am1', category: 'final_exams', name: '2ª Evaluación (2º) - Examen de recuperación final.', startDate: '2027-02-15', endDate: '2027-02-15', type: null });
-    expect(finalExams).toContainEqual({ academicYearModuleId: 'am1', category: 'final_exams', name: '2ª Evaluación (2º) - Examen final.', startDate: '2027-02-09', endDate: '2027-02-09', type: null });
+    expect(finalExams).toContainEqual({ academicYearModuleId: 'am1', category: 'final_exams', name: '2ª Evaluación (1º) - Examen de recuperación final.', startDate: '2027-02-15', endDate: '2027-02-15', type: null });
+    expect(finalExams).toContainEqual({ academicYearModuleId: 'am1', category: 'final_exams', name: '2ª Evaluación (1º) - Examen final.', startDate: '2027-02-09', endDate: '2027-02-09', type: null });
     expect(finalExams).toContainEqual({ academicYearModuleId: 'am1', category: 'final_exams', name: '3ª Evaluación (1º) - Examen de recuperación final.', startDate: '2027-06-09', endDate: '2027-06-09', type: null });
     expect(finalExams).toContainEqual({ academicYearModuleId: 'am1', category: 'final_exams', name: '3ª Evaluación (1º) - Examen final.', startDate: '2027-06-03', endDate: '2027-06-03', type: null });
   });
@@ -324,6 +327,134 @@ describe('elementId: calendario-months (final_exams generation — UC-08)', () =
     for (const entry of finalExams) {
       expect(entry.startDate).toBe(entry.endDate);
     }
+  });
+
+  it('final_exams is only generated for evaluaciones applicable to that módulo´s own course, never a cross-course one (2026-08-10 bugfix, UC-08 A-none/UC-06 A1)', async () => {
+    const deps = fakeDeps({
+      keyDates: [
+        makeKeyDate({ id: 'kd-2a-1', category: 'evaluations', name: '2ª Evaluación (1º) - Último día para poner notas.', startDay: 12, startMonth: 3, endDay: 12, endMonth: 3 }),
+        makeKeyDate({ id: 'kd-2a-2', category: 'evaluations', name: '2ª Evaluación (2º) - Último día para poner notas.', startDay: 17, startMonth: 2, endDay: 17, endMonth: 2 }),
+      ],
+    });
+    const service = makeService(deps);
+
+    await service.seedForModules([makeModule({ id: 'am1', course: 1 })], 2026);
+
+    const finalExams = deps.createManyCalls.flat().filter((e) => e.category === 'final_exams');
+    expect(finalExams.length).toBeGreaterThan(0);
+    expect(finalExams.every((e) => e.name.startsWith('2ª Evaluación (1º) -'))).toBe(true);
+    expect(finalExams.some((e) => e.name.startsWith('2ª Evaluación (2º) -'))).toBe(false);
+  });
+});
+
+describe('elementId: calendario-months (course filtering — UC-06/A1, 2026-08-10 bugfix)', () => {
+  it('excludes a course-2-only key_dates entry from a course-1 módulo´s snapshot', async () => {
+    const deps = fakeDeps({
+      keyDates: [makeKeyDate({ category: 'academic_key_dates', name: 'Inicio curso: 2º de Grado Superior de FP.', startDay: 16, startMonth: 9, endDay: 16, endMonth: 9 })],
+    });
+    const service = makeService(deps);
+
+    await service.seedForModules([makeModule({ id: 'am1', course: 1 })], 2026);
+
+    expect(deps.createManyCalls.flat()).toHaveLength(0);
+  });
+
+  it('excludes a course-1-only key_dates entry from a course-2 módulo´s snapshot', async () => {
+    const deps = fakeDeps({
+      keyDates: [makeKeyDate({ category: 'academic_key_dates', name: 'Inicio curso: 1º de Grado Superior de FP.', startDay: 16, startMonth: 9, endDay: 16, endMonth: 9 })],
+    });
+    const service = makeService(deps);
+
+    await service.seedForModules([makeModule({ id: 'am1', course: 2 })], 2026);
+
+    expect(deps.createManyCalls.flat()).toHaveLength(0);
+  });
+
+  it('includes a course-agnostic key_dates entry in both a course-1 and a course-2 módulo´s snapshot', async () => {
+    const deps = fakeDeps({
+      keyDates: [makeKeyDate({ category: 'academic_key_dates', name: 'Curso escolar', startDay: 1, startMonth: 9, endDay: 31, endMonth: 7 })],
+    });
+    const service = makeService(deps);
+
+    await service.seedForModules([makeModule({ id: 'am1', course: 1 }), makeModule({ id: 'am2', course: 2 })], 2026);
+
+    const inserted = deps.createManyCalls.flat();
+    expect(inserted.filter((e) => e.academicYearModuleId === 'am1' && e.name === 'Curso escolar')).toHaveLength(1);
+    expect(inserted.filter((e) => e.academicYearModuleId === 'am2' && e.name === 'Curso escolar')).toHaveLength(1);
+  });
+
+  it('applies the exact UC-06/A1 course-token table across every marked category (academic_key_dates, evaluations, feoe_project_days)', async () => {
+    const deps = fakeDeps({
+      keyDates: [
+        makeKeyDate({ category: 'academic_key_dates', name: 'Curso escolar', startDay: 1, startMonth: 9, endDay: 31, endMonth: 7 }),
+        makeKeyDate({ category: 'academic_key_dates', name: 'Inicio curso: 1º de Grado Superior de FP.', startDay: 16, startMonth: 9, endDay: 16, endMonth: 9 }),
+        makeKeyDate({ category: 'academic_key_dates', name: 'Inicio curso: 2º de Grado Superior de FP.', startDay: 16, startMonth: 9, endDay: 16, endMonth: 9 }),
+        makeKeyDate({ category: 'academic_key_dates', name: '2º Presentación de proyectos.', startDay: 1, startMonth: 5, endDay: 5, endMonth: 5 }),
+        makeKeyDate({ category: 'feoe_project_days', name: '1º - Dia de alternancia 1.', startDay: 1, startMonth: 10, endDay: 1, endMonth: 10 }),
+        makeKeyDate({ category: 'feoe_project_days', name: '2º - Dia de alternancia 1.', startDay: 2, startMonth: 10, endDay: 2, endMonth: 10 }),
+        makeKeyDate({ category: 'evaluations', name: '2ª Evaluación (1º) - Sesión de evaluación con nota.', startDay: 1, startMonth: 3, endDay: 1, endMonth: 3 }),
+        makeKeyDate({ category: 'evaluations', name: '2ª Evaluación (2º) - Sesión de evaluación con nota.', startDay: 2, startMonth: 3, endDay: 2, endMonth: 3 }),
+        makeKeyDate({ category: 'evaluations', name: '1ª Evaluación - Sesión de evaluación con nota.', startDay: 3, startMonth: 12, endDay: 3, endMonth: 12 }),
+      ],
+    });
+    const service = makeService(deps);
+
+    await service.seedForModules([makeModule({ id: 'am-course1', course: 1 }), makeModule({ id: 'am-course2', course: 2 })], 2026);
+
+    const inserted = deps.createManyCalls.flat();
+    const namesFor = (academicYearModuleId: string): string[] =>
+      inserted.filter((e) => e.academicYearModuleId === academicYearModuleId).map((e) => e.name);
+    const course1Names = namesFor('am-course1');
+    const course2Names = namesFor('am-course2');
+
+    // Course-agnostic: present in both.
+    expect(course1Names).toContain('Curso escolar');
+    expect(course2Names).toContain('Curso escolar');
+    expect(course1Names).toContain('1ª Evaluación - Sesión de evaluación con nota.');
+    expect(course2Names).toContain('1ª Evaluación - Sesión de evaluación con nota.');
+
+    // Course-1-only.
+    expect(course1Names).toContain('Inicio curso: 1º de Grado Superior de FP.');
+    expect(course2Names).not.toContain('Inicio curso: 1º de Grado Superior de FP.');
+    expect(course1Names).toContain('1º - Dia de alternancia 1.');
+    expect(course2Names).not.toContain('1º - Dia de alternancia 1.');
+    expect(course1Names).toContain('2ª Evaluación (1º) - Sesión de evaluación con nota.');
+    expect(course2Names).not.toContain('2ª Evaluación (1º) - Sesión de evaluación con nota.');
+
+    // Course-2-only.
+    expect(course2Names).toContain('Inicio curso: 2º de Grado Superior de FP.');
+    expect(course1Names).not.toContain('Inicio curso: 2º de Grado Superior de FP.');
+    expect(course2Names).toContain('2º Presentación de proyectos.');
+    expect(course1Names).not.toContain('2º Presentación de proyectos.');
+    expect(course2Names).toContain('2º - Dia de alternancia 1.');
+    expect(course1Names).not.toContain('2º - Dia de alternancia 1.');
+    expect(course2Names).toContain('2ª Evaluación (2º) - Sesión de evaluación con nota.');
+    expect(course1Names).not.toContain('2ª Evaluación (2º) - Sesión de evaluación con nota.');
+  });
+
+  it('produces the documented per-course row-count formula: agnostic + own-course-only entries', async () => {
+    const deps = fakeDeps({
+      keyDates: [
+        makeKeyDate({ id: 'a1', category: 'holidays', name: 'Agnostic A.', startDay: 1, startMonth: 10, endDay: 1, endMonth: 10 }),
+        makeKeyDate({ id: 'a2', category: 'holidays', name: 'Agnostic B.', startDay: 2, startMonth: 10, endDay: 2, endMonth: 10 }),
+        makeKeyDate({ id: 'a3', category: 'holidays', name: 'Agnostic C.', startDay: 3, startMonth: 10, endDay: 3, endMonth: 10 }),
+        makeKeyDate({ id: 'c1a', category: 'feoe_project_days', name: '1º - Dia de alternancia 1.', startDay: 4, startMonth: 10, endDay: 4, endMonth: 10 }),
+        makeKeyDate({ id: 'c1b', category: 'feoe_project_days', name: '1º - Dia de alternancia 2.', startDay: 5, startMonth: 10, endDay: 5, endMonth: 10 }),
+        makeKeyDate({ id: 'c2a', category: 'feoe_project_days', name: '2º - Dia de alternancia 1.', startDay: 6, startMonth: 10, endDay: 6, endMonth: 10 }),
+        makeKeyDate({ id: 'c2b', category: 'feoe_project_days', name: '2º - Dia de alternancia 2.', startDay: 7, startMonth: 10, endDay: 7, endMonth: 10 }),
+        makeKeyDate({ id: 'c2c', category: 'feoe_project_days', name: '2º - Dia de alternancia 3.', startDay: 8, startMonth: 10, endDay: 8, endMonth: 10 }),
+        makeKeyDate({ id: 'c2d', category: 'feoe_project_days', name: '2º - Dia de alternancia 4.', startDay: 9, startMonth: 10, endDay: 9, endMonth: 10 }),
+      ],
+    });
+    const service = makeService(deps);
+
+    await service.seedForModules([makeModule({ id: 'am-course1', course: 1 }), makeModule({ id: 'am-course2', course: 2 })], 2026);
+
+    const inserted = deps.createManyCalls.flat();
+    // 3 agnostic + 2 course-1-only = 5; 3 agnostic + 4 course-2-only = 7 (no final_exams
+    // here — none of the fixture's entries are 'evaluations', so E = 0 for both courses).
+    expect(inserted.filter((e) => e.academicYearModuleId === 'am-course1')).toHaveLength(5);
+    expect(inserted.filter((e) => e.academicYearModuleId === 'am-course2')).toHaveLength(7);
   });
 });
 

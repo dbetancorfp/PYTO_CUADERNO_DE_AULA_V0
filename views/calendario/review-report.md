@@ -1,3 +1,78 @@
+# Review Report — calendario — 2026-08-10 (e2e-engineer follow-up: course-cross-leak bugfix)
+
+Branch `view/calendario-course-filter`. Updated 2 pre-existing specs that hardcoded the old,
+unfiltered totals: `uc-06-calendario-modulo-generated-on-save.cy.ts` (51→39 rows, 8→6
+final_exams, both tests, course-1 módulos), `uc-07-calendario-modulo-removed-on-delete.cy.ts`
+(51→39), `uc-08-final-exams-generated-on-save.cy.ts` (8→6 final_exams, 4→3 per suffix,
+added an explicit assertion that no `2ª Evaluación (2º)`-derived row leaks into a course-1
+módulo). Added a new dedicated test to `uc-06-...cy.ts`: a course-1 and a course-2 módulo
+saved together in the same `POST /api/academic-years/selection` — asserts the exact 39/35
+row counts and that neither snapshot contains the other course's `Inicio curso: ...` entry
+or any `(1º)`/`(2º)`-tagged entry, closing the one criterion the previous review pass
+(bugfix cycle) couldn't verify with a persistent unit test.
+
+`bun run e2e` (full suite, real Postgres, real server): **81/81 passing**, 0 fail. Test
+data verified clean before and after.
+
+## Result: PASS ✅
+
+---
+
+# Review Report — calendario — 2026-08-10 (bugfix: course-cross-leak in seedForModules, UC-06/A1)
+
+Branch `view/calendario-course-filter`. Real bug reported by the user: selecting a módulo
+showed key_dates entries belonging to the *other* course (e.g. a course-1 módulo also
+showed "Inicio curso: 2º de Grado Superior de FP."). Root cause: `seedForModules` seeded
+every `key_dates` row for every módulo regardless of `course`. Fix: `courseTokenFor(name)`
+(pure function, `1 | 2 | null`) implementing UC-06/A1's exact token table, applied as a
+`.filter()` on `resolvedKeyDates` before building `moduleEntries` — `computeFinalExamsEntries`
+and `computeEvaluationWorkingDaysEntries` needed no change, they simply stopped seeing
+cross-course rows.
+
+## Result: PASS ✅
+
+## Layers implicated: none
+
+## Supervisor notes adjudicated
+
+| Note | Resolution |
+|------|------------|
+| None — supervisor reported `Layers implicated: none`, both unit suites green (frontend untouched, still 273/273), integration smoke test verified against real Postgres: a course-1 and a course-2 módulo created in the same `POST /api/academic-years/selection` produced exactly 39 and 35 `calendario_modulo` rows respectively, zero cross-course entries, zero cross-course `final_exams`. | No adjudication needed. |
+
+## SOLID violations found
+
+None. `courseTokenFor` is a small pure function (SRP), no `if/else` chain that grows
+per-category (it dispatches on the two-value `course` domain the same closed way
+`finalExamNameFor` already does two functions above it — OCP-consistent with existing
+code, not a new pattern). No `new ConcreteImpl()` introduced. No interface changed.
+
+## SonarCloud Quality Gate
+
+| Metric | Threshold | Backend | Frontend | Result |
+|--------|-----------|---------|----------|--------|
+| Coverage | 100% | `calendario-modulo.service.ts` 100% lines / 100% funcs | untouched this cycle, still green | ✅ |
+| Bugs | 0 | 0 | 0 | ✅ |
+| Vulnerabilities | 0 | 0 | 0 | ✅ |
+| Duplication | ≤ 3% | none introduced | n/a | ✅ |
+
+`bun test` (full repo): 595 pass / 0 fail. `bun run type-check`: clean.
+
+## Acceptance criteria marked (use-cases.md)
+
+| Criterion | Test that verifies it |
+|-----------|------------------------|
+| UC-06: A course-1 módulo's snapshot excludes every key_dates entry marked exclusively for course 2, and vice versa | `calendario-modulo.service.test.ts` › "excludes a course-2-only key_dates entry from a course-1 módulo´s snapshot" + "excludes a course-1-only key_dates entry from a course-2 módulo´s snapshot" |
+| UC-06: A key_dates entry with no course token is included in both a course-1 and a course-2 módulo's snapshot | `calendario-modulo.service.test.ts` › "includes a course-agnostic key_dates entry in both a course-1 and a course-2 módulo´s snapshot" + "applies the exact UC-06/A1 course-token table..." |
+| UC-08: A course-1 módulo never gains a final_exams pair derived from a (2º)-tagged evaluación, and vice versa | `calendario-modulo.service.test.ts` › "final_exams is only generated for evaluaciones applicable to that módulo´s own course, never a cross-course one" |
+
+## Criteria without verifiable coverage
+
+| Criterion | Reason |
+|-----------|--------|
+| UC-06: A course-1 módulo's snapshot has exactly 39 rows and a course-2 módulo's has exactly 35 rows, given the current key_dates seed data | No persistent automated test asserts the real 43-row seed's exact resulting counts (the unit test proves the counting *mechanism* generically with a smaller synthetic fixture; the exact 39/35 was confirmed manually via this cycle's supervisor smoke test against real Postgres, but that's not a repo-committed test). Deferred to `e2e-engineer`: `uc-06-calendario-modulo-generated-on-save.cy.ts` currently asserts `entries.length === 51` for a course-1 módulo (the old, unfiltered total) — needs updating to 39, and a course-2 case (currently absent) should assert 35. |
+
+---
+
 # Review Report — calendario — 2026-08-10 (e2e-engineer follow-up: color legend, UC-11)
 
 Branch `view/calendario-legend-por-tipo`. New spec `uc-11-calendario-legend.cy.ts` (2
