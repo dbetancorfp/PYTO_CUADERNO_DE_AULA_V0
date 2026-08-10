@@ -544,7 +544,7 @@ export class CalendarioView extends HTMLElement {
     const modules = this._modulesForSelectedCycle();
 
     return html`
-      <section class="${classesFor('card')} relative flex flex-wrap items-center gap-6 px-4 py-3">
+      <section class="${classesFor('card')} relative flex min-h-24 flex-wrap items-center gap-6 px-4 py-3">
         <div class="flex items-center gap-2">
           <button
             type="button"
@@ -601,8 +601,13 @@ export class CalendarioView extends HTMLElement {
    * it onto a second line and doubles the row's height. Positioned `absolute` against the
    * `relative` `<section>`, it overlays the top-right corner (`right-4 top-3`, matching the
    * section's own `px-4 py-3`) and can never affect the flex row's height regardless of
-   * viewport or text width (see `views/calendario/use-cases.md` UC-10). `max-w-[13rem]` plus
-   * `text-right` keep it from visually colliding with Ciclo/Módulo when both are long.
+   * viewport or text width (see `views/calendario/use-cases.md` UC-10). `max-w-[13rem]` keeps
+   * it from visually colliding with Ciclo/Módulo when both are long, and the section's own
+   * `min-h-24` reserves enough room below `top-3` to contain all 3 lines even though this
+   * block is taken out of the section's own height calculation by `absolute` — this keeps the
+   * card's height constant across the empty/populated states instead of merely not-wrapping.
+   * Text inside each line is left-aligned (`items-start`/`text-left`) for readability — only
+   * the block itself, not its text, is anchored toward the section's right edge.
    * Renders nothing at all when the selected módulo has no rows yet (UC-10/A1).
    */
   private _renderEvaluationWorkingDaysSummary(): TemplateResult | typeof nothing {
@@ -610,7 +615,7 @@ export class CalendarioView extends HTMLElement {
 
     return html`
       <div
-        class="absolute right-4 top-3 flex max-w-[13rem] flex-col items-end gap-0.5 text-right text-xs"
+        class="absolute right-4 top-3 flex max-w-[13rem] flex-col items-start gap-0.5 text-left text-xs"
         data-element-id="evaluation-working-days-summary"
       >
         ${[1, 2, 3].map((evaluationNumber) => this._renderEvaluationWorkingDaysLine(evaluationNumber))}

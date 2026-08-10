@@ -79,12 +79,14 @@ describe('UC-09/UC-10: evaluation working-days computed and rendered', () => {
                   cy.get('[data-element-id="evaluation-working-days-2"]').should('contain.text', 'Días laborables 2ª evaluación:');
                   cy.get('[data-element-id="evaluation-working-days-3"]').should('contain.text', 'Días laborables 3ª evaluación:');
 
-                  // Style/layout proof (the criterion reviewer deferred to this pass): the
-                  // summary sits at the far right of the filters section (its right edge
-                  // hugs the section's own right edge, inside padding), and the section
-                  // itself stays a single-line-scale height even with three text-xs lines
-                  // stacked in the summary — if it had wrapped onto its own row instead of
-                  // sitting beside the other filters, this section would be much taller.
+                  // Style/layout proof (the criterion reviewer deferred to this pass, then
+                  // refined after a real-browser regression report): the summary's own box
+                  // sits at the far right of the filters section (its right edge hugs the
+                  // section's own right edge), its text starts from the left inside that box
+                  // (not right-aligned), and — since the summary is positioned `absolute`
+                  // inside the section (see calendario-view.ts) — the section reserves a
+                  // constant min-height so the three stacked lines never visually overflow
+                  // past the card's own bottom edge.
                   cy.get('[data-element-id="module-filter"]')
                     .closest('section')
                     .then(($section) => {
@@ -92,7 +94,15 @@ describe('UC-09/UC-10: evaluation working-days computed and rendered', () => {
                       cy.get('[data-element-id="evaluation-working-days-summary"]').then(($summary) => {
                         const summaryRect = $summary[0]!.getBoundingClientRect();
                         expect(sectionRect.right - summaryRect.right, 'summary hugs the section´s right edge').to.be.within(0, 20);
-                        expect(sectionRect.height, 'filters section height stays single-line scale').to.be.lessThan(60);
+                        expect(sectionRect.height, 'filters section reserves a constant min-height').to.be.within(80, 130);
+                        expect(summaryRect.bottom, 'summary stays contained inside the section, no overflow').to.be.at.most(sectionRect.bottom + 1);
+                      });
+                      cy.get('[data-element-id="evaluation-working-days-1"]').then(($line1) => {
+                        cy.get('[data-element-id="evaluation-working-days-2"]').then(($line2) => {
+                          const line1Rect = $line1[0]!.getBoundingClientRect();
+                          const line2Rect = $line2[0]!.getBoundingClientRect();
+                          expect(line1Rect.left, 'lines are left-aligned within their own box, not right-aligned').to.be.closeTo(line2Rect.left, 1);
+                        });
                       });
                     });
 
