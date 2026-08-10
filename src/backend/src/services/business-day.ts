@@ -75,3 +75,16 @@ export function subtractLaborableDays(start: string, days: number, nonWorkingRan
   }
   return current;
 }
+
+/** Counts laborable days in the half-open range `[start, end)` — `start` inclusive, `end`
+ * exclusive (see calendario-modulo.service.ts's `computeEvaluationWorkingDaysEntries`,
+ * UC-09). An empty or inverted range (`start >= end`) counts 0. */
+export function countLaborableDays(start: string, end: string, nonWorkingRanges: DateRange[]): number {
+  let current = start;
+  let count = 0;
+  while (current < end) {
+    if (isLaborable(current, nonWorkingRanges)) count++;
+    current = shiftByOneDay(current, 1);
+  }
+  return count;
+}

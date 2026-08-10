@@ -356,3 +356,118 @@ dates, not `key_dates`' day/month template.
       `final_exams` rows
 - [x] A módulo whose resolved `evaluations` include N distinct "Último día para poner
       notas." prefixes gains exactly 2×N `final_exams` rows
+
+---
+
+## UC-09: `calendario_evaluation_working_days` is generated when `calendario_modulo` is generated (Año académico)
+
+**Primary actor**: Any signed-in teacher, on `/configuracion/ano-academico`
+**Preconditions**: Same as UC-06/UC-08 — same generation pass, not a separate trigger.
+Runs after UC-08's `final_exams` rows are computed (in the same pass), since it reuses
+their dates rather than recomputing them.
+**Elements**: `module-selection-save-button` (existing element, `views/configuracion/`),
+`evaluation-working-days-summary` (renders the result — see UC-10)
+
+Cross-view backend side effect, same nature as UC-06/UC-08.
+
+### Main flow
+
+1. For the módulo's own `course` (1 or 2, from `academic_year_modules` ->
+   `catalog_modules.course`), determine which `final_exams` "Examen final" rows apply:
+   - `evaluationNumber: 1` -> `"1ª Evaluación - Examen final."` (always, single variant).
+   - `evaluationNumber: 2` -> `"2ª Evaluación (1º) - Examen final."` if `course = 1`, or
+     `"2ª Evaluación (2º) - Examen final."` if `course = 2`.
+   - `evaluationNumber: 3` -> `"3ª Evaluación (1º) - Examen final."` if `course = 1`; no
+     row at all if `course = 2` (no `(2º)` variant exists in `key_dates` today — see A1).
+2. Determine the módulo's course-start date: the `academic_key_dates` entry `"1º de Grado
+   Superior de FP."` (`course = 1`) or `"2º de Grado Superior de FP."` (`course = 2`),
+   already resolved to a real date in this same pass — **not** the generic "Curso
+   escolar" entry.
+3. For each `evaluationNumber` found in step 1, count working days in the half-open range
+   `[courseStartDate, examenFinalDate)` — course-start day counts if it's a working day,
+   the "Examen final" day itself never counts even if it's one. Same working-day
+   definition as UC-08 (Mon-Fri, excluding that módulo's resolved `holidays`/
+   `public_holidays`/`free_disposal_days`, not excluding `academic_key_dates`).
+4. Insert one `calendario_evaluation_working_days` row per `evaluationNumber` found:
+   `academic_year_module_id`, `evaluation_number`, `working_days`.
+5. Insertion is idempotent (`ON CONFLICT DO NOTHING` on `(academic_year_module_id,
+   evaluation_number)`) — re-saving a selection never duplicates these either.
+6. Same cascade as UC-07: deleting a módulo's `academic_year_modules` row removes its
+   `calendario_evaluation_working_days` rows too (`ON DELETE CASCADE`).
+
+### Alternative flows
+
+- **A1 — No 3ª evaluación for this course**: a `course = 2` módulo has no `"3ª Evaluación
+  (2º) - Examen final."` row to work from (doesn't exist in today's `key_dates`) — no
+  `evaluationNumber: 3` row is generated for it, not a `working_days: 0` one.
+
+### Postconditions
+
+- Every módulo has one `calendario_evaluation_working_days` row per evaluación it has
+  `final_exams` data for (2 or 3 rows, per A1).
+- No `calendario_evaluation_working_days` row references a deleted
+  `academic_year_modules` id.
+
+### Acceptance criteria
+
+- [x] A `course = 1` módulo gets rows for `evaluationNumber` 1, 2 and 3; a `course = 2`
+      módulo gets rows for 1 and 2 only
+- [x] `working_days` counts Mon-Fri days in `[courseStartDate, examenFinalDate)`,
+      including `courseStartDate` if it's a working day, excluding `examenFinalDate`
+      always
+- [x] `working_days` excludes days inside that módulo's resolved `holidays`/
+      `public_holidays`/`free_disposal_days` ranges
+- [x] `working_days` does **not** exclude days inside `academic_key_dates` ranges
+- [x] The course-start date used is `"1º de Grado Superior de FP."` or `"2º de Grado
+      Superior de FP."` (matching the módulo's `course`), never the generic "Curso
+      escolar" entry
+- [x] Re-running the generation for an already-snapshotted módulo never duplicates
+      `calendario_evaluation_working_days` rows
+- [x] Deleting a módulo assignment removes every `calendario_evaluation_working_days` row
+      tied to it
+
+---
+
+## UC-10: See working-days-per-evaluación summary for the selected módulo
+
+**Primary actor**: Any signed-in teacher, on `/calendario`
+**Preconditions**: Valid session; a módulo is selected (same precondition as UC-04)
+**Elements**: `evaluation-working-days-summary`, `evaluation-working-days-1`,
+`evaluation-working-days-2`, `evaluation-working-days-3`
+
+### Main flow
+
+1. Once a módulo is selected (initial load, or after changing `module-filter`),
+   `GET /api/calendario-evaluation-working-days?academicYearModuleId=<id>` fetches that
+   módulo's working-day counts (see UC-09).
+2. `evaluation-working-days-summary` renders at the far right of the filters row (same row
+   as `academic-year-filter-*`/`cycle-filter`/`module-filter`), one line per entry
+   returned, stacked in a column, in small text that doesn't change the filters row's
+   height: `"Días laborables 1ª evaluación: <N>"`, `"Días laborables 2ª evaluación: <N>"`,
+   `"Días laborables 3ª evaluación: <N>"`.
+3. Only lines with a real entry render — a `course = 2` módulo (no 3ª evaluación data,
+   UC-09/A1) shows only two lines, not a third one reading "0".
+4. Changing `module-filter` reloads this summary for the newly selected
+   `academic_year_module_id`, same trigger as `calendario-months` (UC-04).
+
+### Alternative flows
+
+- **A1 — No data yet**: selected módulo has zero `calendario_evaluation_working_days`
+  rows (assigned but selection never saved, i.e. the same state `calendario-empty-state`
+  covers for `calendario-months`) — `evaluation-working-days-summary` renders nothing
+  (no lines, no placeholder text), it simply isn't there.
+
+### Postconditions
+
+- No data changes (read-only).
+
+### Acceptance criteria
+
+- [x] `evaluation-working-days-summary` sits at the far right of the filters row, in a
+      column, without increasing that row's height
+- [x] Each present `evaluationNumber` renders its own line, exact text `"Días laborables
+      <N>ª evaluación: <workingDays>"`
+- [x] A módulo with no `evaluationNumber: 3` entry renders exactly two lines, not three
+- [x] Changing `module-filter` triggers a new `GET
+      /api/calendario-evaluation-working-days` request and updates the rendered lines
+- [x] A módulo with zero rows renders no lines at all

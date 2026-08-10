@@ -1,3 +1,122 @@
+# Review Report — calendario — 2026-08-10 (amendment: UC-09/UC-10 `evaluation_working_days`)
+
+**Post-review layout bugfix (same day, same cycle)**: `e2e-engineer`'s real-browser
+Cypress run caught exactly the gap this review's own "Criteria without verifiable
+coverage" section flagged as untestable here — `evaluation-working-days-summary`'s
+`ml-auto flex-col` container still counted toward the filters `<section>`'s
+`flex-wrap` width budget, so at a normal 1280px viewport with all three lines populated
+it wrapped onto a second line, measuring **128px tall** instead of the required
+single-line scale (verified `<60px`). `frontend-implementer` fixed it by taking the
+block out of the flex flow entirely — `position: absolute` (`right-4 top-3` inside a
+newly-`relative` section) instead of `ml-auto` — so its presence can never affect the
+row's height regardless of viewport or text width. Re-verified with real Cypress against
+a real Postgres-backed server: filters section height back to the same scale as before
+the summary existed, summary's right edge hugs the section's own right edge (within
+20px), full 77/77 Cypress suite green afterward. `calendario-view.test.ts`'s 30 unit
+tests untouched and still green (they don't exercise real CSS layout, as this review
+already noted).
+
+## Result: PASS ✅
+
+## Layers implicated: none
+
+## SOLID violations found
+
+None.
+
+- **SRP**: `computeEvaluationWorkingDaysEntries`/`finalExamNameFor` are new, standalone
+  pure functions (same shape as `computeFinalExamsEntries`) — no I/O, no side effects,
+  independently testable. `nonWorkingRangesFor` was extracted out of
+  `computeFinalExamsEntries` into a shared helper both functions now call, removing the
+  duplication that would otherwise exist between the two (a real DRY improvement, not
+  just new code bolted on).
+- **OCP**: `finalExamNameFor`'s `if`-chain is keyed to `evaluationNumber ∈ {1,2,3}`, a
+  domain the schema itself closes (`CHECK (evaluation_number IN (1,2,3))`) — not an
+  open-ended type that would need a new branch per future addition.
+- **LSP/ISP**: `CalendarioEvaluationWorkingDaysRepository` exposes exactly the two
+  methods used (`findAllForAcademicYearModule`, `createMany`), mirroring
+  `CalendarioModuloRepository`'s own shape; `InMemoryCalendarioEvaluationWorkingDaysRepository`/
+  `PgCalendarioEvaluationWorkingDaysRepository` both satisfy it with matching return
+  types.
+- **DIP**: `CalendarioModuloService`'s constructor grew to 5 injected interfaces, no
+  `new Concrete...` anywhere outside `app.ts`'s composition root (confirmed by reading
+  it in full). `CalendarioView` receives `evaluationWorkingDaysService` via a setter,
+  same pattern as `calendarioModuloService`.
+
+**Non-blocking observation**: `CalendarioModuloService` now owns three computed side
+effects (`calendario_modulo` snapshot, `final_exams`, `calendario_evaluation_working_days`)
+plus two read methods. Still defensible under the same framing the original review
+accepted ("everything computed at 'Guardar selección' time for the Calendario view", all
+sharing the same resolved-`key_dates` pass — splitting it would mean either re-fetching
+`key_dates` redundantly or threading resolved data across a new service boundary), but
+it's the widest this class has gotten. Worth a dedicated look on the next touch of this
+file, not a redo cycle today.
+
+**Minor test-precision note** (not a defect, flagging for `tdd-engineer` on a future
+touch): `calendario-view.test.ts`'s test named "changing module-filter reloads the
+summary..." actually drives the change through `cycle-filter` (which cascades into a new
+`module-filter` selection, same as the pre-existing `cycle-filter` test above it) rather
+than changing `module-filter` directly. The code path is genuinely shared — both trigger
+points call the same `_loadEvaluationWorkingDays()` — and coverage confirms the direct
+`module-filter`-change branch is also exercised (100% lines, via the pre-existing
+`calendario-months` module-filter test). Still, no single test's *name and assertion*
+together prove the literal "changing module-filter" scenario for this new element.
+Cosmetic, not blocking.
+
+## Supervisor notes adjudicated
+| Note | Resolution |
+|------|------------|
+| `GET /api/calendario-evaluation-working-days`'s response includes `id`/`academicYearModuleId` per entry, fields `api-contracts.md`'s example doesn't list. | **Accepted as-is**, same precedent as the identical `GET /api/calendario-modulo` drift accepted in the 2026-08-09 review — harmless (frontend's `EvaluationWorkingDaysEntry` type declares only `evaluationNumber`/`workingDays`, ignores the rest structurally). Not a new inconsistency, a repeated one; worth fixing both response shapes together on a future, dedicated touch of `api-contracts.md`. |
+
+## SonarCloud Quality Gate
+| Metric | Threshold | Backend | Frontend | Result |
+|--------|-----------|---------|----------|--------|
+| Coverage (lines) | 100% | 100.00% | 100.00% | ✅ |
+| Bugs | 0 | 0 | 0 | ✅ |
+| Vulnerabilities | 0 | 0 | 0 | ✅ |
+| Duplication | ≤ 3% | 0% | 0% | ✅ |
+| Maintainability rating | A | A | A | ✅ |
+
+`bun test --coverage --coverage-reporter=lcov`: every new/modified file shows 100.00%
+Lines — `business-day.ts` (45/45), `calendario-modulo.service.ts` (114/114),
+`calendario-evaluation-working-days.repository.ts` + in-memory + Postgres implementations
+(15/15, 18/18), `calendario-evaluation-working-days.routes.ts` (26/26),
+`calendario-view.ts` (380/380). `calendario-view.ts` Funcs: 84/87 — verified via `git
+stash` against `main` that this is the *same pre-existing 3-function gap* accepted in the
+2026-08-07 and 2026-08-09 reviews (main: 79/76, this diff: +8/+8, gap unchanged), not
+something this cycle introduced.
+
+Full backend + frontend suite: 569 pass, 0 fail (305 backend + 259 frontend + 5 schema
+tests).
+
+## Acceptance criteria marked (use-cases.md)
+| Criterion | Test that verifies it |
+|-----------|------------------------|
+| UC-09: course=1 → rows 1/2/3; course=2 → rows 1/2 only | `calendario-modulo.service.test.ts` "generates one row per evaluación..." + "uses the (2º) course-start entry..." |
+| UC-09: `working_days` = Mon-Fri in `[start, end)`, start inclusive/end exclusive | `business-day.test.ts`'s `countLaborableDays` describe block (7 tests) + the same service-level tests above (56/121/186, 104) |
+| UC-09: excludes holidays/public_holidays/free_disposal_days | `business-day.test.ts` "skips a non-working range inside the window" — `computeEvaluationWorkingDaysEntries` reuses the same `nonWorkingRangesFor` already proven for `final_exams` |
+| UC-09: does **not** exclude `academic_key_dates` | Structural: `nonWorkingRangesFor` (shared with UC-08, whose own dedicated test proves this) never includes `academic_key_dates`; the course-start lookup itself reads an `academic_key_dates` entry directly, outside that filter |
+| UC-09: course-start is the course-specific entry, never "Curso escolar" | `calendario-modulo.service.test.ts`'s UC-09 fixtures never seed a "Curso escolar" row at all and still resolve correctly from the course-specific one alone |
+| UC-09: re-seeding never duplicates | **Reviewer's own live-Postgres verification this pass** (same class of criterion as UC-08's — a real re-seed against the real unique constraint): called `seedForModules` twice directly against a real `academic_year_module_id`, row count unchanged (3/3) |
+| UC-09: cascade delete | `calendario-evaluation-working-days.routes.test.ts` "deleting a módulo assignment removes its calendario_evaluation_working_days rows (cascade) — GET 404s afterward" |
+| UC-10: each present line, exact text | `calendario-view.test.ts` "renders one line per evaluationNumber present..." + "renders all three lines..." |
+| UC-10: no `evaluationNumber: 3` → two lines, not three | Same "renders one line per..." test (asserts `evaluation-working-days-3` is `null`) |
+| UC-10: module-filter change reloads | `calendario-view.test.ts` "changing module-filter reloads the summary..." — see the test-precision note above (exercises the shared reload path via `cycle-filter`, not a literal `module-filter` change) |
+| UC-10: zero rows → no lines | `calendario-view.test.ts` "renders no lines at all when the selected módulo has zero..." |
+
+## Criteria without verifiable coverage
+| Criterion | Reason |
+|-----------|--------|
+| UC-10: `evaluation-working-days-summary` sits at the far right, column layout, no row-height change | Real computed layout/CSS — `happy-dom`'s unit-test environment doesn't compute Tailwind's cascade meaningfully; this needs a real browser. Deferred to `e2e-engineer` below. |
+
+## Deferred to e2e-engineer
+| File / branch | Why it can't be unit-tested here | What to verify once real infra exists |
+|---------------|-----------------------------------|-----------------------------------------|
+| `evaluation-working-days-summary` layout | Real Tailwind cascade, real box layout — not observable via `happy-dom` | A computed-style/bounding-rect assertion (e.g. filters row's height unchanged with vs. without the summary populated, or the summary's own `justify-content`/position) — same "style application proof" class already established for this view's red/blue/green day coloring |
+| `evaluation-working-days-api-service.ts`'s real HTTP client | `frontend-implementer` correctly left `http-evaluation-working-days-api-service.ts` and its `main.ts` wiring for `e2e-engineer`, consistent with the `final_exams` cycle's own precedent | `e2e-engineer` must create the concrete HTTP client and wire it into `main.ts`, then a Cypress spec exercising the real endpoint end to end |
+
+---
+
 # Review Report — calendario — 2026-08-09 (amendment: UC-08 `final_exams`)
 
 **Post-merge direction fix (2026-08-09, branch `view/calendario-final-exams-fix`)**: user

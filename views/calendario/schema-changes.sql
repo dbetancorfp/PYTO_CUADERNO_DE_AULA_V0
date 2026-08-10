@@ -52,11 +52,37 @@ CREATE INDEX IF NOT EXISTS calendario_modulo_academic_year_module_id_idx
 -- every 'evaluations' row already resolved in this same seeding pass whose name matches
 -- "<prefix> - Último día para poner notas.", CalendarioModuloService.seedForModules
 -- computes and inserts two single-day 'final_exams' rows —
--- "<prefix> - Examen de recuperación final." (Último día de notas + 2 business days) and
--- "<prefix> - Examen final." (Examen de recuperación final − 4 business days) — see
+-- "<prefix> - Examen de recuperación final." (Último día de notas − 2 business days) and
+-- "<prefix> - Examen final." (Examen de recuperación final − 4 business days) — both before
+-- the grade deadline, not after (corrected 2026-08-09, see review-report.md) — see
 -- views/calendario/use-cases.md UC-08.
 ALTER TABLE calendario_modulo DROP CONSTRAINT IF EXISTS calendario_modulo_category_check;
 ALTER TABLE calendario_modulo ADD CONSTRAINT calendario_modulo_category_check CHECK (category IN (
   'academic_key_dates','holidays','public_holidays',
   'free_disposal_days','evaluations','feoe_project_days','final_exams'
 ));
+
+-- New table (2026-08-09) — working-day count between the módulo's course start and each
+-- evaluación's "Examen final" date, one row per (módulo, evaluación). A count, not a date
+-- range, so it doesn't fit calendario_modulo's shape — a sibling table instead, same FK
+-- target and same ON DELETE CASCADE lifecycle as calendario_modulo (see use-cases.md UC-09).
+--
+-- evaluation_number (1/2/3), not the key_dates name suffix ("(1º)"/"(2º)") — a given módulo
+-- only ever has one course, so which suffix applies is already implied by
+-- academic_year_modules -> catalog_modules.course; storing the suffix too would be
+-- redundant and could theoretically disagree with it.
+CREATE TABLE IF NOT EXISTS calendario_evaluation_working_days (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  academic_year_module_id UUID NOT NULL REFERENCES academic_year_modules(id) ON DELETE CASCADE,
+  evaluation_number SMALLINT NOT NULL CHECK (evaluation_number IN (1, 2, 3)),
+  -- Count of working days in [course start, Examen final) for this módulo/evaluación — see
+  -- use-cases.md UC-09 for the exact range (start inclusive, end exclusive) and the
+  -- working-day definition (reuses business-day.ts's isLaborable).
+  working_days INTEGER NOT NULL CHECK (working_days >= 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- Idempotent seeding, same pattern as calendario_modulo's own natural key.
+  UNIQUE (academic_year_module_id, evaluation_number)
+);
+
+CREATE INDEX IF NOT EXISTS calendario_evaluation_working_days_academic_year_module_id_idx
+  ON calendario_evaluation_working_days (academic_year_module_id);

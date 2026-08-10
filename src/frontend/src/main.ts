@@ -91,17 +91,24 @@ export async function bootstrap(): Promise<void> {
   }
 
   if (window.location.pathname === '/calendario') {
-    const [{ HttpSessionApiService }, { HttpAcademicYearApiService }, { HttpCalendarioModuloApiService }, { CalendarioView }] =
-      await Promise.all([
-        import('./http-session-api-service'),
-        import('./http-academic-year-api-service'),
-        import('./http-calendario-modulo-api-service'),
-        import('./calendario-view'),
-      ]);
+    const [
+      { HttpSessionApiService },
+      { HttpAcademicYearApiService },
+      { HttpCalendarioModuloApiService },
+      { HttpEvaluationWorkingDaysApiService },
+      { CalendarioView },
+    ] = await Promise.all([
+      import('./http-session-api-service'),
+      import('./http-academic-year-api-service'),
+      import('./http-calendario-modulo-api-service'),
+      import('./http-evaluation-working-days-api-service'),
+      import('./calendario-view'),
+    ]);
     const calendarioView = document.createElement('app-calendario-view') as InstanceType<typeof CalendarioView>;
     calendarioView.sessionService = new HttpSessionApiService();
     calendarioView.academicYearService = new HttpAcademicYearApiService();
     calendarioView.calendarioModuloService = new HttpCalendarioModuloApiService();
+    calendarioView.evaluationWorkingDaysService = new HttpEvaluationWorkingDaysApiService();
     document.body.appendChild(calendarioView);
     return;
   }

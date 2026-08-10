@@ -141,6 +141,47 @@
         "calendario-day-toast shows every applicable event name, one per line, when the hovered day is covered by more than one calendario_modulo entry",
         "calendario-day-toast disappears as soon as the mouse leaves the day cell, without waiting 5 seconds"
       ]
+    },
+    {
+      "elementId": "evaluation-working-days-summary",
+      "behavior": "Container for the selected módulo's working-day counts, pinned to the far right of the filters row, laid out as a column (one line per evaluación), in small text that never grows the filters row's height. Renders nothing at all when the selected módulo has no calendario_evaluation_working_days rows.",
+      "businessRules": [
+        "Reloads on module-filter change, same trigger as calendario-months (UC-04/UC-10)",
+        "Only evaluationNumbers actually present in the GET /api/calendario-evaluation-working-days response render a line — a course=2 módulo (no 3ª evaluación data) never shows a third line"
+      ],
+      "dataNeeds": ["calendario_evaluation_working_days.evaluation_number", "calendario_evaluation_working_days.working_days"],
+      "acceptanceCriteria": [
+        "evaluation-working-days-summary sits at the far right of the filters row, in a column, without increasing that row's height",
+        "A módulo with zero calendario_evaluation_working_days rows renders no lines at all"
+      ]
+    },
+    {
+      "elementId": "evaluation-working-days-1",
+      "behavior": "One line, shown only when the response includes evaluationNumber 1: 'Días laborables 1ª evaluación: <workingDays>'.",
+      "businessRules": [],
+      "dataNeeds": ["calendario_evaluation_working_days.working_days"],
+      "acceptanceCriteria": [
+        "evaluation-working-days-1 renders exactly 'Días laborables 1ª evaluación: <N>' when evaluationNumber 1 is present in the response"
+      ]
+    },
+    {
+      "elementId": "evaluation-working-days-2",
+      "behavior": "One line, shown only when the response includes evaluationNumber 2: 'Días laborables 2ª evaluación: <workingDays>'.",
+      "businessRules": [],
+      "dataNeeds": ["calendario_evaluation_working_days.working_days"],
+      "acceptanceCriteria": [
+        "evaluation-working-days-2 renders exactly 'Días laborables 2ª evaluación: <N>' when evaluationNumber 2 is present in the response"
+      ]
+    },
+    {
+      "elementId": "evaluation-working-days-3",
+      "behavior": "One line, shown only when the response includes evaluationNumber 3: 'Días laborables 3ª evaluación: <workingDays>'. Absent entirely for a módulo whose course has no 3ª evaluación data (see UC-09/A1) — not rendered with '0'.",
+      "businessRules": [],
+      "dataNeeds": ["calendario_evaluation_working_days.working_days"],
+      "acceptanceCriteria": [
+        "evaluation-working-days-3 renders exactly 'Días laborables 3ª evaluación: <N>' when evaluationNumber 3 is present in the response",
+        "evaluation-working-days-3 does not render at all when evaluationNumber 3 is absent from the response"
+      ]
     }
   ],
   "globalRules": [

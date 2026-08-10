@@ -13,6 +13,7 @@ import { HttpCatalogTrainingCycleApiService } from '../src/http-catalog-training
 import { HttpCatalogModuleApiService } from '../src/http-catalog-module-api-service';
 import { HttpAcademicYearApiService } from '../src/http-academic-year-api-service';
 import { HttpCalendarioModuloApiService } from '../src/http-calendario-modulo-api-service';
+import { HttpEvaluationWorkingDaysApiService } from '../src/http-evaluation-working-days-api-service';
 import { HttpKeyDateApiService } from '../src/http-key-date-api-service';
 import type { DashboardView } from '../src/dashboard-view';
 import type { TeacherSettingsView } from '../src/teacher-settings-view';
@@ -103,6 +104,7 @@ describe('bootstrap', () => {
     expect(el!.sessionService).toBeInstanceOf(HttpSessionApiService);
     expect(el!.academicYearService).toBeInstanceOf(HttpAcademicYearApiService);
     expect(el!.calendarioModuloService).toBeInstanceOf(HttpCalendarioModuloApiService);
+    expect(el!.evaluationWorkingDaysService).toBeInstanceOf(HttpEvaluationWorkingDaysApiService);
   });
 
   it('mounts app-key-date-settings-view with real services on /configuracion/fechas-senaladas', async () => {
