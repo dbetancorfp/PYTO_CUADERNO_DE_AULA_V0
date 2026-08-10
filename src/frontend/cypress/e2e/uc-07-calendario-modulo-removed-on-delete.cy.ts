@@ -42,8 +42,9 @@ describe('UC-07: calendario_modulo removed when a módulo is unassigned', () => 
 
               cy.request('GET', `/api/calendario-modulo?academicYearModuleId=${academicYearModuleId}`).then(({ body: before }) => {
                 // course 1: 33 course-applicable key_dates rows (2026-08-10 course filter,
-                // see UC-06/A1) + 6 final_exams (3 applicable evaluaciones, see UC-08) = 39.
-                expect((before as { entries: unknown[] }).entries.length).to.eq(39);
+                // UC-06/A1), +1 from the "Inicio curso"/"Fin de curso" split (2026-08-10,
+                // UC-06/A2) = 34, + 6 final_exams (3 applicable evaluaciones, see UC-08) = 40.
+                expect((before as { entries: unknown[] }).entries.length).to.eq(40);
 
                 cy.request('DELETE', `/api/academic-year-modules/${academicYearModuleId}`).its('status').should('eq', 204);
 

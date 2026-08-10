@@ -458,6 +458,100 @@ describe('elementId: calendario-months (course filtering — UC-06/A1, 2026-08-1
   });
 });
 
+describe('elementId: calendario-months ("Inicio curso"/"Fin de curso" split — UC-06/A2, 2026-08-10)', () => {
+  it('splits "Inicio curso: 1º de Grado Superior de FP." into two single-day rows for a course-1 módulo', async () => {
+    const deps = fakeDeps({
+      keyDates: [
+        makeKeyDate({
+          category: 'academic_key_dates',
+          name: 'Inicio curso: 1º de Grado Superior de FP.',
+          startDay: 16,
+          startMonth: 9,
+          endDay: 22,
+          endMonth: 6,
+          type: 'Curso escolar',
+        }),
+      ],
+    });
+    const service = makeService(deps);
+
+    await service.seedForModules([makeModule({ id: 'am1', course: 1 })], 2026);
+
+    const inserted = deps.createManyCalls.flat();
+    expect(inserted).toContainEqual({
+      academicYearModuleId: 'am1',
+      category: 'academic_key_dates',
+      name: 'Inicio curso: 1º de Grado Superior de FP.',
+      startDate: '2026-09-16',
+      endDate: '2026-09-16',
+      type: 'Curso escolar',
+    });
+    expect(inserted).toContainEqual({
+      academicYearModuleId: 'am1',
+      category: 'academic_key_dates',
+      name: 'Fin de curso: 1º de Grado Superior de FP.',
+      startDate: '2027-06-22',
+      endDate: '2027-06-22',
+      type: 'Curso escolar',
+    });
+    // No leftover long-range row under the original name/date-shape.
+    expect(inserted.filter((e) => e.name === 'Inicio curso: 1º de Grado Superior de FP.')).toHaveLength(1);
+  });
+
+  it('splits "Inicio curso: 2º de Grado Superior de FP." into two single-day rows for a course-2 módulo', async () => {
+    const deps = fakeDeps({
+      keyDates: [
+        makeKeyDate({
+          category: 'academic_key_dates',
+          name: 'Inicio curso: 2º de Grado Superior de FP.',
+          startDay: 16,
+          startMonth: 9,
+          endDay: 27,
+          endMonth: 5,
+          type: 'Curso escolar',
+        }),
+      ],
+    });
+    const service = makeService(deps);
+
+    await service.seedForModules([makeModule({ id: 'am1', course: 2 })], 2026);
+
+    const inserted = deps.createManyCalls.flat();
+    expect(inserted).toContainEqual({
+      academicYearModuleId: 'am1',
+      category: 'academic_key_dates',
+      name: 'Inicio curso: 2º de Grado Superior de FP.',
+      startDate: '2026-09-16',
+      endDate: '2026-09-16',
+      type: 'Curso escolar',
+    });
+    expect(inserted).toContainEqual({
+      academicYearModuleId: 'am1',
+      category: 'academic_key_dates',
+      name: 'Fin de curso: 2º de Grado Superior de FP.',
+      startDate: '2027-05-27',
+      endDate: '2027-05-27',
+      type: 'Curso escolar',
+    });
+  });
+
+  it('does not split "Curso escolar" — it stays a single long-range row', async () => {
+    const deps = fakeDeps({
+      keyDates: [
+        makeKeyDate({ category: 'academic_key_dates', name: 'Curso escolar', startDay: 1, startMonth: 9, endDay: 31, endMonth: 7, type: 'Curso escolar' }),
+      ],
+    });
+    const service = makeService(deps);
+
+    await service.seedForModules([makeModule({ id: 'am1', course: 1 })], 2026);
+
+    const inserted = deps.createManyCalls.flat();
+    expect(inserted).toHaveLength(1);
+    expect(inserted[0]).toMatchObject({ name: 'Curso escolar', startDate: '2026-09-01', endDate: '2027-07-31' });
+    expect(inserted.some((e) => e.name.startsWith('Fin de curso'))).toBe(false);
+  });
+});
+
 describe('elementId: evaluation-working-days-summary (working-days generation — UC-09)', () => {
   const EVALUACION_1 = makeKeyDate({
     id: 'kd-eval-1',

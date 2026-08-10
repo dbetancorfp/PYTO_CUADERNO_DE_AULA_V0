@@ -1,3 +1,75 @@
+# Review Report — calendario — 2026-08-10 (e2e-engineer follow-up: "Fin de curso" split)
+
+Branch `view/calendario-fin-de-curso`. Updated 6 hardcoded row-count assertions across 2
+pre-existing Cypress specs (course-1 39→40, course-2 35→36) in
+`uc-06-calendario-modulo-generated-on-save.cy.ts` (3 tests) and
+`uc-07-calendario-modulo-removed-on-delete.cy.ts` (1 test). Extended the dedicated
+course-1+course-2 same-selection test with explicit assertions that each módulo's snapshot
+contains its own split `"Fin de curso: ..."` entry and never the other course's — closing
+the one criterion the previous review pass couldn't verify with a persistent test.
+
+`bun run e2e` (full suite, real Postgres, real server): **81/81 passing**, 0 fail.
+
+## Result: PASS ✅
+
+---
+
+# Review Report — calendario — 2026-08-10 ("Inicio curso"/"Fin de curso" split, UC-06/A2)
+
+Branch `view/calendario-fin-de-curso`. UX fix requested by the user: `"Inicio curso: Xº de
+Grado Superior de FP."` is a >30-day range, so `calendario-months`'s long-range rule (UC-04/A1)
+colored and made hoverable both its start AND end boundary, showing the same "Inicio curso"
+name on the end-of-year day too — misread as a second "start". Fix: `splitInicioCursoEntry`
+in `seedForModules`, same compute-and-substitute pattern already used for `final_exams`
+(UC-08) — replaces that one resolved entry with two single-day rows ("Inicio curso: ..." on
+the original start, "Fin de curso: ..." on the original end), `key_dates` itself untouched.
+`"Curso escolar"` deliberately excluded (name doesn't claim to be a single point in time).
+
+## Result: PASS ✅
+
+## Layers implicated: none
+
+## Supervisor notes adjudicated
+
+| Note | Resolution |
+|------|------------|
+| None — supervisor reported `Layers implicated: none`, both unit suites green, integration smoke test verified against real Postgres: a course-1 módulo's snapshot now has 40 rows including distinct single-day "Inicio curso"/"Fin de curso" entries, and UC-09's working-days computation still produces coherent results (3 evaluaciones, `courseStartEntry.startDate` unchanged by the split). | No adjudication needed. |
+
+## SOLID violations found
+
+None. `splitInicioCursoEntry` is a small pure function (SRP), dispatches on a fixed
+2-name allowlist (`INICIO_CURSO_NAMES`) rather than a growing `if/else` — a third split
+target would just be a new set member (OCP-consistent with `courseTokenFor`/
+`finalExamNameFor`, the same pattern already established in this file). No `new
+ConcreteImpl()` introduced. No interface changed.
+
+## SonarCloud Quality Gate
+
+| Metric | Threshold | Backend | Frontend | Result |
+|--------|-----------|---------|----------|--------|
+| Coverage | 100% | `calendario-modulo.service.ts` 100% lines / 100% funcs | untouched this cycle, still green | ✅ |
+| Bugs | 0 | 0 | 0 | ✅ |
+| Vulnerabilities | 0 | 0 | 0 | ✅ |
+| Duplication | ≤ 3% | none introduced | n/a | ✅ |
+
+`bun test` (full repo): 598 pass / 0 fail. `bun run type-check`: clean.
+
+## Acceptance criteria marked (use-cases.md)
+
+| Criterion | Test that verifies it |
+|-----------|------------------------|
+| UC-06/A2: A módulo's snapshot contains "Inicio curso: <sufijo>." as a single-day row on the course's real start day, and a separate "Fin de curso: <sufijo>." single-day row on the real end day | `calendario-modulo.service.test.ts` › "splits 'Inicio curso: 1º de Grado Superior de FP.' into two single-day rows for a course-1 módulo" + the course-2 equivalent |
+| UC-06/A2: "Curso escolar" is never split | `calendario-modulo.service.test.ts` › "does not split 'Curso escolar' — it stays a single long-range row" |
+| UC-06: A course-1 módulo's snapshot has exactly 40 rows and a course-2 módulo's has exactly 36 rows | Confirmed against real Postgres via this cycle's supervisor smoke test (40 rows, course 1) — no persistent automated test asserts both exact totals with the real seed data; the course-2 figure (36) is unit-tested only via the synthetic row-count-formula test from the previous cycle, not re-verified here with real data. Flagged for `e2e-engineer` below. |
+
+## Criteria without verifiable coverage
+
+| Criterion | Reason |
+|-----------|--------|
+| UC-06: A course-2 módulo's snapshot has exactly 36 rows, given the current key_dates seed data | Only the course-1 case (40 rows) was confirmed against real Postgres this cycle. `e2e-engineer`: update `uc-06-calendario-modulo-generated-on-save.cy.ts`'s existing course-1 assertions from 39→40, and consider extending the course-1+course-2 same-selection test (already asserting 39/35 pre-existing names) to the new 40/36 totals. |
+
+---
+
 # Review Report — calendario — 2026-08-10 (e2e-engineer follow-up: course-cross-leak bugfix)
 
 Branch `view/calendario-course-filter`. Updated 2 pre-existing specs that hardcoded the old,

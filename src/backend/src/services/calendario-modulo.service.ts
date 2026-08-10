@@ -51,6 +51,27 @@ function courseTokenFor(name: string): 1 | 2 | null {
   return null;
 }
 
+/** The two `key_dates` entries UC-06/A2 splits into single-day "Inicio curso"/"Fin de curso"
+ * rows — long (>30-day) ranges whose name misleadingly reads as a second "start" on their
+ * `calendario-months` end-of-range boundary day (UC-04/A1). `"Curso escolar"` is deliberately
+ * not in this set — it keeps covering its full range as a single row. */
+const INICIO_CURSO_NAMES = new Set([
+  'Inicio curso: 1º de Grado Superior de FP.',
+  'Inicio curso: 2º de Grado Superior de FP.',
+]);
+
+/** UC-06/A2: replaces a matching "Inicio curso: <sufijo>." resolved entry with two single-day
+ * rows — one on the range's original `startDate` (keeping the "Inicio curso" name) and one on
+ * its original `endDate` (renamed to "Fin de curso"), both keeping the entry's `category` and
+ * `type` unchanged. Any other entry, including "Curso escolar", passes through untouched. */
+function splitInicioCursoEntry(entry: CalendarioModuloInsert): CalendarioModuloInsert[] {
+  if (!INICIO_CURSO_NAMES.has(entry.name)) return [entry];
+  return [
+    { ...entry, startDate: entry.startDate, endDate: entry.startDate },
+    { ...entry, name: entry.name.replace('Inicio curso:', 'Fin de curso:'), startDate: entry.endDate, endDate: entry.endDate },
+  ];
+}
+
 /** Categories that count as an actual day off for the business-day walk. `academic_key_dates`
  * is deliberately excluded — its ranges (e.g. "Curso escolar") are informational spans, not
  * real non-working days (see UC-08 step 2 and its A1/last acceptance criterion). */
@@ -186,7 +207,8 @@ export class CalendarioModuloService implements CalendarioModuloSeeder {
         .map((resolved) => ({
           academicYearModuleId: module.id,
           ...resolved,
-        }));
+        }))
+        .flatMap(splitInicioCursoEntry);
       const finalExamsEntries = computeFinalExamsEntries(module.id, moduleEntries);
       entries.push(...moduleEntries, ...finalExamsEntries);
       workingDaysEntries.push(...computeEvaluationWorkingDaysEntries(module, moduleEntries, finalExamsEntries));
