@@ -63,11 +63,13 @@ describe('UC-08: final_exams dates computed when calendario_modulo is generated'
                 const entries = (calBody as { entries: CalendarioModuloEntry[] }).entries;
                 const finalExams = entries.filter((e) => e.category === 'final_exams');
 
-                // 4 "Último día para poner notas" entries currently seeded (1ª, 2ª(2º),
-                // 2ª(1º), 3ª(1º)) -> 2 rows each.
-                expect(finalExams).to.have.length(8);
-                expect(finalExams.filter((e) => e.name.endsWith('Examen de recuperación final.'))).to.have.length(4);
-                expect(finalExams.filter((e) => e.name.endsWith('Examen final.'))).to.have.length(4);
+                // course 1 (2026-08-10 course filter, see UC-06/A1): 3 applicable "Último
+                // día para poner notas" entries (1ª, 2ª(1º), 3ª(1º) — 2ª(2º) is excluded,
+                // it belongs to course 2) -> 2 rows each.
+                expect(finalExams).to.have.length(6);
+                expect(finalExams.filter((e) => e.name.endsWith('Examen de recuperación final.'))).to.have.length(3);
+                expect(finalExams.filter((e) => e.name.endsWith('Examen final.'))).to.have.length(3);
+                expect(finalExams.some((e) => e.name.startsWith('2ª Evaluación (2º)'))).to.eq(false);
                 finalExams.forEach((entry) => expect(entry.startDate).to.eq(entry.endDate));
 
                 const recuperacion1a = finalExams.find((e) => e.name === '1ª Evaluación - Examen de recuperación final.');
@@ -91,7 +93,7 @@ describe('UC-08: final_exams dates computed when calendario_modulo is generated'
                 // Style application proof (UC-11 rows 13/14): every final_exams day cell
                 // carries the category in its data attribute and renders its real, per-name-
                 // suffix color, not just in the resolution logic a unit test already covers.
-                cy.get('[data-calendario-day-categories*="final_exams"]').should('have.length', 8);
+                cy.get('[data-calendario-day-categories*="final_exams"]').should('have.length', 6);
 
                 const examenFinalEntries = finalExams.filter((e) => e.name.endsWith('Examen final.'));
                 const recuperacionEntries = finalExams.filter((e) => e.name.endsWith('Examen de recuperación final.'));

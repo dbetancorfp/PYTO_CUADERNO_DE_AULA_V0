@@ -240,30 +240,66 @@ view's spec, not Año académico's (whose own `use-cases.md` doesn't change).
    módulos (`POST /api/academic-years/selection`), or to extend an existing one with more
    módulos (`POST /api/academic-years/:id/modules`).
 2. For every `academic_year_modules` row now present for that academic year (both
-   pre-existing and newly added), the backend resolves all 6 `key_dates` categories (43
-   rows) to real dates for that year's `startYear` (month ≥ 9 → `startYear`; month ≤ 8 →
-   `startYear + 1`) and inserts them into `calendario_modulo`, one row per resolved
+   pre-existing and newly added), the backend resolves all 6 `key_dates` categories to
+   real dates for that year's `startYear` (month ≥ 9 → `startYear`; month ≤ 8 →
+   `startYear + 1`), **keeps only the entries applicable to that módulo's own `course`**
+   (see A1), and inserts the kept ones into `calendario_modulo`, one row per resolved
    `key_dates` entry per módulo.
-3. In the same pass, `final_exams` rows are computed from the just-resolved `evaluations`
-   rows and inserted alongside them — see UC-08.
+3. In the same pass, `final_exams` rows are computed from the just-resolved, already
+   course-filtered `evaluations` rows and inserted alongside them — see UC-08.
 4. Insertion is idempotent (`ON CONFLICT DO NOTHING` on the natural key) — a módulo that
    already has its snapshot generated is never duplicated.
 
+### Alternative flows
+
+- **A1 — Course-specific `key_dates` entries (2026-08-10 bugfix)**: some `key_dates`
+  entries only apply to one of the two `catalog_modules.course` values (1 or 2), marked by
+  a course token in the entry's own `name` — a `key_dates` entry with no such token applies
+  to both courses alike. `<prefix>` below stands for whatever text precedes the token; the
+  match is on the token's presence, not the whole name.
+
+  | Course token in `name` | Applies to | Examples |
+  |---|---|---|
+  | none | both courses | `Curso escolar`, every `holidays`/`public_holidays`/`free_disposal_days` entry, `1ª Evaluación - ...` (3 rows), `Sesión de evaluación sin nota.` |
+  | `1º de Grado` / starts with `1º ` or `1º -` | course 1 only | `Inicio curso: 1º de Grado Superior de FP.`, `1º - Dia de alternancia <N>.` (5 rows) |
+  | `2º de Grado` / starts with `2º ` or `2º -` | course 2 only | `Inicio curso: 2º de Grado Superior de FP.`, `2º Presentación de proyectos.`, `2º - Dia de alternancia <N>.` (5 rows) |
+  | `(1º)` | course 1 only | `2ª Evaluación (1º) - ...` (3 rows), `3ª Evaluación (1º) - ...` (3 rows) — no `(2º)` variant exists for 3ª evaluación |
+  | `(2º)` | course 2 only | `2ª Evaluación (2º) - ...` (3 rows) |
+
+  The masculine ordinal `º` (course token) never collides with the feminine ordinal `ª`
+  (evaluación-number token, `1ª`/`2ª`/`3ª`) — distinct Unicode characters, so `1ª
+  Evaluación`/`2ª Evaluación`/`3ª Evaluación` are never mistaken for a course-1/2 token.
+  As of the current `key_dates` seed data: 21 of 43 rows are course-agnostic, 12 are
+  course-1-only, 10 are course-2-only (see UC-06 Postconditions for the resulting
+  per-course row counts).
+
 ### Postconditions
 
-- Every `academic_year_modules` row for that academic year has a full
-  `calendario_modulo` snapshot of 43 + 2×`E` rows (or already had one), where `E` is the
-  number of `evaluations` rows in that snapshot whose name matches
-  "`<prefix>` - Último día para poner notas." (currently 4, see UC-08 — not hardcoded,
-  tracks whatever `key_dates`' `evaluations` category holds at seed time).
+- Every `academic_year_modules` row for that academic year has a full, **course-filtered**
+  `calendario_modulo` snapshot (or already had one): a course-1 módulo gets every
+  course-agnostic and course-1-only `key_dates` entry (currently 33 rows) plus 2×`E₁`
+  `final_exams` rows; a course-2 módulo gets every course-agnostic and course-2-only entry
+  (currently 31 rows) plus 2×`E₂` `final_exams` rows. `E꜀` is the number of that course's
+  applicable `evaluations` rows whose name matches "`<prefix>` - Último día para poner
+  notas." (currently `E₁` = 3, `E₂` = 2, see UC-08 — not hardcoded, tracks whatever
+  `key_dates`' `evaluations` category holds at seed time, filtered per A1). Currently: 39
+  rows total for a course-1 módulo, 35 for a course-2 módulo.
 
 ### Acceptance criteria
 
-- [x] Saving a new academic year with N módulos generates a full snapshot (43 + 2×`E`
-      rows, see Postconditions) for each of the N módulos
+- [x] Saving a new academic year with N módulos generates a full, course-filtered snapshot
+      (see Postconditions for the exact row-count formula) for each of the N módulos
 - [x] Extending an existing academic year with an additional módulo generates a full
       snapshot for that módulo, without touching already-existing módulos' rows
 - [x] Saving the same selection twice never duplicates `calendario_modulo` rows
+- [x] A course-1 módulo's snapshot excludes every `key_dates` entry marked exclusively for
+      course 2, and vice versa (A1)
+- [x] A `key_dates` entry with no course token (e.g. `Curso escolar`, any
+      `holidays`/`public_holidays`/`free_disposal_days` entry, `1ª Evaluación - ...`,
+      `Sesión de evaluación sin nota.`) is included in both a course-1 and a course-2
+      módulo's snapshot
+- [x] A course-1 módulo's snapshot has exactly 39 rows and a course-2 módulo's has exactly
+      35 rows, given the current `key_dates` seed data (Postconditions)
 
 ---
 
@@ -313,10 +349,12 @@ dates, not `key_dates`' day/month template.
 
 ### Main flow
 
-1. From the módulo's just-resolved `evaluations` rows, find every one whose `name`
-   matches `"<prefix> - Último día para poner notas."` (e.g. `"1ª Evaluación"`, `"2ª
-   Evaluación (2º)"`, `"2ª Evaluación (1º)"`, `"3ª Evaluación (1º)"` — whichever prefixes
-   are present in this batch; no fixed count, no filtering by the módulo's own course).
+1. From the módulo's just-resolved `evaluations` rows — already course-filtered per UC-06
+   step 2/A1, so a course-2 módulo's batch never contains a `(1º)`-tagged row and vice
+   versa — find every one whose `name` matches `"<prefix> - Último día para poner
+   notas."` (e.g. `"1ª Evaluación"`, plus whichever of `"2ª Evaluación (2º)"`, `"2ª
+   Evaluación (1º)"`, `"3ª Evaluación (1º)"` applies to this módulo's own course; no
+   fixed count).
 2. For each `<prefix>` found, build that módulo's non-working set: Saturdays, Sundays,
    and every day inside a `holidays`, `public_holidays` or `free_disposal_days` range
    already resolved for this módulo in the same pass (`academic_key_dates` is excluded —
@@ -369,6 +407,9 @@ dates, not `key_dates`' day/month template.
       `final_exams` rows
 - [x] A módulo whose resolved `evaluations` include N distinct "Último día para poner
       notas." prefixes gains exactly 2×N `final_exams` rows
+- [x] A course-1 módulo never gains a `final_exams` pair derived from a `(2º)`-tagged
+      evaluación, and a course-2 módulo never gains one derived from a `(1º)`-tagged
+      evaluación (2026-08-10 bugfix — see UC-06/A1)
 
 ---
 
