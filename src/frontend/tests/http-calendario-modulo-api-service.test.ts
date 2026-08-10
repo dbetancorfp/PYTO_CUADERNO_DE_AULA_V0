@@ -24,7 +24,7 @@ afterEach(() => {
 describe('HttpCalendarioModuloApiService.findForModule', () => {
   it('GETs /api/calendario-modulo with the encoded academicYearModuleId and returns its entries', async () => {
     const entries: CalendarioModuloEntry[] = [
-      { id: 'e1', category: 'holidays', name: 'Navidad', startDate: '2026-12-22', endDate: '2027-01-07' },
+      { id: 'e1', category: 'holidays', name: 'Navidad', startDate: '2026-12-22', endDate: '2027-01-07', type: 'Vacaciones' },
     ];
     const calls = stubFetch(new Response(JSON.stringify({ entries }), { status: 200 }));
     const service = new HttpCalendarioModuloApiService();

@@ -93,9 +93,11 @@
       "behavior": "Renders 10 month cards (September of the selected school year through June of the next) from the selected módulo's calendario_modulo rows. Each day cell shows only its day number, colored per the categories covering it. Hovering a marked day shows calendario-day-toast with its event name(s); leaving it dismisses the toast immediately.",
       "businessRules": [
         "Only calendario_modulo rows for the currently selected academic_year_module_id are used — never key_dates directly",
-        "Red categories: academic_key_dates, holidays, public_holidays, free_disposal_days. Blue categories: evaluations, feoe_project_days. Green category (#bbf7d0): final_exams",
+        "Color is per (category, type) pair, not per category (2026-08-10, see views/calendario/use-cases.md UC-11's color table) — 14 canonical (category,type) rows across 7 category-hue families, each hue's own multi-type members stepped lighter for sub-identity within the family. final_exams (no type column) matches by name suffix instead of type.",
+        "A (category, type) pair absent from UC-11's table (a custom key_dates row with no tipo) falls back to that category's own row-1 hex from the table",
         "A calendario_modulo range spanning at most 30 days colors every day in [start_date, end_date]; a range spanning more than 30 days colors only start_date and end_date, not the days in between",
-        "A day covered by more than one category's range renders a split background (one color band per active category, hard CSS stops), not just one color chosen arbitrarily",
+        "A day covered by more than one entry renders a split background (one color band per active (category,type), hard CSS stops), not just one color chosen arbitrarily",
+        "A plain Saturday/Sunday with no calendario_modulo entry is colored neutral gray (#cbd5e1) — a calendar-structure cue, not a (category,type) color, no calendario-legend entry. A Saturday/Sunday covered by an entry uses that entry's real color, never darkened (replaces the pre-2026-08-10 'weekend + public_holidays = darker red' special case)",
         "Week rows start on Monday",
         "Each month card gets data-element-id=\"calendario-month-<YYYY-MM>\"; each day cell inside it gets data-element-id=\"calendario-month-<YYYY-MM>-day-<DD>\" (documented dynamic pattern, not enumerated per instance)"
       ],
@@ -104,15 +106,18 @@
         "calendario_modulo.category",
         "calendario_modulo.name",
         "calendario_modulo.start_date",
-        "calendario_modulo.end_date"
+        "calendario_modulo.end_date",
+        "calendario_modulo.type"
       ],
       "acceptanceCriteria": [
         "calendario-months renders exactly 10 month cards, from September of the selected school year through June of the following year, in order",
-        "A day inside a <=30-day calendario_modulo range (e.g. Vacaciones de Navidad, 22/12-07/01) is colored red for every day in that range, including the boundary days",
+        "A day inside a <=30-day calendario_modulo range (e.g. Vacaciones de Navidad, 22/12-07/01) is colored for every day in that range, including the boundary days, using that entry's (category,type) color",
         "A day inside a >30-day calendario_modulo range (e.g. Curso escolar, 01/09-31/07) is colored only on its start day and its end day, not on the days in between",
-        "A day covered only by an evaluations or feoe_project_days range is colored blue",
-        "A day covered only by a final_exams entry is colored light green (#bbf7d0)",
-        "A day covered by both a red-category and a blue-category range at once shows both colors, not just one",
+        "Each entry is colored per its own (category,type) pair from UC-11's table, not one fixed color per category",
+        "A (category,type) pair not in UC-11's table falls back to that category's base hue",
+        "A plain Saturday/Sunday with no entry is colored neutral gray (#cbd5e1)",
+        "A Saturday/Sunday covered by an entry is colored that entry's real color, not darkened",
+        "A day covered by more than one entry at once shows a split background (one band per (category,type)), not just one color",
         "Hovering a colored day shows calendario-day-toast with that day's event name(s)",
         "Moving the mouse off a colored day dismisses calendario-day-toast immediately",
         "When the selected academic_year_module_id has no calendario_modulo rows, calendario-months is not rendered and calendario-empty-state is shown instead"
@@ -181,6 +186,24 @@
       "acceptanceCriteria": [
         "evaluation-working-days-3 renders exactly 'Días laborables 3ª evaluación: <N>' when evaluationNumber 3 is present in the response",
         "evaluation-working-days-3 does not render at all when evaluationNumber 3 is absent from the response"
+      ]
+    },
+    {
+      "elementId": "calendario-legend",
+      "behavior": "Directly below the filters row, its own horizontal, wrapping row of color swatch+label pairs — one per UC-11's color-table row that has at least one matching calendario_modulo entry in the currently loaded módulo's data, in the table's fixed canonical order. Renders nothing when calendario_modulo is empty. Child swatches use a documented dynamic elementId pattern, calendario-legend-item-<index> (index = the color table's own row number 1-14), not individually enumerated here — same convention calendario-months already uses for its per-day elementIds.",
+      "businessRules": [
+        "Reloads on module-filter change, same trigger as calendario-months (UC-04/UC-11)",
+        "Same color table calendario-months reads from (UC-11) — never a second, independently-maintained color list",
+        "Only color-table rows with at least one matching entry in the current módulo's data render a swatch — no placeholder for absent rows",
+        "No swatch for the plain-weekend neutral gray — that's a calendar-structure cue, not a (category,type) color"
+      ],
+      "dataNeeds": ["calendario_modulo.category", "calendario_modulo.type", "calendario_modulo.name"],
+      "acceptanceCriteria": [
+        "calendario-legend sits directly below the filters row, laid out horizontally (flex flex-wrap), wrapping rather than scrolling",
+        "calendario-legend shows exactly one swatch+label per color-table row present in the currently loaded data, in the table's fixed order",
+        "Each swatch's color exactly matches calendario-months's color for that same (category,type) or final_exams name-suffix",
+        "A módulo with zero calendario_modulo rows renders no legend swatches",
+        "A módulo missing some color-table rows' data shows only the rows it has"
       ]
     }
   ],

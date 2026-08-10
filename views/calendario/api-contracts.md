@@ -13,10 +13,11 @@ request/response shapes don't change — only their behavior gains a new effect)
 
 **Description**: Returns a módulo's snapshotted calendar entries (see
 `views/calendario/description_calendario.md`) — the only data source for
-`calendario-months`/`calendario-empty-state`/`calendario-day-toast`.
+`calendario-months`/`calendario-empty-state`/`calendario-day-toast`/`calendario-legend`
+(UC-11).
 **Allowed roles**: authenticated teacher, only for an `academic_year_module_id` belonging
 to one of their own `academic_years`
-**Elements**: `calendario-months`, `calendario-empty-state`
+**Elements**: `calendario-months`, `calendario-empty-state`, `calendario-legend`
 
 #### Request
 
@@ -32,7 +33,8 @@ to one of their own `academic_years`
       "category": "holidays",
       "name": "Vacaciones de Navidad.",
       "startDate": "2026-12-22",
-      "endDate": "2027-01-07"
+      "endDate": "2027-01-07",
+      "type": "Vacaciones"
     }
   ]
 }
@@ -45,6 +47,12 @@ error" convention every other list endpoint in this app already follows.
 `category` is one of `academic_key_dates`, `holidays`, `public_holidays`,
 `free_disposal_days`, `evaluations`, `feoe_project_days`, `final_exams` — the last one
 computed, not copied from `key_dates` (see `views/calendario/use-cases.md` UC-08).
+
+`type` (2026-08-10) is copied from `key_dates.type` at seed time — free text, nullable,
+same as `key_dates` itself (see `views/fechas-senaladas/api-contracts.md`). `null` for
+every `final_exams` entry (computed, no `key_dates` row to copy `type` from) and for any
+category whose `key_dates` row happens to have no `type` set. Drives `calendario-legend`
+and `calendario-months`'s per-(category,type) color (UC-11).
 
 #### Errors
 

@@ -186,6 +186,24 @@ describe('elementId: calendario-months (seeding — UC-06)', () => {
 
     expect(deps.createManyCalls.flat()).toHaveLength(0);
   });
+
+  it('seedForModules copies key_dates.type onto the resolved calendario_modulo entry (UC-11, 2026-08-10)', async () => {
+    const deps = fakeDeps({ keyDates: [makeKeyDate({ category: 'public_holidays', name: 'Festivo.', type: 'Festivo nacional' })] });
+    const service = makeService(deps);
+
+    await service.seedForModules([makeModule({ id: 'am1' })], 2026);
+
+    expect(deps.createManyCalls.flat()[0]).toMatchObject({ type: 'Festivo nacional' });
+  });
+
+  it('seedForModules resolves type to null when the key_dates row has no tipo set', async () => {
+    const deps = fakeDeps({ keyDates: [makeKeyDate({ type: null })] });
+    const service = makeService(deps);
+
+    await service.seedForModules([makeModule({ id: 'am1' })], 2026);
+
+    expect(deps.createManyCalls.flat()[0]).toMatchObject({ type: null });
+  });
 });
 
 describe('elementId: calendario-months (final_exams generation — UC-08)', () => {
@@ -221,6 +239,7 @@ describe('elementId: calendario-months (final_exams generation — UC-08)', () =
       name: '1ª Evaluación - Examen de recuperación final.',
       startDate: '2026-12-09',
       endDate: '2026-12-09',
+      type: null,
     });
     expect(inserted).toContainEqual({
       academicYearModuleId: 'am1',
@@ -228,6 +247,7 @@ describe('elementId: calendario-months (final_exams generation — UC-08)', () =
       name: '1ª Evaluación - Examen final.',
       startDate: '2026-12-03',
       endDate: '2026-12-03',
+      type: null,
     });
   });
 
@@ -246,6 +266,7 @@ describe('elementId: calendario-months (final_exams generation — UC-08)', () =
       name: '1ª Evaluación - Examen de recuperación final.',
       startDate: '2026-12-09',
       endDate: '2026-12-09',
+      type: null,
     });
     expect(finalExams).toContainEqual({
       academicYearModuleId: 'am1',
@@ -253,6 +274,7 @@ describe('elementId: calendario-months (final_exams generation — UC-08)', () =
       name: '1ª Evaluación - Examen final.',
       startDate: '2026-12-03',
       endDate: '2026-12-03',
+      type: null,
     });
   });
 
@@ -269,10 +291,10 @@ describe('elementId: calendario-months (final_exams generation — UC-08)', () =
 
     const finalExams = deps.createManyCalls.flat().filter((e) => e.category === 'final_exams');
     expect(finalExams).toHaveLength(4);
-    expect(finalExams).toContainEqual({ academicYearModuleId: 'am1', category: 'final_exams', name: '2ª Evaluación (2º) - Examen de recuperación final.', startDate: '2027-02-15', endDate: '2027-02-15' });
-    expect(finalExams).toContainEqual({ academicYearModuleId: 'am1', category: 'final_exams', name: '2ª Evaluación (2º) - Examen final.', startDate: '2027-02-09', endDate: '2027-02-09' });
-    expect(finalExams).toContainEqual({ academicYearModuleId: 'am1', category: 'final_exams', name: '3ª Evaluación (1º) - Examen de recuperación final.', startDate: '2027-06-09', endDate: '2027-06-09' });
-    expect(finalExams).toContainEqual({ academicYearModuleId: 'am1', category: 'final_exams', name: '3ª Evaluación (1º) - Examen final.', startDate: '2027-06-03', endDate: '2027-06-03' });
+    expect(finalExams).toContainEqual({ academicYearModuleId: 'am1', category: 'final_exams', name: '2ª Evaluación (2º) - Examen de recuperación final.', startDate: '2027-02-15', endDate: '2027-02-15', type: null });
+    expect(finalExams).toContainEqual({ academicYearModuleId: 'am1', category: 'final_exams', name: '2ª Evaluación (2º) - Examen final.', startDate: '2027-02-09', endDate: '2027-02-09', type: null });
+    expect(finalExams).toContainEqual({ academicYearModuleId: 'am1', category: 'final_exams', name: '3ª Evaluación (1º) - Examen de recuperación final.', startDate: '2027-06-09', endDate: '2027-06-09', type: null });
+    expect(finalExams).toContainEqual({ academicYearModuleId: 'am1', category: 'final_exams', name: '3ª Evaluación (1º) - Examen final.', startDate: '2027-06-03', endDate: '2027-06-03', type: null });
   });
 
   it('generates final_exams only for the matching entry, ignoring an evaluations entry that does not fit the pattern (UC-08/A1)', async () => {
@@ -403,6 +425,7 @@ describe('elementId: calendario-months, calendario-empty-state (reading — UC-0
       name: 'Vacaciones de Navidad.',
       startDate: '2026-12-22',
       endDate: '2027-01-07',
+      type: 'Vacaciones',
     };
     const deps = fakeDeps({
       entries: [entry],

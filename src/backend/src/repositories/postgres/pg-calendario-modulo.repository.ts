@@ -15,6 +15,7 @@ interface CalendarioModuloRow {
   // api-contracts.md documents, regardless of what the driver hands back.
   start_date: string | Date;
   end_date: string | Date;
+  type: string | null;
 }
 
 function toIsoDate(value: string | Date): string {
@@ -29,6 +30,7 @@ function toEntry(row: CalendarioModuloRow): CalendarioModuloEntry {
     name: row.name,
     startDate: toIsoDate(row.start_date),
     endDate: toIsoDate(row.end_date),
+    type: row.type,
   };
 }
 
@@ -39,7 +41,7 @@ export class PgCalendarioModuloRepository implements CalendarioModuloRepository 
 
   async findAllForAcademicYearModule(academicYearModuleId: string): Promise<CalendarioModuloEntry[]> {
     const rows = (await this.sql`
-      SELECT id, academic_year_module_id, category, name, start_date, end_date
+      SELECT id, academic_year_module_id, category, name, start_date, end_date, type
       FROM calendario_modulo
       WHERE academic_year_module_id = ${academicYearModuleId}
     `) as unknown as CalendarioModuloRow[];
@@ -53,8 +55,8 @@ export class PgCalendarioModuloRepository implements CalendarioModuloRepository 
     // pg-academic-year-module.repository.ts's own createMany.
     for (const entry of entries) {
       await this.sql`
-        INSERT INTO calendario_modulo (academic_year_module_id, category, name, start_date, end_date)
-        VALUES (${entry.academicYearModuleId}, ${entry.category}, ${entry.name}, ${entry.startDate}, ${entry.endDate})
+        INSERT INTO calendario_modulo (academic_year_module_id, category, name, start_date, end_date, type)
+        VALUES (${entry.academicYearModuleId}, ${entry.category}, ${entry.name}, ${entry.startDate}, ${entry.endDate}, ${entry.type})
         ON CONFLICT (academic_year_module_id, category, name, start_date) DO NOTHING
       `;
     }

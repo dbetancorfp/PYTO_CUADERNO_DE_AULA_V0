@@ -79,14 +79,15 @@ describe('UC-03/UC-04: Select a ciclo/módulo and view its calendar', () => {
                 cy.get(`[data-element-id="calendario-month-${targetStartYear + 1}-06"]`).should('exist');
 
                 // A1 — short range (Vacaciones de Navidad, 22/12-07/01): every day colored,
-                // including both boundaries. Real seeded key_dates data, not a fixture.
+                // including both boundaries. Real seeded key_dates data, not a fixture — real
+                // (category,type) is (holidays, "Vacaciones") -> UC-11 row 3, #eda100.
                 cy.get(`[data-element-id="calendario-month-${targetStartYear}-12-day-25"]`)
                   .should('have.attr', 'data-calendario-day-categories')
                   .and('include', 'holidays');
                 cy.get(`[data-element-id="calendario-month-${targetStartYear}-12-day-25"]`).should(
                   'have.css',
                   'background-color',
-                  'rgb(252, 165, 165)',
+                  'rgb(237, 161, 0)',
                 );
 
                 // A1 — long range (Curso escolar, 01/09-31/07, ~330 days): only its own

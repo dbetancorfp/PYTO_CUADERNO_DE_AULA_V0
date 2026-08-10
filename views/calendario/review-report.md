@@ -1,4 +1,115 @@
-# Review Report — calendario — 2026-08-10 (amendment: UC-09/UC-10 `evaluation_working_days`)
+# Review Report — calendario — 2026-08-10 (e2e-engineer follow-up: color legend, UC-11)
+
+Branch `view/calendario-legend-por-tipo`. New spec `uc-11-calendario-legend.cy.ts` (2
+tests): legend renders in canonical row order below the filters row regardless of real
+seeded-data order, each swatch's computed color matches the matching day cell's real
+computed color (real Postgres-seeded key_dates, not a stub), a plain uncovered weekend
+day renders neutral gray, a real weekend-covered entry renders its own color un-darkened.
+Fixed 2 pre-existing specs that still asserted the old fixed category colors (would have
+gone permanently stale otherwise): `uc-03-04-select-modulo-and-view-calendar.cy.ts`
+(`Vacaciones de Navidad.` now asserts `#eda100`, not the old flat red) and
+`uc-08-final-exams-generated-on-save.cy.ts` (final_exams days now split-asserted by name
+suffix — `#008300` for "Examen final.", `#59ae59` for "Examen de recuperación final." —
+not a single uniform `#bbf7d0`).
+
+Also fixed a latent collision gap in `uc-09-10-evaluation-working-days.cy.ts`: unlike
+every other calendario spec, it had no `cleanupExistingYear` guard before creating its
+target school year — it silently assumed that year was exclusively reserved for e2e,
+which a real teacher's own concurrent manual use of the same shared dev Postgres can
+violate (confirmed with the user: a real `academic_years` row for 2026 with real módulos
+"Sistemas informáticos"/"Desarrollo web en entorno cliente" existed from their own
+browser session, not from any test). Added the same defensive cleanup uc-03-04 already
+uses; not a regression from this cycle, just discovered by it.
+
+`bun run e2e` (full suite, real Postgres, real server): **80/80 passing**, 0 fail. Test
+data verified clean before and after (`academic_years` count 0 for `e2e-valid-user` post-run).
+
+## Result: PASS ✅
+
+---
+
+# Review Report — calendario — 2026-08-10 (amendment: color legend per (category,type), UC-11)
+
+Branch `view/calendario-legend-por-tipo`. Replaces the earlier undocumented fixed
+red/blue/green-by-category scheme with one color per `(category, type)` pair (UC-11's
+14-row canonical table), adds `calendario-legend`, and changes the weekend rule (neutral
+gray `#cbd5e1` only when uncovered; a covered weekend day now renders its entry's real
+color, never darkened). `calendario_modulo` gains a nullable `type` column, copied from
+`key_dates.type` at seed time; `final_exams` rows keep `type: null` (computed, no
+`key_dates` row to copy from).
+
+## Result: PASS ✅
+
+## Layers implicated: none
+
+## Supervisor notes adjudicated
+
+| Note | Resolution |
+|------|------------|
+| None — supervisor reported `Layers implicated: none` with both unit suites green and the integration smoke test verified against real Postgres (51-row snapshot, all entries carrying `type`, `final_exams` entries `type: null`). | No adjudication needed. |
+
+## SOLID violations found
+
+None. `CalendarioModuloEntry`/`CalendarioModuloInsert` widened additively (DIP unaffected —
+both repository implementations still satisfy the same interface). `COLOR_TABLE` is a flat
+data table read by pure functions (`rowMatchesEntry`/`colorRowForEntry`/`entryHex`) — a new
+color-table row is a data addition, not a code change (OCP). `calendario-view.ts` still one
+Shadow DOM, no nested custom element for `calendario-legend`. No `new ConcreteImpl()`
+introduced; both new/changed constructors still take interfaces.
+
+## SonarCloud Quality Gate
+
+| Metric | Threshold | Backend | Frontend | Result |
+|--------|-----------|---------|----------|--------|
+| Coverage (this cycle's files) | 100% lines | `calendario-modulo.repository.ts` 100%, `pg-calendario-modulo.repository.ts` 100/100, `calendario-modulo.service.ts` 100/100 | `calendario-modulo-api-service.ts` 100% (interface only), `calendario-view.ts` 100% lines / 96.81% funcs | ✅ (funcs gap pre-existing, see below) |
+| Bugs | 0 | 0 | 0 | ✅ |
+| Vulnerabilities | 0 | 0 | 0 | ✅ |
+| Duplication | ≤ 3% | none introduced | none introduced (`COLOR_TABLE` is data, not duplicated logic) | ✅ |
+
+`calendario-view.ts` Funcs: 91/94. Verified this is the **same pre-existing 3-function
+gap** already accepted in the 2026-08-07/2026-08-09/2026-08-10(UC-09) reviews, not a
+regression from this cycle: this cycle added exactly 7 functions (`isSuffixRow`,
+`rowMatchesEntry`, `colorRowForEntry`, `entryHex`, `hexesForDay`,
+`backgroundStyleForHexes` replacing the old `backgroundStyleForCategories`, `_renderLegend`,
+`_renderLegendItem` — net +7 after removing the one old function it replaced), and the
+funcs-hit count grew by the same +7 (84/87 → 91/94), leaving the gap's absolute size
+unchanged. `http-calendario-modulo-api-service.ts` (66.67% funcs) is untouched by this
+branch (`git diff main` empty) — pre-existing, out of this cycle's scope.
+
+`bun test` (full repo): 589 pass / 0 fail / 1472 expect() calls, 60 files. `bun run
+type-check`: clean.
+
+## Acceptance criteria marked (use-cases.md)
+
+| Criterion | Test that verifies it |
+|-----------|------------------------|
+| UC-04: Each entry is colored per its own (category,type) pair, not a single fixed color per category | `calendario-view.test.ts` › "colors each (category,type) pair per UC-11´s canonical table, across every category family" |
+| UC-04: A (category,type) pair not in UC-11's table falls back to that category's base hue | `calendario-view.test.ts` › "a (category,type) pair not in UC-11´s table falls back to that category´s own row-1 hex, distinct from other types in the same category" |
+| UC-04: A plain Saturday/Sunday with no entry is colored neutral gray (#cbd5e1) | `calendario-view.test.ts` › "a plain Saturday/Sunday with no calendario_modulo entry is colored neutral gray" |
+| UC-04: A Saturday/Sunday covered by an entry is colored that entry's real color, not darkened | `calendario-view.test.ts` › "a Saturday/Sunday covered by an entry is colored that entry´s real color, not darkened and not gray" + "a Saturday covered by an evaluations entry is colored that entry´s real color, not gray" |
+| UC-11: calendario-legend sits directly below the filters row, flex flex-wrap, never scrolling | `calendario-view.test.ts` › "calendario-legend renders directly below the filters row, laid out horizontally with wrapping, never scrolling" |
+| UC-11: shows exactly one swatch+label per color-table row present in the currently loaded data | `calendario-view.test.ts` › "renders one swatch+label per color-table row present..." + "shows exactly one swatch per color-table row even when several entries match it" |
+| UC-11: Swatches render in the color table's fixed order | `calendario-view.test.ts` › "renders one swatch+label per color-table row present, in the table´s canonical order regardless of data order" |
+| UC-11: Each swatch's color exactly matches calendario-months's color for that same (category,type) | `calendario-view.test.ts` › "each swatch´s color exactly matches calendario-months´s color for that same (category,type)" |
+| UC-11: A módulo with zero calendario_modulo rows renders no legend swatches | `calendario-view.test.ts` › "a módulo with zero calendario_modulo rows renders no legend swatches at all" |
+| UC-11: A módulo missing some color-table rows' data shows only the rows it has | `calendario-view.test.ts` › "a módulo missing some color-table rows´ data shows only the rows it has, no placeholder for absent ones" |
+
+## Criteria without verifiable coverage
+
+None for this cycle's scope — all UC-04/UC-11 criteria touched by this change have a
+green test pointed at above. `calendario-legend`'s exact visual layout (real flex-wrap
+behavior, real swatch pixel positions) is real-CSS territory, same class of gap already
+accepted for this view's other layout rules — deferred to `e2e-engineer` below.
+
+## Deferred to e2e-engineer
+
+| File / branch | Why it can't be unit-tested here | What to verify once real infra exists |
+|---|---|---|
+| `calendario-view.ts` — `calendario-legend` | `happy-dom` doesn't compute real CSS flex-wrap layout; this review only confirmed the `flex`/`flex-wrap` classes are present and item order/count/color are correct in the DOM | Real Cypress run: legend actually wraps onto additional lines at a narrow viewport without horizontal scroll, sits visually directly below the filters card |
+
+---
+
+
 
 **Post-merge layout follow-up (2026-08-10, branch `view/calendario-working-days-layout-fix`)**:
 user reported, after using the merged view in a real browser, that `evaluation-working-days-summary`

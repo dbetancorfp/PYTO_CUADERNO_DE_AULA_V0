@@ -80,6 +80,7 @@ function computeFinalExamsEntries(
         name: `${prefix} - Examen de recuperación final.`,
         startDate: retakeExamDate,
         endDate: retakeExamDate,
+        type: null,
       },
       {
         academicYearModuleId,
@@ -87,6 +88,7 @@ function computeFinalExamsEntries(
         name: `${prefix} - Examen final.`,
         startDate: finalExamDate,
         endDate: finalExamDate,
+        type: null,
       },
     );
   }
@@ -158,6 +160,7 @@ export class CalendarioModuloService implements CalendarioModuloSeeder {
       name: keyDate.name,
       startDate: toIsoDate(resolveCalendarYear(keyDate.startMonth, startYear), keyDate.startMonth, keyDate.startDay),
       endDate: toIsoDate(resolveCalendarYear(keyDate.endMonth, startYear), keyDate.endMonth, keyDate.endDay),
+      type: keyDate.type,
     }));
 
     const entries: CalendarioModuloInsert[] = [];

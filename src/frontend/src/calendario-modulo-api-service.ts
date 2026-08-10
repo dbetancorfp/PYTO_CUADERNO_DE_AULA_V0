@@ -13,6 +13,7 @@ export interface CalendarioModuloEntry {
   name: string;
   startDate: string;
   endDate: string;
+  type: string | null;
 }
 
 export interface CalendarioModuloApiService {

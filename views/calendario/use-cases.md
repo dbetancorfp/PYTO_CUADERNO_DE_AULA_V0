@@ -132,10 +132,11 @@ selected
 2. `GET /api/calendario-modulo?academicYearModuleId=<id>` fetches that módulo's
    snapshot rows.
 3. `calendario-months` renders 10 month cards, September of the selected school year
-   through June of the next, each day cell colored per the categories covering it (red:
-   `academic_key_dates`, `holidays`, `public_holidays`, `free_disposal_days`; blue:
-   `evaluations`, `feoe_project_days`; light green (`#bbf7d0`): `final_exams` — see
-   UC-08).
+   through June of the next, each day cell colored per the `(category, type)` pair(s)
+   covering it — see UC-11's color table (2026-08-10, replaces the earlier fixed
+   red/blue/green-by-category scheme). A `(category, type)` combination absent from
+   UC-11's table (a custom `key_dates` row with no `tipo` set) falls back to that
+   category's base hue.
 4. Teacher changes `module-filter`; `calendario-months` reloads for the newly selected
    `academic_year_module_id`.
 
@@ -145,13 +146,20 @@ selected
   "Curso escolar", 01/09–31/07) colors only its `start_date` and `end_date`, not every
   day in between — a range of 30 days or fewer colors every day in it, including both
   boundaries.
-- **A2 — Overlapping categories**: a day covered by more than one category's range shows
-  a split background (one color band per active category), not just one color chosen
-  arbitrarily.
+- **A2 — Overlapping entries**: a day covered by more than one `calendario_modulo` entry
+  shows a split background (one color band per active `(category, type)`, hard CSS
+  stops), not just one color chosen arbitrarily — generalizes the same rule from
+  category-level (pre-2026-08-10) to `(category, type)`-level.
 - **A3 — Empty**: selected `academic_year_module_id` has zero `calendario_modulo` rows
   (module assigned, but its snapshot never generated, or the school year itself has no
   `academic_years` row) — `calendario-months` isn't rendered, `calendario-empty-state`
   is shown instead.
+- **A4 — Weekend (2026-08-10)**: a Saturday/Sunday with no entry covering it renders a
+  neutral gray (`#cbd5e1`) instead of the plain-weekday's uncolored background — a purely
+  calendar-structure cue, not a `(category, type)` color, so it has no `calendario-legend`
+  entry. A Saturday/Sunday that *is* covered by an entry renders that entry's real
+  `(category, type)` color, same as a weekday — no darkening, unlike the pre-2026-08-10
+  scheme's "weekend + public_holidays = darker red" special case, which this replaces.
 
 ### Postconditions
 
@@ -168,14 +176,19 @@ selected
 - [x] `calendario-months` renders exactly 10 month cards, September of the selected
       school year through June of the following year, in order
 - [x] A day inside a ≤30-day `calendario_modulo` range (e.g. Vacaciones de Navidad,
-      22/12–07/01) is colored red for every day in that range, including the boundary
-      days
+      22/12–07/01) is colored for every day in that range, including the boundary days,
+      using that entry's `(category, type)` color
 - [x] A day inside a >30-day `calendario_modulo` range (e.g. Curso escolar, 01/09–31/07)
       is colored only on its start day and its end day, not on the days in between
-- [x] A day covered only by an `evaluations` or `feoe_project_days` range is colored blue
-- [x] A day covered only by a `final_exams` entry is colored light green (`#bbf7d0`)
-- [x] A day covered by both a red-category and a blue-category range at once shows both
-      colors, not just one
+- [x] Each entry is colored per its own `(category, type)` pair (UC-11's table), not a
+      single fixed color per category
+- [x] A `(category, type)` pair not in UC-11's table (no `tipo` set) falls back to that
+      category's base hue
+- [x] A plain Saturday/Sunday with no entry is colored neutral gray (`#cbd5e1`)
+- [x] A Saturday/Sunday covered by an entry is colored that entry's real color, not
+      darkened
+- [x] A day covered by more than one entry at once shows a split background (one band
+      per `(category, type)`), not just one color
 - [x] When the selected `academic_year_module_id` has no `calendario_modulo` rows,
       `calendario-months` is not rendered and `calendario-empty-state` is shown instead
 
@@ -472,3 +485,83 @@ Cross-view backend side effect, same nature as UC-06/UC-08.
 - [x] Changing `module-filter` triggers a new `GET
       /api/calendario-evaluation-working-days` request and updates the rendered lines
 - [x] A módulo with zero rows renders no lines at all
+
+---
+
+## UC-11: See the color legend for the selected módulo's calendar
+
+**Primary actor**: Any signed-in teacher, on `/calendario`
+**Preconditions**: Valid session; a módulo is selected (same precondition as UC-04)
+**Elements**: `calendario-legend`
+
+Replaces the earlier undocumented 3-color (red/blue/green) category scheme with one color
+per `(category, type)` pair — `type` (2026-08-10, see `views/fechas-senaladas`) is now
+copied into `calendario_modulo` at seed time (UC-06) instead of being dropped. The color
+table below is the single source of truth `calendario-months` (UC-04) and
+`calendario-legend` both read from — a day's fill and its legend entry are always the same
+color by construction, never maintained as two separate lists.
+
+### Color table (canonical order — also `calendario-legend`'s render order)
+
+| # | category | type (or name-suffix match) | Label shown | Hex |
+|---|---|---|---|---|
+| 1 | `academic_key_dates` | `Curso escolar` | Curso escolar | `#2a78d6` |
+| 2 | `academic_key_dates` | `Presentación de proyectos` | Presentación de proyectos | `#75a7e4` |
+| 3 | `holidays` | `Vacaciones` | Vacaciones | `#eda100` |
+| 4 | `public_holidays` | `Festivo nacional` | Festivo nacional | `#eb6834` |
+| 5 | `public_holidays` | `Festivo autonómico` | Festivo autonómico | `#ef8961` |
+| 6 | `public_holidays` | `Festivo insular (Tenerife)` | Festivo insular (Tenerife) | `#f4aa8d` |
+| 7 | `public_holidays` | `Festivo local (Puerto de la Cruz)` | Festivo local (Puerto de la Cruz) | `#f7c6b2` |
+| 8 | `free_disposal_days` | `Libre disposición` | Libre disposición | `#1baf7a` |
+| 9 | `evaluations` | `Último dia para poner nota` | Último día para poner notas | `#e87ba4` |
+| 10 | `evaluations` | `Sesión evaluación` | Sesión de evaluación | `#ee9cbb` |
+| 11 | `evaluations` | `Atención familiar` | Atención familiar | `#f4bdd2` |
+| 12 | `feoe_project_days` | `Día de alternancia` | Día de alternancia (FEOE) | `#4a3aa7` |
+| 13 | `final_exams` | name ends `"Examen final."` | Examen final | `#008300` |
+| 14 | `final_exams` | name ends `"Examen de recuperación final."` | Examen de recuperación final | `#59ae59` |
+
+Rows 1-12 match by `(category, type)` equality against `calendario_modulo.type`; rows
+13-14 (`final_exams`, which has no `type`) match by `name`'s suffix instead. A
+`calendario_modulo` entry whose `(category, type)` isn't any of rows 1-12 (a custom
+`key_dates` row saved with no `tipo`) doesn't get its own legend entry — `calendario-months`
+falls back to that category's row-1-of-that-category hex (UC-04/A1... see UC-04's own
+fallback rule), but the legend only ever lists colors that come from this fixed table.
+
+### Main flow
+
+1. Once `calendario-months` has data (module selected, `calendario_modulo` non-empty),
+   `calendario-legend` renders directly below the filters row (same card style, its own
+   row), one swatch + label per color-table row that has at least one matching entry in
+   the currently loaded `calendario_modulo` response — in the table's canonical order,
+   never re-sorted by frequency or alphabetically.
+2. Swatches lay out horizontally (`flex flex-wrap`), wrapping onto additional lines as
+   needed at narrow widths — never horizontal scroll.
+3. Teacher changes `module-filter`; `calendario-legend` recomputes for the newly loaded
+   entries, same trigger as `calendario-months` (UC-04).
+
+### Alternative flows
+
+- **A1 — Empty**: selected `academic_year_module_id` has zero `calendario_modulo` rows
+  (same state `calendario-empty-state` covers for `calendario-months`, UC-04/A3) —
+  `calendario-legend` renders nothing.
+- **A2 — Partial coverage**: a módulo whose `calendario_modulo` rows don't include every
+  color-table row (e.g. a curso-2 módulo's `evaluations` set lacks whatever produces row
+  11) shows only the rows it actually has — never a placeholder swatch for an absent one.
+
+### Postconditions
+
+- No data changes (read-only).
+
+### Acceptance criteria
+
+- [x] `calendario-legend` sits directly below the filters row, in its own horizontal,
+      wrapping row (`flex flex-wrap`), never a horizontal scrollbar
+- [x] `calendario-legend` shows exactly one swatch+label per color-table row that has at
+      least one matching entry in the currently loaded módulo's `calendario_modulo` data
+- [x] Swatches render in the color table's fixed order (table above), not re-sorted
+- [x] Each swatch's color exactly matches the hex `calendario-months` uses for that same
+      `(category, type)` (or, for `final_exams`, that same name-suffix) — single source of
+      truth, never two independently-maintained color lists
+- [x] A módulo with zero `calendario_modulo` rows renders no legend swatches at all
+- [x] A módulo missing some color-table rows' data shows only the rows it has, no
+      placeholder for absent ones

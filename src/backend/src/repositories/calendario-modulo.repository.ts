@@ -16,6 +16,9 @@ export interface CalendarioModuloEntry {
   startDate: string;
   /** "YYYY-MM-DD" */
   endDate: string;
+  /** Copied from `key_dates.type` at seed time (UC-11) — `null` for `final_exams` rows
+   * (computed, not copied) or a custom `key_dates` row saved with no `tipo`. */
+  type: string | null;
 }
 
 export interface CalendarioModuloInsert {
@@ -26,6 +29,9 @@ export interface CalendarioModuloInsert {
   startDate: string;
   /** "YYYY-MM-DD" */
   endDate: string;
+  /** Copied from `key_dates.type` at seed time (UC-11) — `null` for `final_exams` rows
+   * (computed, not copied) or a custom `key_dates` row saved with no `tipo`. */
+  type: string | null;
 }
 
 export interface CalendarioModuloRepository {

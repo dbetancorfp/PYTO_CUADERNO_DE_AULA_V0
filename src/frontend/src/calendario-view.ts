@@ -20,30 +20,77 @@ interface DistinctCycle {
  * `academic-year-api-service.ts` instead of redeclaring them. */
 type CalendarioAcademicYearApiService = Pick<AcademicYearApiService, 'list' | 'listModules'>;
 
-const RED_CATEGORIES: readonly string[] = ['academic_key_dates', 'holidays', 'public_holidays', 'free_disposal_days'];
-const BLUE_CATEGORIES: readonly string[] = ['evaluations', 'feoe_project_days'];
-/** Final/resit exam days (`calendario_modulo.category = 'final_exams'`) are always computed
- * as business days (see `views/calendario/use-cases.md` UC-08), so unlike `BLUE_CATEGORIES`
- * this never needs to participate in `backgroundStyleForDay`'s weekend override. */
-const GREEN_CATEGORIES: readonly string[] = ['final_exams'];
+/** One row of UC-11's canonical color table — the single source of truth both
+ * `calendario-months`'s day-cell backgrounds and `calendario-legend`'s swatches read from
+ * (see `views/calendario/use-cases.md` UC-11, 2026-08-10). Rows 1-12 match a
+ * `calendario_modulo` entry by `(category, type)` equality; rows 13-14 (`final_exams`, which
+ * has no `type` column) match by `name`'s suffix instead — the two match kinds are mutually
+ * exclusive per row (OCP: a new row is just a new table entry, never a code change to the
+ * matching logic itself). */
+interface ColorTableRowBase {
+  readonly row: number;
+  readonly category: string;
+  readonly label: string;
+  readonly hex: string;
+}
+interface ColorTableRowByType extends ColorTableRowBase {
+  readonly type: string;
+  readonly nameSuffix?: undefined;
+}
+interface ColorTableRowBySuffix extends ColorTableRowBase {
+  readonly type?: undefined;
+  readonly nameSuffix: string;
+}
+type ColorTableRow = ColorTableRowByType | ColorTableRowBySuffix;
 
-const RED_HEX = '#fca5a5';
-const BLUE_HEX = '#93c5fd';
-const GREEN_HEX = '#bbf7d0';
-const FALLBACK_HEX = '#cbd5e1';
-/** Plain Saturday/Sunday with no `public_holidays` entry — same shade `RED_HEX` already
- * gives `holidays`/`free_disposal_days`/`academic_key_dates`, so a weekend day carrying one
- * of those categories renders identically either way. */
-const WEEKEND_RED_HEX = RED_HEX;
-/** Saturday/Sunday that's also a `public_holidays` entry — darker than `WEEKEND_RED_HEX` to
- * flag the coincidence. */
-const WEEKEND_HOLIDAY_RED_HEX = '#b91c1c';
+/** UC-11's canonical color table, in its canonical (also `calendario-legend`'s render)
+ * order — row numbers 1-14 double as `calendario-legend-item-<N>`'s `<N>`. */
+const COLOR_TABLE: readonly ColorTableRow[] = [
+  { row: 1, category: 'academic_key_dates', type: 'Curso escolar', label: 'Curso escolar', hex: '#2a78d6' },
+  { row: 2, category: 'academic_key_dates', type: 'Presentación de proyectos', label: 'Presentación de proyectos', hex: '#75a7e4' },
+  { row: 3, category: 'holidays', type: 'Vacaciones', label: 'Vacaciones', hex: '#eda100' },
+  { row: 4, category: 'public_holidays', type: 'Festivo nacional', label: 'Festivo nacional', hex: '#eb6834' },
+  { row: 5, category: 'public_holidays', type: 'Festivo autonómico', label: 'Festivo autonómico', hex: '#ef8961' },
+  { row: 6, category: 'public_holidays', type: 'Festivo insular (Tenerife)', label: 'Festivo insular (Tenerife)', hex: '#f4aa8d' },
+  { row: 7, category: 'public_holidays', type: 'Festivo local (Puerto de la Cruz)', label: 'Festivo local (Puerto de la Cruz)', hex: '#f7c6b2' },
+  { row: 8, category: 'free_disposal_days', type: 'Libre disposición', label: 'Libre disposición', hex: '#1baf7a' },
+  // `type`'s real value has no accent on "dia" and is singular "nota" — the label shown in
+  // the legend is the correctly accented, plural "notas" spelling. Deliberately different
+  // literals; not a typo.
+  { row: 9, category: 'evaluations', type: 'Último dia para poner nota', label: 'Último día para poner notas', hex: '#e87ba4' },
+  { row: 10, category: 'evaluations', type: 'Sesión evaluación', label: 'Sesión de evaluación', hex: '#ee9cbb' },
+  { row: 11, category: 'evaluations', type: 'Atención familiar', label: 'Atención familiar', hex: '#f4bdd2' },
+  { row: 12, category: 'feoe_project_days', type: 'Día de alternancia', label: 'Día de alternancia (FEOE)', hex: '#4a3aa7' },
+  { row: 13, category: 'final_exams', nameSuffix: 'Examen final.', label: 'Examen final', hex: '#008300' },
+  { row: 14, category: 'final_exams', nameSuffix: 'Examen de recuperación final.', label: 'Examen de recuperación final', hex: '#59ae59' },
+];
 
-const CATEGORY_COLOR_HEX: Record<string, string> = {
-  ...Object.fromEntries(RED_CATEGORIES.map((category) => [category, RED_HEX])),
-  ...Object.fromEntries(BLUE_CATEGORIES.map((category) => [category, BLUE_HEX])),
-  ...Object.fromEntries(GREEN_CATEGORIES.map((category) => [category, GREEN_HEX])),
-};
+/** Plain Saturday/Sunday with no `calendario_modulo` entry covering it — a calendar-
+ * structure cue, not a `(category, type)` color, so it has no `calendario-legend` entry (see
+ * `views/calendario/use-cases.md` UC-04/A4). */
+const WEEKEND_NEUTRAL_HEX = '#cbd5e1';
+
+function isSuffixRow(row: ColorTableRow): row is ColorTableRowBySuffix {
+  return row.nameSuffix !== undefined;
+}
+
+function rowMatchesEntry(row: ColorTableRow, entry: CalendarioModuloEntry): boolean {
+  if (row.category !== entry.category) return false;
+  return isSuffixRow(row) ? entry.name.endsWith(row.nameSuffix) : entry.type === row.type;
+}
+
+/** The color-table row a `calendario_modulo` entry's day cell / legend swatch is drawn from:
+ * an exact `(category, type)` (or `final_exams` name-suffix) match when one exists, otherwise
+ * that category's own row-1 as the documented fallback (see UC-04/UC-11). Every category this
+ * screen ever receives from the backend has at least one table row, so the fallback always
+ * resolves. */
+function colorRowForEntry(entry: CalendarioModuloEntry): ColorTableRow | undefined {
+  return COLOR_TABLE.find((row) => rowMatchesEntry(row, entry)) ?? COLOR_TABLE.find((row) => row.category === entry.category);
+}
+
+function entryHex(entry: CalendarioModuloEntry): string {
+  return colorRowForEntry(entry)?.hex ?? WEEKEND_NEUTRAL_HEX;
+}
 
 const FORWARD_YEAR_WINDOW = 5;
 /** Beyond this many inclusive days, a range only marks its own boundaries (see
@@ -141,36 +188,42 @@ function categoriesForDay(entries: readonly CalendarioModuloEntry[], dayDate: st
   return categories;
 }
 
-/** One solid color when a single category (or several of the same color) applies; a hard-
- * stop `linear-gradient` band per distinct color when categories of both colors apply
- * (see `views/calendario/use-cases.md` UC-04/A2) — never a smooth blend. */
-function backgroundStyleForCategories(categories: readonly string[]): string {
-  const colors = Array.from(new Set(categories.map((category) => CATEGORY_COLOR_HEX[category] ?? FALLBACK_HEX)));
-  if (colors.length === 0) return '';
-  if (colors.length === 1) return `background-color: ${colors[0]};`;
+/** Distinct resolved hex colors (per entry, via `entryHex`/UC-11's color table) covering
+ * `dayDate`, in first-seen order. */
+function hexesForDay(entries: readonly CalendarioModuloEntry[], dayDate: string): string[] {
+  const hexes: string[] = [];
+  for (const entry of entriesCoveringDay(entries, dayDate)) {
+    const hex = entryHex(entry);
+    if (!hexes.includes(hex)) hexes.push(hex);
+  }
+  return hexes;
+}
 
-  const bandWidth = 100 / colors.length;
-  const stops = colors
-    .map((color, index) => `${color} ${index * bandWidth}%, ${color} ${(index + 1) * bandWidth}%`)
+/** One solid color when a single hex (or several entries resolving to the same hex)
+ * applies; a hard-stop `linear-gradient` band per distinct hex when entries of different
+ * colors apply (see `views/calendario/use-cases.md` UC-04/A2) — never a smooth blend. */
+function backgroundStyleForHexes(hexes: readonly string[]): string {
+  if (hexes.length === 0) return '';
+  if (hexes.length === 1) return `background-color: ${hexes[0]};`;
+
+  const bandWidth = 100 / hexes.length;
+  const stops = hexes
+    .map((hex, index) => `${hex} ${index * bandWidth}%, ${hex} ${(index + 1) * bandWidth}%`)
     .join(', ');
   return `background-image: linear-gradient(90deg, ${stops});`;
 }
 
-/** Saturdays/Sundays always get a red background, darker when `public_holidays` also
- * covers that day — unless a blue category (`evaluations`/`feoe_project_days`) also covers
- * it, in which case that real academic event wins and the day renders exactly like a
- * weekday would (via `backgroundStyleForCategories`). */
-function backgroundStyleForDay(weekday: number, categories: readonly string[]): string {
+/** A day covered by at least one `calendario_modulo` entry always renders that entry's (or
+ * those entries') real resolved color(s) — weekday or weekend alike, never darkened (see
+ * `views/calendario/use-cases.md` UC-04/A4, 2026-08-10). A plain Saturday/Sunday with no
+ * entry covering it renders `WEEKEND_NEUTRAL_HEX` instead of the plain-weekday's uncolored
+ * background; an uncovered weekday renders uncolored. */
+function backgroundStyleForDay(weekday: number, entries: readonly CalendarioModuloEntry[], dayDate: string): string {
+  const hexes = hexesForDay(entries, dayDate);
+  if (hexes.length > 0) return backgroundStyleForHexes(hexes);
+
   const isWeekend = weekday >= 5;
-  const hasBlueCategory = categories.some((category) => BLUE_CATEGORIES.includes(category));
-
-  if (isWeekend && !hasBlueCategory) {
-    const color = categories.includes('public_holidays') ? WEEKEND_HOLIDAY_RED_HEX : WEEKEND_RED_HEX;
-    return `background-color: ${color};`;
-  }
-
-  if (categories.length === 0) return '';
-  return backgroundStyleForCategories(categories);
+  return isWeekend ? `background-color: ${WEEKEND_NEUTRAL_HEX};` : '';
 }
 
 function parseDayElementId(elementId: string): string | null {
@@ -519,7 +572,7 @@ export class CalendarioView extends HTMLElement {
     render(
       html`
         <div class="flex flex-col gap-6 p-4">
-          ${this._renderNav()} ${this._renderFilters()} ${this._renderCalendarSection()}
+          ${this._renderNav()} ${this._renderFilters()} ${this._renderLegend()} ${this._renderCalendarSection()}
         </div>
         ${renderToast('calendario-day-toast', this._toast.current, () => this._toast.dismiss())}
       `,
@@ -631,6 +684,39 @@ export class CalendarioView extends HTMLElement {
   }
 
   /**
+   * calendario-legend — own card-style row directly below the filters row, one swatch+label
+   * per UC-11 color-table row that has at least one matching entry in the currently loaded
+   * `_calendarEntries` snapshot (the same full-módulo data `calendario-months` reads from,
+   * not just what's visible on screen), in the table's fixed canonical order. Renders
+   * nothing at all when the módulo has no `calendario_modulo` rows — same precondition
+   * `calendario-empty-state` covers for `calendario-months` (UC-11/A1).
+   */
+  private _renderLegend(): TemplateResult | typeof nothing {
+    if (this._calendarEntries.length === 0) return nothing;
+
+    const rows = COLOR_TABLE.filter((row) => this._calendarEntries.some((entry) => rowMatchesEntry(row, entry)));
+    if (rows.length === 0) return nothing;
+
+    return html`
+      <section class="${classesFor('card')} flex flex-wrap items-center gap-3 px-4 py-3" data-element-id="calendario-legend">
+        ${rows.map((row) => this._renderLegendItem(row))}
+      </section>
+    `;
+  }
+
+  private _renderLegendItem(row: ColorTableRow): TemplateResult {
+    return html`
+      <span
+        class="${classesFor('badge')} gap-1"
+        data-element-id="calendario-legend-item-${row.row}"
+        style="background-color: ${row.hex};"
+      >
+        ${row.label}
+      </span>
+    `;
+  }
+
+  /**
    * calendario-months only renders once the selected módulo's calendario_modulo snapshot
    * has at least one entry — zero entries (no year row for the selected school year, a year
    * row with no cycles/módulos, or a módulo assigned but never generated) always renders
@@ -676,7 +762,7 @@ export class CalendarioView extends HTMLElement {
     const dayDate = dayDateString(year, month, day);
     const categories = categoriesForDay(this._calendarEntries, dayDate);
     const weekday = mondayFirstWeekday(year, month, day);
-    const style = backgroundStyleForDay(weekday, categories);
+    const style = backgroundStyleForDay(weekday, this._calendarEntries, dayDate);
 
     return html`
       <div
