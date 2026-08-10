@@ -56,6 +56,15 @@ interface CalendarioModuloApiService {
   findForModule(academicYearModuleId: string): Promise<CalendarioModuloEntry[]>;
 }
 
+interface EvaluationWorkingDaysEntry {
+  evaluationNumber: number;
+  workingDays: number;
+}
+
+interface EvaluationWorkingDaysApiService {
+  findForModule(academicYearModuleId: string): Promise<EvaluationWorkingDaysEntry[]>;
+}
+
 function fakeSessionService(): SessionApiService {
   return { getSession: async () => ({ authenticated: true, fullName: 'Ana García' }), logout: async () => {} };
 }
@@ -93,15 +102,24 @@ function fakeCalendarioModuloService(overrides: Partial<CalendarioModuloApiServi
   };
 }
 
+function fakeEvaluationWorkingDaysService(overrides: Partial<EvaluationWorkingDaysApiService> = {}): EvaluationWorkingDaysApiService {
+  return {
+    findForModule: async () => [],
+    ...overrides,
+  };
+}
+
 async function mountView(overrides?: {
   academicYear?: AcademicYearApiService;
   calendarioModulo?: CalendarioModuloApiService;
+  evaluationWorkingDays?: EvaluationWorkingDaysApiService;
   today?: Date;
 }): Promise<CalendarioView> {
   const el = document.createElement('app-calendario-view') as CalendarioView;
   el.sessionService = fakeSessionService();
   el.academicYearService = overrides?.academicYear ?? fakeAcademicYearService();
   el.calendarioModuloService = overrides?.calendarioModulo ?? fakeCalendarioModuloService();
+  el.evaluationWorkingDaysService = overrides?.evaluationWorkingDays ?? fakeEvaluationWorkingDaysService();
   if (overrides?.today) el.today = overrides.today;
   document.body.appendChild(el);
   await new Promise((resolve) => setTimeout(resolve, 0));
@@ -272,6 +290,74 @@ describe('elementId: cycle-filter, module-filter', () => {
     const moduleFilterText = el.shadowRoot!.querySelector('[data-element-id="module-filter"]')!.textContent!;
     expect(moduleFilterText).toContain('Bases de datos');
     expect(moduleFilterText).not.toContain('Programación');
+
+    el.remove();
+  });
+});
+
+describe('elementId: evaluation-working-days-summary', () => {
+  it('renders one line per evaluationNumber present, exact text, in a column at the far right', async () => {
+    const el = await mountView({
+      evaluationWorkingDays: fakeEvaluationWorkingDaysService({
+        findForModule: async () => [
+          { evaluationNumber: 1, workingDays: 56 },
+          { evaluationNumber: 2, workingDays: 121 },
+        ],
+      }),
+    });
+
+    expect(el.shadowRoot!.querySelector('[data-element-id="evaluation-working-days-1"]')!.textContent).toBe('Días laborables 1ª evaluación: 56');
+    expect(el.shadowRoot!.querySelector('[data-element-id="evaluation-working-days-2"]')!.textContent).toBe('Días laborables 2ª evaluación: 121');
+    expect(el.shadowRoot!.querySelector('[data-element-id="evaluation-working-days-3"]')).toBeNull();
+
+    el.remove();
+  });
+
+  it('renders all three lines when all three evaluaciones have data', async () => {
+    const el = await mountView({
+      evaluationWorkingDays: fakeEvaluationWorkingDaysService({
+        findForModule: async () => [
+          { evaluationNumber: 1, workingDays: 56 },
+          { evaluationNumber: 2, workingDays: 121 },
+          { evaluationNumber: 3, workingDays: 186 },
+        ],
+      }),
+    });
+
+    expect(el.shadowRoot!.querySelector('[data-element-id="evaluation-working-days-3"]')!.textContent).toBe('Días laborables 3ª evaluación: 186');
+
+    el.remove();
+  });
+
+  it('renders no lines at all when the selected módulo has zero calendario_evaluation_working_days rows', async () => {
+    const el = await mountView({
+      evaluationWorkingDays: fakeEvaluationWorkingDaysService({ findForModule: async () => [] }),
+    });
+
+    expect(el.shadowRoot!.querySelector('[data-element-id="evaluation-working-days-1"]')).toBeNull();
+    expect(el.shadowRoot!.querySelector('[data-element-id="evaluation-working-days-2"]')).toBeNull();
+    expect(el.shadowRoot!.querySelector('[data-element-id="evaluation-working-days-3"]')).toBeNull();
+
+    el.remove();
+  });
+
+  it('changing module-filter reloads the summary for the newly selected academic_year_module_id', async () => {
+    const el = await mountView({
+      academicYear: fakeAcademicYearService({ listModules: async () => [MODULE_DAW, MODULE_DAM] }),
+      evaluationWorkingDays: fakeEvaluationWorkingDaysService({
+        findForModule: async (academicYearModuleId: string) =>
+          academicYearModuleId === 'am2' ? [{ evaluationNumber: 1, workingDays: 30 }] : [{ evaluationNumber: 1, workingDays: 56 }],
+      }),
+    });
+
+    expect(el.shadowRoot!.querySelector('[data-element-id="evaluation-working-days-1"]')!.textContent).toBe('Días laborables 1ª evaluación: 56');
+
+    const cycleSelect = el.shadowRoot!.querySelector<HTMLSelectElement>('[data-element-id="cycle-filter"]')!;
+    cycleSelect.value = 'c2';
+    cycleSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    await tick();
+
+    expect(el.shadowRoot!.querySelector('[data-element-id="evaluation-working-days-1"]')!.textContent).toBe('Días laborables 1ª evaluación: 30');
 
     el.remove();
   });

@@ -6,6 +6,7 @@ import { ToastController, renderToast } from './toast';
 import type { SessionApiService } from './session-api-service';
 import type { AcademicYear, AcademicYearApiService, AcademicYearModuleDetail } from './academic-year-api-service';
 import type { CalendarioModuloApiService, CalendarioModuloEntry } from './calendario-modulo-api-service';
+import type { EvaluationWorkingDaysApiService, EvaluationWorkingDaysEntry } from './evaluation-working-days-api-service';
 
 interface DistinctCycle {
   id: string;
@@ -201,6 +202,7 @@ export class CalendarioView extends HTMLElement {
   private _sessionService: SessionApiService | null = null;
   private _academicYearService: CalendarioAcademicYearApiService | null = null;
   private _calendarioModuloService: CalendarioModuloApiService | null = null;
+  private _evaluationWorkingDaysService: EvaluationWorkingDaysApiService | null = null;
   private _today: Date = new Date();
 
   private _authenticated = false;
@@ -216,6 +218,7 @@ export class CalendarioView extends HTMLElement {
   private _selectedModuleId: string | null = null;
 
   private _calendarEntries: CalendarioModuloEntry[] = [];
+  private _evaluationWorkingDaysEntries: EvaluationWorkingDaysEntry[] = [];
 
   private readonly _toast: ToastController = new ToastController(() => this._render());
 
@@ -252,6 +255,17 @@ export class CalendarioView extends HTMLElement {
       throw new Error('CalendarioView.calendarioModuloService must be set before use');
     }
     return this._calendarioModuloService;
+  }
+
+  set evaluationWorkingDaysService(value: EvaluationWorkingDaysApiService) {
+    this._evaluationWorkingDaysService = value;
+  }
+
+  get evaluationWorkingDaysService(): EvaluationWorkingDaysApiService {
+    if (this._evaluationWorkingDaysService === null) {
+      throw new Error('CalendarioView.evaluationWorkingDaysService must be set before use');
+    }
+    return this._evaluationWorkingDaysService;
   }
 
   set today(value: Date) {
@@ -344,12 +358,14 @@ export class CalendarioView extends HTMLElement {
       this._selectFirstModuleForCycle();
       this._render();
       void this._loadCalendar();
+      void this._loadEvaluationWorkingDays();
       return;
     }
     if (elementId === 'module-filter') {
       this._selectedModuleId = value;
       this._render();
       void this._loadCalendar();
+      void this._loadEvaluationWorkingDays();
     }
   }
 
@@ -411,6 +427,7 @@ export class CalendarioView extends HTMLElement {
     this._selectedCycleId = null;
     this._selectedModuleId = null;
     this._calendarEntries = [];
+    this._evaluationWorkingDaysEntries = [];
     this._render();
 
     if (row === null) return;
@@ -422,6 +439,7 @@ export class CalendarioView extends HTMLElement {
     this._selectFirstModuleForCycle();
     this._render();
     void this._loadCalendar();
+    void this._loadEvaluationWorkingDays();
   }
 
   // ---------------------------------------------------------------------------------------
@@ -471,6 +489,23 @@ export class CalendarioView extends HTMLElement {
     this._render();
   }
 
+  /** Loads `evaluation-working-days-summary`'s data for the selected módulo — same
+   * trigger points as `_loadCalendar` (initial load, cycle change, módulo change; see
+   * `views/calendario/use-cases.md` UC-10). */
+  private async _loadEvaluationWorkingDays(): Promise<void> {
+    const moduleId = this._selectedModuleId;
+    if (moduleId === null) {
+      this._evaluationWorkingDaysEntries = [];
+      this._render();
+      return;
+    }
+
+    const entries = await this.evaluationWorkingDaysService.findForModule(moduleId);
+    if (this._selectedModuleId !== moduleId) return; // stale — the módulo changed again meanwhile
+    this._evaluationWorkingDaysEntries = entries;
+    this._render();
+  }
+
   // ---------------------------------------------------------------------------------------
   // Rendering
   // ---------------------------------------------------------------------------------------
@@ -509,7 +544,7 @@ export class CalendarioView extends HTMLElement {
     const modules = this._modulesForSelectedCycle();
 
     return html`
-      <section class="${classesFor('card')} flex flex-wrap items-center gap-6 px-4 py-3">
+      <section class="${classesFor('card')} relative flex flex-wrap items-center gap-6 px-4 py-3">
         <div class="flex items-center gap-2">
           <button
             type="button"
@@ -549,8 +584,45 @@ export class CalendarioView extends HTMLElement {
             )}
           </select>
         </label>
+
+        ${this._renderEvaluationWorkingDaysSummary()}
       </section>
     `;
+  }
+
+  /**
+   * Far-right column of the filters row — one small-text line per `evaluationNumber`
+   * present in the selected módulo's `calendario_evaluation_working_days` rows. The
+   * filters `<section>` is `flex flex-wrap` (year carousel + Ciclo + Módulo already share
+   * that row), so this block is deliberately taken out of that flex flow with `absolute`
+   * positioning instead of `ml-auto` — an `ml-auto` flex child still participates in
+   * wrapping, and on an ordinary desktop viewport the combined width of the carousel +
+   * Ciclo + Módulo + this (fairly wide, 3-line) block exceeds the row's width, which wraps
+   * it onto a second line and doubles the row's height. Positioned `absolute` against the
+   * `relative` `<section>`, it overlays the top-right corner (`right-4 top-3`, matching the
+   * section's own `px-4 py-3`) and can never affect the flex row's height regardless of
+   * viewport or text width (see `views/calendario/use-cases.md` UC-10). `max-w-[13rem]` plus
+   * `text-right` keep it from visually colliding with Ciclo/Módulo when both are long.
+   * Renders nothing at all when the selected módulo has no rows yet (UC-10/A1).
+   */
+  private _renderEvaluationWorkingDaysSummary(): TemplateResult | typeof nothing {
+    if (this._evaluationWorkingDaysEntries.length === 0) return nothing;
+
+    return html`
+      <div
+        class="absolute right-4 top-3 flex max-w-[13rem] flex-col items-end gap-0.5 text-right text-xs"
+        data-element-id="evaluation-working-days-summary"
+      >
+        ${[1, 2, 3].map((evaluationNumber) => this._renderEvaluationWorkingDaysLine(evaluationNumber))}
+      </div>
+    `;
+  }
+
+  private _renderEvaluationWorkingDaysLine(evaluationNumber: number): TemplateResult | typeof nothing {
+    const entry = this._evaluationWorkingDaysEntries.find((candidate) => candidate.evaluationNumber === evaluationNumber);
+    if (entry === undefined) return nothing;
+
+    return html`<p data-element-id="evaluation-working-days-${evaluationNumber}">Días laborables ${evaluationNumber}ª evaluación: ${entry.workingDays}</p>`;
   }
 
   /**

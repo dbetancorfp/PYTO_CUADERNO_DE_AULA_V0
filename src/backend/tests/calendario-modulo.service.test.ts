@@ -7,6 +7,11 @@
 import { describe, it, expect } from 'bun:test';
 import { CalendarioModuloService } from '../src/services/calendario-modulo.service';
 import type { CalendarioModuloEntry, CalendarioModuloInsert, CalendarioModuloRepository } from '../src/repositories/calendario-modulo.repository';
+import type {
+  CalendarioEvaluationWorkingDaysEntry,
+  CalendarioEvaluationWorkingDaysInsert,
+  CalendarioEvaluationWorkingDaysRepository,
+} from '../src/repositories/calendario-evaluation-working-days.repository';
 import type { KeyDate, KeyDateRepository } from '../src/repositories/key-date.repository';
 import type { AcademicYear, AcademicYearRepository } from '../src/repositories/academic-year.repository';
 import type { AcademicYearModuleDetail, AcademicYearModuleRef, AcademicYearModuleRepository } from '../src/repositories/academic-year-module.repository';
@@ -41,19 +46,23 @@ function makeModule(overrides: Partial<AcademicYearModuleDetail> = {}): Academic
 
 interface FakeDeps {
   calendarioModuloRepository: CalendarioModuloRepository;
+  calendarioEvaluationWorkingDaysRepository: CalendarioEvaluationWorkingDaysRepository;
   keyDateRepository: KeyDateRepository;
   academicYearModuleRepository: AcademicYearModuleRepository;
   academicYearRepository: AcademicYearRepository;
   createManyCalls: CalendarioModuloInsert[][];
+  workingDaysCreateManyCalls: CalendarioEvaluationWorkingDaysInsert[][];
 }
 
 function fakeDeps(overrides: Partial<{
   keyDates: KeyDate[];
   entries: CalendarioModuloEntry[];
+  workingDaysEntries: CalendarioEvaluationWorkingDaysEntry[];
   moduleRefs: Record<string, AcademicYearModuleRef>;
   years: AcademicYear[];
 }> = {}): FakeDeps {
   const createManyCalls: CalendarioModuloInsert[][] = [];
+  const workingDaysCreateManyCalls: CalendarioEvaluationWorkingDaysInsert[][] = [];
   const moduleRefs = overrides.moduleRefs ?? {};
   const years = overrides.years ?? [];
 
@@ -61,6 +70,13 @@ function fakeDeps(overrides: Partial<{
     findAllForAcademicYearModule: async () => overrides.entries ?? [],
     createMany: async (entries: CalendarioModuloInsert[]) => {
       createManyCalls.push(entries);
+    },
+  };
+
+  const calendarioEvaluationWorkingDaysRepository: CalendarioEvaluationWorkingDaysRepository = {
+    findAllForAcademicYearModule: async () => overrides.workingDaysEntries ?? [],
+    createMany: async (entries: CalendarioEvaluationWorkingDaysInsert[]) => {
+      workingDaysCreateManyCalls.push(entries);
     },
   };
 
@@ -93,12 +109,21 @@ function fakeDeps(overrides: Partial<{
     delete: async () => {},
   };
 
-  return { calendarioModuloRepository, keyDateRepository, academicYearModuleRepository, academicYearRepository, createManyCalls };
+  return {
+    calendarioModuloRepository,
+    calendarioEvaluationWorkingDaysRepository,
+    keyDateRepository,
+    academicYearModuleRepository,
+    academicYearRepository,
+    createManyCalls,
+    workingDaysCreateManyCalls,
+  };
 }
 
 function makeService(deps: FakeDeps): CalendarioModuloService {
   return new CalendarioModuloService(
     deps.calendarioModuloRepository,
+    deps.calendarioEvaluationWorkingDaysRepository,
     deps.keyDateRepository,
     deps.academicYearModuleRepository,
     deps.academicYearRepository,
@@ -280,6 +305,95 @@ describe('elementId: calendario-months (final_exams generation — UC-08)', () =
   });
 });
 
+describe('elementId: evaluation-working-days-summary (working-days generation — UC-09)', () => {
+  const EVALUACION_1 = makeKeyDate({
+    id: 'kd-eval-1',
+    category: 'evaluations',
+    name: '1ª Evaluación - Último día para poner notas.',
+    startDay: 11,
+    startMonth: 12,
+    endDay: 11,
+    endMonth: 12,
+  });
+  const COURSE_START_1 = makeKeyDate({
+    id: 'kd-course-1',
+    category: 'academic_key_dates',
+    name: '1º de Grado Superior de FP.',
+    startDay: 16,
+    startMonth: 9,
+    endDay: 22,
+    endMonth: 6,
+  });
+  const COURSE_START_2 = makeKeyDate({
+    id: 'kd-course-2',
+    category: 'academic_key_dates',
+    name: '2º de Grado Superior de FP.',
+    startDay: 16,
+    startMonth: 9,
+    endDay: 27,
+    endMonth: 5,
+  });
+
+  it('generates a working_days row for evaluationNumber 1 using the module´s own course-start entry', async () => {
+    const deps = fakeDeps({ keyDates: [EVALUACION_1, COURSE_START_1] });
+    const service = makeService(deps);
+
+    await service.seedForModules([makeModule({ id: 'am1', course: 1 })], 2026);
+
+    // [2026-09-16, 2026-12-03) — course start to "1ª Evaluación"'s Examen final (see
+    // business-day.test.ts's matching countLaborableDays example).
+    expect(deps.workingDaysCreateManyCalls.flat()).toContainEqual({
+      academicYearModuleId: 'am1',
+      evaluationNumber: 1,
+      workingDays: 56,
+    });
+  });
+
+  it('uses the (2º) course-start entry and évaluation variant for a curso-2 módulo, and generates no evaluationNumber 3 row', async () => {
+    const deps = fakeDeps({
+      keyDates: [
+        COURSE_START_2,
+        makeKeyDate({ id: 'kd-2b', category: 'evaluations', name: '2ª Evaluación (2º) - Último día para poner notas.', startDay: 17, startMonth: 2, endDay: 17, endMonth: 2 }),
+      ],
+    });
+    const service = makeService(deps);
+
+    await service.seedForModules([makeModule({ id: 'am1', course: 2 })], 2026);
+
+    const inserted = deps.workingDaysCreateManyCalls.flat();
+    expect(inserted).toEqual([{ academicYearModuleId: 'am1', evaluationNumber: 2, workingDays: 104 }]);
+  });
+
+  it('generates one row per evaluación the módulo has data for, correctly numbered 1/2/3', async () => {
+    const deps = fakeDeps({
+      keyDates: [
+        COURSE_START_1,
+        EVALUACION_1,
+        makeKeyDate({ id: 'kd-2a', category: 'evaluations', name: '2ª Evaluación (1º) - Último día para poner notas.', startDay: 12, startMonth: 3, endDay: 12, endMonth: 3 }),
+        makeKeyDate({ id: 'kd-3a', category: 'evaluations', name: '3ª Evaluación (1º) - Último día para poner notas.', startDay: 11, startMonth: 6, endDay: 11, endMonth: 6 }),
+      ],
+    });
+    const service = makeService(deps);
+
+    await service.seedForModules([makeModule({ id: 'am1', course: 1 })], 2026);
+
+    const inserted = deps.workingDaysCreateManyCalls.flat();
+    expect(inserted).toHaveLength(3);
+    expect(inserted).toContainEqual({ academicYearModuleId: 'am1', evaluationNumber: 1, workingDays: 56 });
+    expect(inserted).toContainEqual({ academicYearModuleId: 'am1', evaluationNumber: 2, workingDays: 121 });
+    expect(inserted).toContainEqual({ academicYearModuleId: 'am1', evaluationNumber: 3, workingDays: 186 });
+  });
+
+  it('generates no working_days rows when the módulo has no course-start entry to anchor the range', async () => {
+    const deps = fakeDeps({ keyDates: [EVALUACION_1] });
+    const service = makeService(deps);
+
+    await service.seedForModules([makeModule({ id: 'am1', course: 1 })], 2026);
+
+    expect(deps.workingDaysCreateManyCalls.flat()).toHaveLength(0);
+  });
+});
+
 describe('elementId: calendario-months, calendario-empty-state (reading — UC-04)', () => {
   it('findForTeacher returns the entries when the academic_year_module is owned by the teacher', async () => {
     const entry: CalendarioModuloEntry = {
@@ -332,6 +446,56 @@ describe('elementId: calendario-months, calendario-empty-state (reading — UC-0
     const service = makeService(deps);
 
     const result = await service.findForTeacher(TEACHER, 'am1');
+
+    expect(result).toBeNull();
+  });
+});
+
+describe('elementId: evaluation-working-days-summary (reading — UC-10)', () => {
+  it('findEvaluationWorkingDaysForTeacher returns the entries when the academic_year_module is owned by the teacher', async () => {
+    const entry: CalendarioEvaluationWorkingDaysEntry = { id: 'wd1', academicYearModuleId: 'am1', evaluationNumber: 1, workingDays: 56 };
+    const deps = fakeDeps({
+      workingDaysEntries: [entry],
+      moduleRefs: { am1: { id: 'am1', academicYearId: 'y1', catalogModuleId: 'm1' } },
+      years: [{ id: 'y1', teacherId: TEACHER, startYear: 2026, isCurrent: false }],
+    });
+    const service = makeService(deps);
+
+    const result = await service.findEvaluationWorkingDaysForTeacher(TEACHER, 'am1');
+
+    expect(result).toEqual([entry]);
+  });
+
+  it('findEvaluationWorkingDaysForTeacher returns an empty array (not null) when owned but has no rows yet', async () => {
+    const deps = fakeDeps({
+      workingDaysEntries: [],
+      moduleRefs: { am1: { id: 'am1', academicYearId: 'y1', catalogModuleId: 'm1' } },
+      years: [{ id: 'y1', teacherId: TEACHER, startYear: 2026, isCurrent: false }],
+    });
+    const service = makeService(deps);
+
+    const result = await service.findEvaluationWorkingDaysForTeacher(TEACHER, 'am1');
+
+    expect(result).toEqual([]);
+  });
+
+  it('findEvaluationWorkingDaysForTeacher returns null when the academic_year_module does not exist', async () => {
+    const deps = fakeDeps({ moduleRefs: {} });
+    const service = makeService(deps);
+
+    const result = await service.findEvaluationWorkingDaysForTeacher(TEACHER, 'unknown');
+
+    expect(result).toBeNull();
+  });
+
+  it("findEvaluationWorkingDaysForTeacher returns null when the module's academic year belongs to a different teacher", async () => {
+    const deps = fakeDeps({
+      moduleRefs: { am1: { id: 'am1', academicYearId: 'y1', catalogModuleId: 'm1' } },
+      years: [{ id: 'y1', teacherId: 'other-teacher', startYear: 2026, isCurrent: false }],
+    });
+    const service = makeService(deps);
+
+    const result = await service.findEvaluationWorkingDaysForTeacher(TEACHER, 'am1');
 
     expect(result).toBeNull();
   });

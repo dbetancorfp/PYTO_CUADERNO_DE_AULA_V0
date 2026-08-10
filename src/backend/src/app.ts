@@ -7,10 +7,12 @@ import express, { type Express } from 'express';
 import { createPgClient } from './db/pg-client';
 import type { SqlExecutor } from './db/sql-executor';
 import { AcademicYearStore } from './repositories/in-memory/academic-year-store';
+import { CalendarioEvaluationWorkingDaysStore } from './repositories/in-memory/calendario-evaluation-working-days-store';
 import { CalendarioModuloStore } from './repositories/in-memory/calendario-modulo-store';
 import { CatalogStore } from './repositories/in-memory/catalog-store';
 import { InMemoryAcademicYearModuleRepository } from './repositories/in-memory/in-memory-academic-year-module.repository';
 import { InMemoryAcademicYearRepository } from './repositories/in-memory/in-memory-academic-year.repository';
+import { InMemoryCalendarioEvaluationWorkingDaysRepository } from './repositories/in-memory/in-memory-calendario-evaluation-working-days.repository';
 import { InMemoryCalendarioModuloRepository } from './repositories/in-memory/in-memory-calendario-modulo.repository';
 import { InMemoryCatalogModuleRepository } from './repositories/in-memory/in-memory-catalog-module.repository';
 import { InMemoryCatalogTrainingCycleRepository } from './repositories/in-memory/in-memory-catalog-training-cycle.repository';
@@ -20,6 +22,7 @@ import { InMemoryUserRepository } from './repositories/in-memory/in-memory-user.
 import { KeyDateStore } from './repositories/in-memory/key-date-store';
 import { PgAcademicYearModuleRepository } from './repositories/postgres/pg-academic-year-module.repository';
 import { PgAcademicYearRepository } from './repositories/postgres/pg-academic-year.repository';
+import { PgCalendarioEvaluationWorkingDaysRepository } from './repositories/postgres/pg-calendario-evaluation-working-days.repository';
 import { PgCalendarioModuloRepository } from './repositories/postgres/pg-calendario-modulo.repository';
 import { PgCatalogModuleRepository } from './repositories/postgres/pg-catalog-module.repository';
 import { PgCatalogTrainingCycleRepository } from './repositories/postgres/pg-catalog-training-cycle.repository';
@@ -27,6 +30,7 @@ import { PgKeyDateRepository } from './repositories/postgres/pg-key-date.reposit
 import { PgUserRepository } from './repositories/postgres/pg-user.repository';
 import type { AcademicYearModuleRepository } from './repositories/academic-year-module.repository';
 import type { AcademicYearRepository } from './repositories/academic-year.repository';
+import type { CalendarioEvaluationWorkingDaysRepository } from './repositories/calendario-evaluation-working-days.repository';
 import type { CalendarioModuloRepository } from './repositories/calendario-modulo.repository';
 import type { CatalogModuleRepository } from './repositories/catalog-module.repository';
 import type { CatalogTrainingCycleRepository } from './repositories/catalog-training-cycle.repository';
@@ -35,6 +39,7 @@ import type { User, UserRepository } from './repositories/user.repository';
 import { academicYearModuleRouter } from './routes/academic-year-module.routes';
 import { academicYearRouter } from './routes/academic-year.routes';
 import { authRouter } from './routes/auth.routes';
+import { calendarioEvaluationWorkingDaysRouter } from './routes/calendario-evaluation-working-days.routes';
 import { calendarioModuloRouter } from './routes/calendario-modulo.routes';
 import { catalogCycleModulesRouter, catalogModuleRouter } from './routes/catalog-module.routes';
 import { catalogTrainingCycleRouter } from './routes/catalog-training-cycle.routes';
@@ -66,6 +71,7 @@ interface Repositories {
   academicYearModuleRepository: AcademicYearModuleRepository;
   keyDateRepository: KeyDateRepository;
   calendarioModuloRepository: CalendarioModuloRepository;
+  calendarioEvaluationWorkingDaysRepository: CalendarioEvaluationWorkingDaysRepository;
 }
 
 function buildRepositories(deps: AppDeps): Repositories {
@@ -84,6 +90,10 @@ function buildRepositories(deps: AppDeps): Repositories {
     // calendario_modulo is its own store, keyed only by academic_year_module_id — no
     // cross-store dependency, mirroring key_dates' isolation.
     const calendarioModuloStore = new CalendarioModuloStore();
+    // calendario_evaluation_working_days is a sibling store to calendario_modulo's, same
+    // isolation, no cross-store dependency — see repositories/calendario-evaluation-working-
+    // days.repository.ts.
+    const calendarioEvaluationWorkingDaysStore = new CalendarioEvaluationWorkingDaysStore();
     return {
       userRepository: new InMemoryUserRepository(deps.seedUsers ?? []),
       catalogTrainingCycleRepository: new InMemoryCatalogTrainingCycleRepository(store),
@@ -92,6 +102,9 @@ function buildRepositories(deps: AppDeps): Repositories {
       academicYearModuleRepository: new InMemoryAcademicYearModuleRepository(academicYearStore, store),
       keyDateRepository: new InMemoryKeyDateRepository(keyDateStore),
       calendarioModuloRepository: new InMemoryCalendarioModuloRepository(calendarioModuloStore),
+      calendarioEvaluationWorkingDaysRepository: new InMemoryCalendarioEvaluationWorkingDaysRepository(
+        calendarioEvaluationWorkingDaysStore,
+      ),
     };
   }
 
@@ -110,6 +123,7 @@ function buildRepositories(deps: AppDeps): Repositories {
     academicYearModuleRepository: new PgAcademicYearModuleRepository(sql),
     keyDateRepository: new PgKeyDateRepository(sql),
     calendarioModuloRepository: new PgCalendarioModuloRepository(sql),
+    calendarioEvaluationWorkingDaysRepository: new PgCalendarioEvaluationWorkingDaysRepository(sql),
   };
 }
 
@@ -122,6 +136,7 @@ export function createApp(deps: AppDeps): Express {
     academicYearModuleRepository,
     keyDateRepository,
     calendarioModuloRepository,
+    calendarioEvaluationWorkingDaysRepository,
   } = buildRepositories(deps);
 
   const authService = new AuthService(userRepository);
@@ -133,6 +148,7 @@ export function createApp(deps: AppDeps): Express {
   const catalogModuleService = new CatalogModuleService(catalogModuleRepository, catalogTrainingCycleRepository, academicYearModuleRepository);
   const calendarioModuloService = new CalendarioModuloService(
     calendarioModuloRepository,
+    calendarioEvaluationWorkingDaysRepository,
     keyDateRepository,
     academicYearModuleRepository,
     academicYearRepository,
@@ -160,6 +176,10 @@ export function createApp(deps: AppDeps): Express {
   app.use('/api/academic-year-modules', academicYearModuleRouter(academicYearService, sessionService));
   app.use('/api/key-dates', keyDateRouter(keyDateService, sessionService));
   app.use('/api/calendario-modulo', calendarioModuloRouter(calendarioModuloService, sessionService));
+  app.use(
+    '/api/calendario-evaluation-working-days',
+    calendarioEvaluationWorkingDaysRouter(calendarioModuloService, sessionService),
+  );
 
   const frontendDist = path.join(import.meta.dir, '..', '..', 'frontend', 'dist');
   const frontendIndex = path.join(import.meta.dir, '..', '..', 'frontend', 'index.html');

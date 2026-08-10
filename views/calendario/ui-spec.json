@@ -4,7 +4,7 @@
   "generated_at": "2026-08-07T16:17:00Z",
   "agent": "view-designer",
   "model": "claude-sonnet-5",
-  "total_elements": 10,
+  "total_elements": 14,
   "screens": [
     {
       "screen_id": "calendario-screen",
@@ -22,7 +22,11 @@
         "module-filter",
         "calendario-months",
         "calendario-empty-state",
-        "calendario-day-toast"
+        "calendario-day-toast",
+        "evaluation-working-days-summary",
+        "evaluation-working-days-1",
+        "evaluation-working-days-2",
+        "evaluation-working-days-3"
       ],
       "components": [
         {
@@ -249,6 +253,52 @@
               "response": "Dismisses immediately"
             }
           ]
+        },
+        {
+          "elementId": "evaluation-working-days-summary",
+          "type": "list",
+          "props": { "is_read_only": true },
+          "states": [
+            {
+              "name": "populated",
+              "description": "Far right of the filters row (same row as academic-year-filter-*/cycle-filter/module-filter), column layout, small text (e.g. text-xs) so the row's height never grows",
+              "visual_cues": ["small text, right-aligned column, 2-3 lines"]
+            },
+            {
+              "name": "empty",
+              "description": "Selected módulo has zero calendario_evaluation_working_days rows",
+              "visual_cues": ["nothing rendered"]
+            }
+          ],
+          "interactions": []
+        },
+        {
+          "elementId": "evaluation-working-days-1",
+          "type": "paragraph",
+          "props": {},
+          "states": [
+            { "name": "default", "description": "'Días laborables 1ª evaluación: <N>'", "visual_cues": ["small text line"] }
+          ],
+          "interactions": []
+        },
+        {
+          "elementId": "evaluation-working-days-2",
+          "type": "paragraph",
+          "props": {},
+          "states": [
+            { "name": "default", "description": "'Días laborables 2ª evaluación: <N>'", "visual_cues": ["small text line"] }
+          ],
+          "interactions": []
+        },
+        {
+          "elementId": "evaluation-working-days-3",
+          "type": "paragraph",
+          "props": {},
+          "states": [
+            { "name": "default", "description": "'Días laborables 3ª evaluación: <N>' — only rendered when present", "visual_cues": ["small text line"] },
+            { "name": "absent", "description": "Módulo's course has no 3ª evaluación data (see use-cases.md UC-09/A1)", "visual_cues": ["not rendered"] }
+          ],
+          "interactions": []
         }
       ],
       "data_needs": [
@@ -256,7 +306,8 @@
         "academic_year_modules",
         "catalog_modules",
         "catalog_cycles",
-        "calendario_modulo (new table — see views/calendario/description_calendario.md)"
+        "calendario_modulo (new table — see views/calendario/description_calendario.md)",
+        "calendario_evaluation_working_days (new table — see views/calendario/use-cases.md UC-09)"
       ],
       "notes": "Own top-level custom element (app-calendario-view), reachable from the dashboard's existing calendar-card (src/frontend/src/dashboard-view.ts:22, route /calendario already wired, screen not yet implemented). Read-only — no CRUD from this screen. Renders exclusively from calendario_modulo, a snapshot table populated as a side effect of Año académico's 'Guardar selección' flow (see views/calendario/description_calendario.md) — never reads key_dates directly. Own single-use nav bar (not renderSettingsNav, which is specific to the four Configuración screens), same visual pattern (classesFor('card'), heading far left, link far right). The three filters cascade left to right: school year (simulated carousel, arrows, no real <select>) -> cycle -> módulo, each derived client-side from GET /api/academic-years/:id/modules the same way academic-year-settings-view.ts already derives training-cycle-table's distinct cycles."
     }

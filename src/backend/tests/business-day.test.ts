@@ -4,7 +4,7 @@
 // decides which category ranges count as non-working (see calendario-modulo.service.test.ts
 // for the academic_key_dates-exclusion rule, which lives in the caller, not here).
 import { describe, it, expect } from 'bun:test';
-import { isLaborable, addLaborableDays, subtractLaborableDays } from '../src/services/business-day';
+import { isLaborable, addLaborableDays, subtractLaborableDays, countLaborableDays } from '../src/services/business-day';
 import type { DateRange } from '../src/services/business-day';
 
 describe('elementId: calendario-months (business-day helpers — UC-08)', () => {
@@ -91,6 +91,42 @@ describe('elementId: calendario-months (business-day helpers — UC-08)', () => 
     it('computes the 4-business-day walk used for "Examen final" (recuperación − 4)', () => {
       // Recuperación final on Tue 2026-12-15 -> Mon 12-14 (1) -> Sun/Sat skipped -> Fri 12-11 (2) -> Thu 12-10 (3) -> Wed 12-09 (4)
       expect(subtractLaborableDays('2026-12-15', 4, [])).toBe('2026-12-09');
+    });
+  });
+
+  describe('countLaborableDays (UC-09 — half-open range, [start, end))', () => {
+    it('counts every weekday in a short range with no weekend and no non-working ranges', () => {
+      // Mon 08-17, Tue 08-18, Wed 08-19 -> end (08-20) excluded
+      expect(countLaborableDays('2026-08-17', '2026-08-20', [])).toBe(3);
+    });
+
+    it('includes the start date when it is a working day', () => {
+      // Fri 08-14 counted (start, inclusive) -> Sat/Sun skipped -> end (08-17, Mon) excluded
+      expect(countLaborableDays('2026-08-14', '2026-08-17', [])).toBe(1);
+    });
+
+    it('excludes the end date even when it is itself a working day', () => {
+      // Mon 08-17 counted -> Tue 08-18 is the end, excluded even though it's a weekday
+      expect(countLaborableDays('2026-08-17', '2026-08-18', [])).toBe(1);
+    });
+
+    it('skips weekends inside the range', () => {
+      // Fri 08-14 (1) -> Sat/Sun skipped -> Mon 08-17 (2) -> Tue 08-18 (3) -> end (08-19) excluded
+      expect(countLaborableDays('2026-08-14', '2026-08-19', [])).toBe(3);
+    });
+
+    it('skips a non-working range inside the window', () => {
+      const ranges: DateRange[] = [{ startDate: '2026-10-12', endDate: '2026-10-12' }];
+      // Fri 10-09 (1) -> Sat/Sun skipped -> Mon 10-12 skipped (holiday) -> Tue 10-13 (2) -> end (10-14) excluded
+      expect(countLaborableDays('2026-10-09', '2026-10-14', ranges)).toBe(2);
+    });
+
+    it('returns 0 for an empty or inverted range', () => {
+      expect(countLaborableDays('2026-08-17', '2026-08-17', [])).toBe(0);
+    });
+
+    it('computes the real UC-09 example: course start (16/09) to "1ª Evaluación" Examen final (2026-12-03)', () => {
+      expect(countLaborableDays('2026-09-16', '2026-12-03', [])).toBe(56);
     });
   });
 });
