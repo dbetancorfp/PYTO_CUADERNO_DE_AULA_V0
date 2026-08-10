@@ -51,14 +51,17 @@ Seeded once, automatically, on every backend boot from `documentation/calendario
 **Elements**: `academic-key-dates-table`, `academic-key-dates-table-add-button`
 
 **Real backend, shared/global** — `key_dates` rows where `category = 'academic_key_dates'`.
-Range category: every row has a start and end day/month, shown as `DD/MM – DD/MM`.
+Range category: every row has a start and end day/month, shown as `DD/MM – DD/MM`, plus
+`tipo` (free text — see UC-04's own `tipo` rules, now shared by every category, not just
+Días festivos).
 
 ### Main flow
 
 1. `academic-key-dates-table` lists every `key_dates` row in this category.
 2. Teacher clicks `academic-key-dates-table-add-button`; a blank, inline-editable draft row
-   opens (nombre, fecha inicio `DD/MM`, fecha fin `DD/MM`).
-3. Teacher fills nombre + fecha inicio + fecha fin and saves; the row persists immediately.
+   opens (nombre, fecha inicio `DD/MM`, fecha fin `DD/MM`, tipo).
+3. Teacher fills nombre + fecha inicio + fecha fin (+ optionally tipo) and saves; the row
+   persists immediately.
 
 ### Alternative flows
 
@@ -71,6 +74,7 @@ Range category: every row has a start and end day/month, shown as `DD/MM – DD/
   persists the change, Cancelar discards it.
 - **A4 — Delete a row**: Eliminar removes it immediately — unconditional, no confirmation,
   nothing else in the schema references `key_dates`.
+- **A5 — Tipo left blank**: allowed — `type` is nullable.
 
 ### Postconditions
 
@@ -80,14 +84,14 @@ Range category: every row has a start and end day/month, shown as `DD/MM – DD/
 
 - [x] `academic-key-dates-table` shows an empty-state message when the category has no rows
 - [x] `academic-key-dates-table` shows one row per `key_dates` row in this category, columns:
-      nombre, fecha inicio, fecha fin
+      nombre, fecha inicio, fecha fin, tipo
 - [x] Clicking `academic-key-dates-table-add-button` opens a blank, inline-editable draft row
 - [x] Saving the draft row with a valid nombre and fecha (`DD/MM`) persists a new row and it
-      appears in the table
+      appears in the table, tipo optional
 - [x] Saving with an invalid date (e.g. `31/02`, or a non-`DD/MM` value) shows an inline
       error and does not submit
 - [x] Clicking a row's Editar switches it to inline-editable inputs for nombre, fecha
-      inicio, fecha fin
+      inicio, fecha fin, tipo
 - [x] Clicking a row's Eliminar deletes it unconditionally and it disappears from the table
 - [x] A row's date displays as `"DD/MM – DD/MM"` when start and end differ, or a single
       `"DD/MM"` when they're equal
@@ -101,19 +105,20 @@ Range category: every row has a start and end day/month, shown as `DD/MM – DD/
 **Elements**: `holidays-table`, `holidays-table-add-button`
 
 Identical shape and rules to UC-02, scoped to `category = 'holidays'` and `holidays-table`/
-`holidays-table-add-button` instead. Range category (fecha inicio/fecha fin).
+`holidays-table-add-button` instead. Range category (fecha inicio/fecha fin), plus tipo
+(same as every category now — see UC-04).
 
 ### Acceptance criteria
 
 - [x] `holidays-table` shows an empty-state message when the category has no rows
 - [x] `holidays-table` shows one row per `key_dates` row in this category, columns: nombre,
-      fecha inicio, fecha fin
+      fecha inicio, fecha fin, tipo
 - [x] Clicking `holidays-table-add-button` opens a blank, inline-editable draft row
 - [x] Saving the draft row with a valid nombre and fecha (`DD/MM`) persists a new row and it
-      appears in the table
+      appears in the table, tipo optional
 - [x] Saving with an invalid date shows an inline error and does not submit
 - [x] Clicking a row's Editar switches it to inline-editable inputs for nombre, fecha
-      inicio, fecha fin
+      inicio, fecha fin, tipo
 - [x] Clicking a row's Eliminar deletes it unconditionally and it disappears from the table
 - [x] A row's date displays as `"DD/MM – DD/MM"` when start and end differ, or a single
       `"DD/MM"` when they're equal
@@ -127,8 +132,11 @@ Identical shape and rules to UC-02, scoped to `category = 'holidays'` and `holid
 **Elements**: `public-holidays-table`, `public-holidays-table-add-button`
 
 **Single-day category, with tipo.** `key_dates` rows where `category = 'public_holidays'` —
-the only category that carries a `tipo` (free text, e.g. "Nacional", "Insular (Tenerife)").
-The row's `end_day`/`end_month` always equal `start_day`/`start_month` (see schema-changes.sql);
+`tipo` (free text, e.g. "Festivo nacional", "Festivo insular (Tenerife)") is shown/edited
+here first, and every other category's table now carries the same column (UC-02/03/05/06/07)
+— `type` isn't a `public_holidays`-only field, it's just free text on every row, populated
+or not depending on what the teacher enters. The row's `end_day`/`end_month` always equal
+`start_day`/`start_month` (see schema-changes.sql);
 the UI shows and edits only one fecha field, never a redundant end-date input.
 
 ### Main flow
@@ -172,17 +180,19 @@ the UI shows and edits only one fecha field, never a redundant end-date input.
 **Preconditions**: Valid session
 **Elements**: `free-disposal-days-table`, `free-disposal-days-table-add-button`
 
-Same single-day shape as UC-04 but **without** tipo — `category = 'free_disposal_days'`.
+Same single-day shape as UC-04, `category = 'free_disposal_days'`, now also with tipo (see
+UC-04).
 
 ### Acceptance criteria
 
 - [x] `free-disposal-days-table` shows an empty-state message when the category has no rows
 - [x] `free-disposal-days-table` shows one row per row in this category, columns: nombre,
-      fecha
+      fecha, tipo
 - [x] Clicking `free-disposal-days-table-add-button` opens a blank, inline-editable draft row
-- [x] Saving the draft row with a valid nombre and fecha (`DD/MM`) persists a new row
+- [x] Saving the draft row with a valid nombre and fecha (`DD/MM`) persists a new row, tipo
+      optional
 - [x] Saving with an invalid date shows an inline error and does not submit
-- [x] Clicking a row's Editar switches it to inline-editable inputs for nombre, fecha
+- [x] Clicking a row's Editar switches it to inline-editable inputs for nombre, fecha, tipo
 - [x] Clicking a row's Eliminar deletes it unconditionally and it disappears from the table
 
 ---
@@ -193,18 +203,19 @@ Same single-day shape as UC-04 but **without** tipo — `category = 'free_dispos
 **Preconditions**: Valid session
 **Elements**: `evaluations-table`, `evaluations-table-add-button`
 
-Same range shape as UC-02/UC-03 — `category = 'evaluations'`.
+Same range shape as UC-02/UC-03 — `category = 'evaluations'`, now also with tipo (see UC-04).
 
 ### Acceptance criteria
 
 - [x] `evaluations-table` shows an empty-state message when the category has no rows
 - [x] `evaluations-table` shows one row per row in this category, columns: nombre, fecha
-      inicio, fecha fin
+      inicio, fecha fin, tipo
 - [x] Clicking `evaluations-table-add-button` opens a blank, inline-editable draft row
-- [x] Saving the draft row with a valid nombre and fecha (`DD/MM`) persists a new row
+- [x] Saving the draft row with a valid nombre and fecha (`DD/MM`) persists a new row, tipo
+      optional
 - [x] Saving with an invalid date shows an inline error and does not submit
 - [x] Clicking a row's Editar switches it to inline-editable inputs for nombre, fecha
-      inicio, fecha fin
+      inicio, fecha fin, tipo
 - [x] Clicking a row's Eliminar deletes it unconditionally and it disappears from the table
 - [x] A row's date displays as `"DD/MM – DD/MM"` when start and end differ, or a single
       `"DD/MM"` when they're equal
@@ -217,15 +228,17 @@ Same range shape as UC-02/UC-03 — `category = 'evaluations'`.
 **Preconditions**: Valid session
 **Elements**: `feoe-project-days-table`, `feoe-project-days-table-add-button`
 
-Same single-day shape as UC-05 — `category = 'feoe_project_days'`.
+Same single-day shape as UC-05 — `category = 'feoe_project_days'`, now also with tipo (see
+UC-04).
 
 ### Acceptance criteria
 
 - [x] `feoe-project-days-table` shows an empty-state message when the category has no rows
 - [x] `feoe-project-days-table` shows one row per row in this category, columns: nombre,
-      fecha
+      fecha, tipo
 - [x] Clicking `feoe-project-days-table-add-button` opens a blank, inline-editable draft row
-- [x] Saving the draft row with a valid nombre and fecha (`DD/MM`) persists a new row
+- [x] Saving the draft row with a valid nombre and fecha (`DD/MM`) persists a new row, tipo
+      optional
 - [x] Saving with an invalid date shows an inline error and does not submit
-- [x] Clicking a row's Editar switches it to inline-editable inputs for nombre, fecha
+- [x] Clicking a row's Editar switches it to inline-editable inputs for nombre, fecha, tipo
 - [x] Clicking a row's Eliminar deletes it unconditionally and it disappears from the table

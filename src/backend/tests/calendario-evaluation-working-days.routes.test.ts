@@ -102,7 +102,7 @@ beforeAll(async () => {
     headers: { 'Content-Type': 'application/json', Cookie: cookie },
     body: JSON.stringify({
       category: 'academic_key_dates',
-      name: '1º de Grado Superior de FP.',
+      name: 'Inicio curso: 1º de Grado Superior de FP.',
       startDay: 16,
       startMonth: 9,
       endDay: 22,

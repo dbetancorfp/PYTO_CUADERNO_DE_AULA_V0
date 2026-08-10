@@ -15,10 +15,13 @@ Configuración endpoint — see Login's `GET /api/auth/session` / `session-guard
 |---|---|---|
 | `academic_key_dates` | Fechas clave FP | range |
 | `holidays` | Vacaciones | range |
-| `public_holidays` | Días festivos | single day + `type` |
+| `public_holidays` | Días festivos | single day |
 | `free_disposal_days` | Días de libre disposición | single day |
 | `evaluations` | Evaluaciones | range |
 | `feoe_project_days` | Proyecto FEOE | single day |
+
+Every category carries `type` (free text, nullable) — it isn't `public_holidays`-exclusive,
+just the category where it's most commonly populated.
 
 A single-day category's row always has `endDay === startDay` and `endMonth === startMonth`
 in the response (see `schema-changes.sql`'s note) — the frontend for those four category
@@ -54,7 +57,7 @@ tables only renders/edits one `fecha` field and sends the same value for both st
   ]
 }
 ```
-`type` is `null` for every category except `public_holidays`.
+`type` is free text, nullable, on every category — not restricted to `public_holidays`.
 
 #### Errors
 | Code | Condition |

@@ -1,6 +1,7 @@
 /// <reference types="cypress" />
 // UC-02: Manage Fechas clave FP (views/fechas-senaladas/use-cases.md) — range category
-// (fecha inicio/fecha fin), no tipo. category = 'academic_key_dates'.
+// (fecha inicio/fecha fin), plus tipo (every category carries it now, not just Días
+// festivos — see UC-04). category = 'academic_key_dates'.
 
 import { signInAsE2eUser } from './support/sign-in';
 
@@ -10,7 +11,14 @@ describe('UC-02: Manage Fechas clave FP', () => {
     cy.visit('/configuracion/fechas-senaladas');
   });
 
-  it('adds a row via the UI, displays it as a DD/MM – DD/MM range, edits it, and deletes it', () => {
+  it('shows the real seeded course-start rows under their renamed "Inicio curso: ..." names (2026-08-10 rename)', () => {
+    cy.get('[data-element-id="academic-key-dates-table"]')
+      .should('contain.text', 'Inicio curso: 1º de Grado Superior de FP.')
+      .and('contain.text', 'Inicio curso: 2º de Grado Superior de FP.')
+      .and('contain.text', 'Curso escolar');
+  });
+
+  it('adds a row via the UI with tipo, displays it as a DD/MM – DD/MM range, edits it, and deletes it', () => {
     const name = `E2E Fecha clave ${Date.now()}`;
     const renamed = `${name} (renombrada)`;
 
@@ -25,6 +33,7 @@ describe('UC-02: Manage Fechas clave FP', () => {
     cy.get('[data-element-id="academic-key-dates-table-row-new-name"]').type(name);
     cy.get('[data-element-id="academic-key-dates-table-row-new-start-date"]').type('05/09');
     cy.get('[data-element-id="academic-key-dates-table-row-new-end-date"]').type('20/06');
+    cy.get('[data-element-id="academic-key-dates-table-row-new-type"]').type('Curso escolar');
 
     cy.intercept('POST', '/api/key-dates').as('createKeyDate');
     cy.get('[data-element-id="academic-key-dates-table-row-new-save"]').click();
@@ -32,17 +41,21 @@ describe('UC-02: Manage Fechas clave FP', () => {
 
     cy.contains('[data-element-id^="academic-key-dates-table-row-"]', name)
       .should('contain.text', '05/09 – 20/06')
+      .and('contain.text', 'Curso escolar')
       .invoke('attr', 'data-element-id')
       .then((elementId) => {
         const rowId = (elementId as string).slice('academic-key-dates-table-row-'.length);
 
         cy.get(`[data-element-id="academic-key-dates-table-row-${rowId}-edit"]`).click();
         cy.get(`[data-element-id="academic-key-dates-table-row-${rowId}-name"]`).clear().type(renamed);
+        cy.get(`[data-element-id="academic-key-dates-table-row-${rowId}-type"]`).clear().type('Otro tipo');
 
         cy.intercept('PATCH', `/api/key-dates/${rowId}`).as('renameKeyDate');
         cy.get(`[data-element-id="academic-key-dates-table-row-${rowId}-save"]`).click();
         cy.wait('@renameKeyDate').its('response.statusCode').should('eq', 200);
-        cy.contains(`[data-element-id="academic-key-dates-table-row-${rowId}"]`, renamed).should('exist');
+        cy.contains(`[data-element-id="academic-key-dates-table-row-${rowId}"]`, renamed)
+          .should('exist')
+          .and('contain.text', 'Otro tipo');
 
         cy.intercept('DELETE', `/api/key-dates/${rowId}`).as('deleteKeyDate');
         cy.get(`[data-element-id="academic-key-dates-table-row-${rowId}-delete"]`).click();

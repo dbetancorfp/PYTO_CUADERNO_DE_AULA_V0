@@ -86,4 +86,43 @@ describe('seedKeyDates', () => {
       }
     }
   });
+
+  it('renames the two course-start academic_key_dates entries to "Inicio curso: ..." (2026-08-10)', async () => {
+    const fakeSql = createFakeSql([]);
+
+    await seedKeyDates(fakeSql);
+
+    const academicKeyDateNames = fakeSql.calls
+      .filter((call) => call.values[0] === 'academic_key_dates')
+      .map((call) => call.values[1]);
+
+    expect(academicKeyDateNames).toContain('Inicio curso: 1º de Grado Superior de FP.');
+    expect(academicKeyDateNames).toContain('Inicio curso: 2º de Grado Superior de FP.');
+    expect(academicKeyDateNames).not.toContain('1º de Grado Superior de FP.');
+    expect(academicKeyDateNames).not.toContain('2º de Grado Superior de FP.');
+  });
+
+  it('populates type for every category, not just public_holidays (2026-08-10)', async () => {
+    const fakeSql = createFakeSql([]);
+
+    await seedKeyDates(fakeSql);
+
+    // Params: (category, name, start_day, start_month, end_day, end_month, type) — type is
+    // the 7th/last positional value (see seed-key-dates.ts's INSERT statement).
+    for (const call of fakeSql.calls) {
+      const type = call.values[6];
+      expect(typeof type, `type must be set for ${String(call.values[1])}`).toBe('string');
+      expect((type as string).length).toBeGreaterThan(0);
+    }
+  });
+
+  it('corrects the "1ª Evaluación - Atención familiar." row´s type to match its own name (source CSV had a copy/paste mismatch)', async () => {
+    const fakeSql = createFakeSql([]);
+
+    await seedKeyDates(fakeSql);
+
+    const row = fakeSql.calls.find((call) => call.values[1] === '1ª Evaluación - Atención familiar.');
+    expect(row).toBeDefined();
+    expect(row!.values[6]).toBe('Atención familiar');
+  });
 });

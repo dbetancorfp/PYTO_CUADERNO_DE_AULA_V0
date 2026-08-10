@@ -318,7 +318,7 @@ describe('elementId: evaluation-working-days-summary (working-days generation �
   const COURSE_START_1 = makeKeyDate({
     id: 'kd-course-1',
     category: 'academic_key_dates',
-    name: '1º de Grado Superior de FP.',
+    name: 'Inicio curso: 1º de Grado Superior de FP.',
     startDay: 16,
     startMonth: 9,
     endDay: 22,
@@ -327,7 +327,7 @@ describe('elementId: evaluation-working-days-summary (working-days generation �
   const COURSE_START_2 = makeKeyDate({
     id: 'kd-course-2',
     category: 'academic_key_dates',
-    name: '2º de Grado Superior de FP.',
+    name: 'Inicio curso: 2º de Grado Superior de FP.',
     startDay: 16,
     startMonth: 9,
     endDay: 27,

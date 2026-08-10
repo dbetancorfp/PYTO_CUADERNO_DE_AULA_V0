@@ -58,13 +58,16 @@ interface CategoryDef {
   hasType: boolean;
 }
 
+// hasType: true for every category (2026-08-10) — tipo is free text on every key_dates
+// row now, not public_holidays-exclusive (see description_fechas-senaladas.md's amended
+// "Domain and scope").
 const CATEGORIES: CategoryDef[] = [
-  { category: 'academic_key_dates', tableId: 'academic-key-dates-table', addButtonId: 'academic-key-dates-table-add-button', hasRange: true, hasType: false },
-  { category: 'holidays', tableId: 'holidays-table', addButtonId: 'holidays-table-add-button', hasRange: true, hasType: false },
+  { category: 'academic_key_dates', tableId: 'academic-key-dates-table', addButtonId: 'academic-key-dates-table-add-button', hasRange: true, hasType: true },
+  { category: 'holidays', tableId: 'holidays-table', addButtonId: 'holidays-table-add-button', hasRange: true, hasType: true },
   { category: 'public_holidays', tableId: 'public-holidays-table', addButtonId: 'public-holidays-table-add-button', hasRange: false, hasType: true },
-  { category: 'free_disposal_days', tableId: 'free-disposal-days-table', addButtonId: 'free-disposal-days-table-add-button', hasRange: false, hasType: false },
-  { category: 'evaluations', tableId: 'evaluations-table', addButtonId: 'evaluations-table-add-button', hasRange: true, hasType: false },
-  { category: 'feoe_project_days', tableId: 'feoe-project-days-table', addButtonId: 'feoe-project-days-table-add-button', hasRange: false, hasType: false },
+  { category: 'free_disposal_days', tableId: 'free-disposal-days-table', addButtonId: 'free-disposal-days-table-add-button', hasRange: false, hasType: true },
+  { category: 'evaluations', tableId: 'evaluations-table', addButtonId: 'evaluations-table-add-button', hasRange: true, hasType: true },
+  { category: 'feoe_project_days', tableId: 'feoe-project-days-table', addButtonId: 'feoe-project-days-table-add-button', hasRange: false, hasType: true },
 ];
 
 function fakeSessionService(): SessionApiService {
@@ -148,6 +151,46 @@ for (const cat of CATEGORIES) {
       });
 
       expect(el.shadowRoot!.querySelector(`[data-element-id="${cat.tableId}-row-kd1"]`)!.textContent).toContain('Fila de ejemplo');
+      if (cat.hasType) {
+        expect(el.shadowRoot!.querySelector(`[data-element-id="${cat.tableId}-row-kd1"]`)!.textContent).toContain('Nacional');
+      }
+
+      el.remove();
+    });
+
+    it(`saving the draft row in ${cat.tableId} sends the typed tipo`, async () => {
+      const calls: KeyDateCreateData[] = [];
+      const el = await mountView({
+        keyDate: fakeKeyDateService({
+          create: async (data) => {
+            calls.push(data);
+            return { outcome: 'success', value: { id: 'new-id', type: data.type ?? null, ...data } };
+          },
+        }),
+      });
+
+      el.shadowRoot!.querySelector<HTMLElement>(`[data-element-id="${cat.addButtonId}"]`)!.click();
+      await tick();
+      el.shadowRoot!.querySelector<HTMLInputElement>(`[data-element-id="${cat.tableId}-row-new-name"]`)!.value = 'Con tipo';
+      el.shadowRoot!
+        .querySelector<HTMLInputElement>(`[data-element-id="${cat.tableId}-row-new-name"]`)!
+        .dispatchEvent(new Event('input', { bubbles: true }));
+      const startInput = el.shadowRoot!.querySelector<HTMLInputElement>(`[data-element-id="${cat.tableId}-row-new-start-date"]`)!;
+      startInput.value = '12/10';
+      startInput.dispatchEvent(new Event('input', { bubbles: true }));
+      if (cat.hasRange) {
+        const endInput = el.shadowRoot!.querySelector<HTMLInputElement>(`[data-element-id="${cat.tableId}-row-new-end-date"]`)!;
+        endInput.value = '20/10';
+        endInput.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      const typeInput = el.shadowRoot!.querySelector<HTMLInputElement>(`[data-element-id="${cat.tableId}-row-new-type"]`)!;
+      typeInput.value = 'Tipo de ejemplo';
+      typeInput.dispatchEvent(new Event('input', { bubbles: true }));
+      el.shadowRoot!.querySelector<HTMLElement>(`[data-element-id="${cat.tableId}-row-new-save"]`)!.click();
+      await tick();
+
+      expect(calls).toHaveLength(1);
+      expect(calls[0]!.type).toBe('Tipo de ejemplo');
 
       el.remove();
     });

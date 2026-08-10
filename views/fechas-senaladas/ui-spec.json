@@ -189,7 +189,8 @@
             "columns": [
               "nombre",
               "fecha inicio",
-              "fecha fin"
+              "fecha fin",
+              "tipo"
             ],
             "is_editable": true
           },
@@ -248,7 +249,8 @@
             "columns": [
               "nombre",
               "fecha inicio",
-              "fecha fin"
+              "fecha fin",
+              "tipo"
             ],
             "is_editable": true
           },
@@ -365,7 +367,8 @@
           "props": {
             "columns": [
               "nombre",
-              "fecha"
+              "fecha",
+              "tipo"
             ],
             "is_editable": true
           },
@@ -424,7 +427,8 @@
             "columns": [
               "nombre",
               "fecha inicio",
-              "fecha fin"
+              "fecha fin",
+              "tipo"
             ],
             "is_editable": true
           },
@@ -482,7 +486,8 @@
           "props": {
             "columns": [
               "nombre",
-              "fecha"
+              "fecha",
+              "tipo"
             ],
             "is_editable": true
           },

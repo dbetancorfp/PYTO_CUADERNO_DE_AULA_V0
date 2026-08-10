@@ -66,18 +66,19 @@
       "businessRules": [
         "category is fixed for this table — never editable per-row (a row can't move between categories).",
         "Deletion is always unconditional — nothing else in the schema references key_dates rows.",
-        "fecha (and fecha inicio/fecha fin, for range categories) must be a real day/month combination — client and server both validate (e.g. reject 31/02)."
+        "fecha (and fecha inicio/fecha fin, for range categories) must be a real day/month combination — client and server both validate (e.g. reject 31/02).",
+        "tipo is free text when provided — no closed domain/CHECK constraint, same rule as every other category (not public_holidays-only)."
       ],
       "dataNeeds": [
         "key_dates"
       ],
       "acceptanceCriteria": [
         "academic-key-dates-table shows an empty-state message when the \"Fechas clave FP\" category has no rows",
-        "academic-key-dates-table shows one row per key_dates row in the \"Fechas clave FP\" category, with columns: nombre, fecha inicio, fecha fin",
+        "academic-key-dates-table shows one row per key_dates row in the \"Fechas clave FP\" category, with columns: nombre, fecha inicio, fecha fin, tipo",
         "Clicking academic-key-dates-table-add-button opens a blank, inline-editable draft row in academic-key-dates-table",
-        "Saving the draft row with a valid nombre and fecha (DD/MM) persists a new key_dates row via POST /api/key-dates and it appears in academic-key-dates-table",
+        "Saving the draft row with a valid nombre and fecha (DD/MM) persists a new key_dates row via POST /api/key-dates and it appears in academic-key-dates-table, tipo optional",
         "Saving with an invalid date (e.g. 31/02, or missing DD/MM format) shows an inline error and does not submit",
-        "Clicking a row's Editar switches it to inline-editable inputs for nombre, fecha inicio, fecha fin",
+        "Clicking a row's Editar switches it to inline-editable inputs for nombre, fecha inicio, fecha fin, tipo",
         "Clicking a row's Eliminar deletes it via DELETE /api/key-dates/:id unconditionally (no confirmation, no dependency check) and it disappears from academic-key-dates-table",
         "academic-key-dates-table displays a row's date as \"DD/MM – DD/MM\" when start and end differ, or a single \"DD/MM\" when they're equal"
       ]
@@ -99,18 +100,19 @@
       "businessRules": [
         "category is fixed for this table — never editable per-row (a row can't move between categories).",
         "Deletion is always unconditional — nothing else in the schema references key_dates rows.",
-        "fecha (and fecha inicio/fecha fin, for range categories) must be a real day/month combination — client and server both validate (e.g. reject 31/02)."
+        "fecha (and fecha inicio/fecha fin, for range categories) must be a real day/month combination — client and server both validate (e.g. reject 31/02).",
+        "tipo is free text when provided — no closed domain/CHECK constraint, same rule as every other category (not public_holidays-only)."
       ],
       "dataNeeds": [
         "key_dates"
       ],
       "acceptanceCriteria": [
         "holidays-table shows an empty-state message when the \"Vacaciones\" category has no rows",
-        "holidays-table shows one row per key_dates row in the \"Vacaciones\" category, with columns: nombre, fecha inicio, fecha fin",
+        "holidays-table shows one row per key_dates row in the \"Vacaciones\" category, with columns: nombre, fecha inicio, fecha fin, tipo",
         "Clicking holidays-table-add-button opens a blank, inline-editable draft row in holidays-table",
-        "Saving the draft row with a valid nombre and fecha (DD/MM) persists a new key_dates row via POST /api/key-dates and it appears in holidays-table",
+        "Saving the draft row with a valid nombre and fecha (DD/MM) persists a new key_dates row via POST /api/key-dates and it appears in holidays-table, tipo optional",
         "Saving with an invalid date (e.g. 31/02, or missing DD/MM format) shows an inline error and does not submit",
-        "Clicking a row's Editar switches it to inline-editable inputs for nombre, fecha inicio, fecha fin",
+        "Clicking a row's Editar switches it to inline-editable inputs for nombre, fecha inicio, fecha fin, tipo",
         "Clicking a row's Eliminar deletes it via DELETE /api/key-dates/:id unconditionally (no confirmation, no dependency check) and it disappears from holidays-table",
         "holidays-table displays a row's date as \"DD/MM – DD/MM\" when start and end differ, or a single \"DD/MM\" when they're equal"
       ]
@@ -133,7 +135,7 @@
         "category is fixed for this table — never editable per-row (a row can't move between categories).",
         "Deletion is always unconditional — nothing else in the schema references key_dates rows.",
         "fecha (and fecha inicio/fecha fin, for range categories) must be a real day/month combination — client and server both validate (e.g. reject 31/02).",
-        "tipo is free text when provided — no closed domain/CHECK constraint (seed values include parenthetical locations)."
+        "tipo is free text when provided — no closed domain/CHECK constraint (seed values include parenthetical locations). Same rule as every other category now, not exclusive to public_holidays."
       ],
       "dataNeeds": [
         "key_dates"
@@ -166,18 +168,19 @@
       "businessRules": [
         "category is fixed for this table — never editable per-row (a row can't move between categories).",
         "Deletion is always unconditional — nothing else in the schema references key_dates rows.",
-        "fecha (and fecha inicio/fecha fin, for range categories) must be a real day/month combination — client and server both validate (e.g. reject 31/02)."
+        "fecha (and fecha inicio/fecha fin, for range categories) must be a real day/month combination — client and server both validate (e.g. reject 31/02).",
+        "tipo is free text when provided — no closed domain/CHECK constraint, same rule as every other category (not public_holidays-only)."
       ],
       "dataNeeds": [
         "key_dates"
       ],
       "acceptanceCriteria": [
         "free-disposal-days-table shows an empty-state message when the \"Días de libre disposición\" category has no rows",
-        "free-disposal-days-table shows one row per key_dates row in the \"Días de libre disposición\" category, with columns: nombre, fecha",
+        "free-disposal-days-table shows one row per key_dates row in the \"Días de libre disposición\" category, with columns: nombre, fecha, tipo",
         "Clicking free-disposal-days-table-add-button opens a blank, inline-editable draft row in free-disposal-days-table",
-        "Saving the draft row with a valid nombre and fecha (DD/MM) persists a new key_dates row via POST /api/key-dates and it appears in free-disposal-days-table",
+        "Saving the draft row with a valid nombre and fecha (DD/MM) persists a new key_dates row via POST /api/key-dates and it appears in free-disposal-days-table, tipo optional",
         "Saving with an invalid date (e.g. 31/02, or missing DD/MM format) shows an inline error and does not submit",
-        "Clicking a row's Editar switches it to inline-editable inputs for nombre, fecha",
+        "Clicking a row's Editar switches it to inline-editable inputs for nombre, fecha, tipo",
         "Clicking a row's Eliminar deletes it via DELETE /api/key-dates/:id unconditionally (no confirmation, no dependency check) and it disappears from free-disposal-days-table"
       ]
     },
@@ -198,18 +201,19 @@
       "businessRules": [
         "category is fixed for this table — never editable per-row (a row can't move between categories).",
         "Deletion is always unconditional — nothing else in the schema references key_dates rows.",
-        "fecha (and fecha inicio/fecha fin, for range categories) must be a real day/month combination — client and server both validate (e.g. reject 31/02)."
+        "fecha (and fecha inicio/fecha fin, for range categories) must be a real day/month combination — client and server both validate (e.g. reject 31/02).",
+        "tipo is free text when provided — no closed domain/CHECK constraint, same rule as every other category (not public_holidays-only)."
       ],
       "dataNeeds": [
         "key_dates"
       ],
       "acceptanceCriteria": [
         "evaluations-table shows an empty-state message when the \"Evaluaciones\" category has no rows",
-        "evaluations-table shows one row per key_dates row in the \"Evaluaciones\" category, with columns: nombre, fecha inicio, fecha fin",
+        "evaluations-table shows one row per key_dates row in the \"Evaluaciones\" category, with columns: nombre, fecha inicio, fecha fin, tipo",
         "Clicking evaluations-table-add-button opens a blank, inline-editable draft row in evaluations-table",
-        "Saving the draft row with a valid nombre and fecha (DD/MM) persists a new key_dates row via POST /api/key-dates and it appears in evaluations-table",
+        "Saving the draft row with a valid nombre and fecha (DD/MM) persists a new key_dates row via POST /api/key-dates and it appears in evaluations-table, tipo optional",
         "Saving with an invalid date (e.g. 31/02, or missing DD/MM format) shows an inline error and does not submit",
-        "Clicking a row's Editar switches it to inline-editable inputs for nombre, fecha inicio, fecha fin",
+        "Clicking a row's Editar switches it to inline-editable inputs for nombre, fecha inicio, fecha fin, tipo",
         "Clicking a row's Eliminar deletes it via DELETE /api/key-dates/:id unconditionally (no confirmation, no dependency check) and it disappears from evaluations-table",
         "evaluations-table displays a row's date as \"DD/MM – DD/MM\" when start and end differ, or a single \"DD/MM\" when they're equal"
       ]
@@ -231,18 +235,19 @@
       "businessRules": [
         "category is fixed for this table — never editable per-row (a row can't move between categories).",
         "Deletion is always unconditional — nothing else in the schema references key_dates rows.",
-        "fecha (and fecha inicio/fecha fin, for range categories) must be a real day/month combination — client and server both validate (e.g. reject 31/02)."
+        "fecha (and fecha inicio/fecha fin, for range categories) must be a real day/month combination — client and server both validate (e.g. reject 31/02).",
+        "tipo is free text when provided — no closed domain/CHECK constraint, same rule as every other category (not public_holidays-only)."
       ],
       "dataNeeds": [
         "key_dates"
       ],
       "acceptanceCriteria": [
         "feoe-project-days-table shows an empty-state message when the \"Proyecto FEOE\" category has no rows",
-        "feoe-project-days-table shows one row per key_dates row in the \"Proyecto FEOE\" category, with columns: nombre, fecha",
+        "feoe-project-days-table shows one row per key_dates row in the \"Proyecto FEOE\" category, with columns: nombre, fecha, tipo",
         "Clicking feoe-project-days-table-add-button opens a blank, inline-editable draft row in feoe-project-days-table",
-        "Saving the draft row with a valid nombre and fecha (DD/MM) persists a new key_dates row via POST /api/key-dates and it appears in feoe-project-days-table",
+        "Saving the draft row with a valid nombre and fecha (DD/MM) persists a new key_dates row via POST /api/key-dates and it appears in feoe-project-days-table, tipo optional",
         "Saving with an invalid date (e.g. 31/02, or missing DD/MM format) shows an inline error and does not submit",
-        "Clicking a row's Editar switches it to inline-editable inputs for nombre, fecha",
+        "Clicking a row's Editar switches it to inline-editable inputs for nombre, fecha, tipo",
         "Clicking a row's Eliminar deletes it via DELETE /api/key-dates/:id unconditionally (no confirmation, no dependency check) and it disappears from feoe-project-days-table"
       ]
     },

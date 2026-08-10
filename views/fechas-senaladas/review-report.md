@@ -1,3 +1,80 @@
+# Review Report — fechas-senaladas — 2026-08-10 (amendment: tipo on all categories, 2 renames)
+
+## Result: PASS ✅
+
+## Layers implicated: none
+
+## SOLID violations found
+
+None. Diff is minimal by design: 5 boolean flips (`hasType: false → true`) in
+`key-date-settings-view.ts`'s already-data-driven `CATEGORIES` array (no new code path —
+the header/`<td>`/edit-`<input>` for tipo were already conditioned on `catDef.hasType`,
+added when `public_holidays` was implemented; a seventh category tomorrow would cost one
+more array entry, same OCP shape already in place), one string literal changed in
+`calendario-modulo.service.ts`'s `computeEvaluationWorkingDaysEntries` (`courseStartName`),
+and a wholesale data replacement in `seed-key-dates.ts`'s six seed arrays (structure
+untouched — `KeyDateSeed` interface, `singleDay()`, `SEED`, `seedKeyDates()` all
+unchanged). No new classes, no new interfaces, no new branches.
+
+## Supervisor notes adjudicated
+| Note | Resolution |
+|------|------------|
+| None raised — supervisor's smoke test explicitly re-verified UC-09 (calendario's working-days feature) still resolves the renamed `academic_key_dates` entries correctly against real Postgres, since that cross-view dependency was the main risk in this change. | N/A |
+
+## SonarCloud Quality Gate
+| Metric | Threshold | Backend | Frontend | Result |
+|--------|-----------|---------|----------|--------|
+| Coverage (lines) | 100% | 100.00% | 100.00% | ✅ |
+| Bugs | 0 | 0 | 0 | ✅ |
+| Vulnerabilities | 0 | 0 | 0 | ✅ |
+| Duplication | ≤ 3% | 0% | 0% | ✅ |
+| Maintainability rating | A | A | A | ✅ |
+
+`seed-key-dates.ts` (75/75), `calendario-modulo.service.ts` (114/114),
+`key-date-settings-view.ts` (282/282) — all 100% lines, no gap introduced (the `hasType`
+branch itself was already fully covered before this change, just exercised with different
+data now). Full suite: 575 pass (backend+frontend), 0 fail.
+
+**Migration re-run verified idempotent**: reapplied `views/fechas-senaladas/schema-changes.sql`
+against the real dev DB a second time this pass — same `UPDATE 1` per statement, row count
+unchanged (43), `SELECT count(*) FROM key_dates WHERE type IS NULL` still 0.
+
+## Acceptance criteria marked (use-cases.md)
+
+UC-02/03/05/06/07's new tipo-column criteria (left unmarked by `requirement-architect`
+since no test existed yet) — now backed:
+
+| Criterion | Test that verifies it |
+|-----------|------------------------|
+| UC-02/03/05/06/07: table shows tipo column | `key-date-settings-view.test.ts`'s shared per-category loop, `"${tableId} shows one row per key_dates row in its category"` (now asserts tipo text when `cat.hasType`, true for all 6) |
+| UC-02/03/05/06/07: saving persists tipo, optional | `key-date-settings-view.test.ts`, `"saving the draft row in ${tableId} sends the typed tipo"` (new, one per category) |
+| UC-02/03/05/06/07: Editar includes tipo input | Same shared `catDef.hasType`-gated markup already proven by the pre-existing `public-holidays-table` Editar test; structurally identical for all 6 (same `<input data-element-id="${tableId}-row-${id}-type">` pattern) — no per-category Editar-tipo test was added since the render path is unconditionally shared, not category-specific logic |
+| seed-key-dates: 2 renames | `seed-key-dates.test.ts` "renames the two course-start academic_key_dates entries..." |
+| seed-key-dates: type populated on all 43 rows | `seed-key-dates.test.ts` "populates type for every category..." |
+| seed-key-dates: anomaly row corrected | `seed-key-dates.test.ts` "corrects the '1ª Evaluación - Atención familiar.' row's type..." |
+| calendario UC-09 still resolves course-start after rename | `calendario-modulo.service.test.ts`'s UC-09 tests (fixtures updated to new name) + **reviewer's own/supervisor's live-Postgres verification**: real `seedForModules` flow against real renamed data, `working_days` computed correctly (50/100/160 for a real módulo) |
+
+## Criteria without verifiable coverage
+
+None for this amendment.
+
+## Deferred to e2e-engineer
+
+None new — no new route, no new build/static-serving concern, no new visual layout (the
+tipo column already existed structurally for `public_holidays`; the other 5 tables now
+render the same already-styled column, not a new visual pattern).
+
+**e2e-engineer follow-up (2026-08-10)**: extended `uc-02-manage-fechas-clave-fp.cy.ts`
+(added a real-Postgres check that the 2 renamed rows render as "Inicio curso: ..." plus
+tipo add/edit) and `uc-03-manage-vacaciones.cy.ts`/`uc-05-manage-dias-libre-disposicion.cy.ts`
+(tipo add/edit for one more range and one more single-day category — covering exactly
+the "Editar…tipo" gap this report's SOLID section already noted wasn't independently
+proven at the unit level). Fixed a stale assertion in `uc-05`'s old spec that asserted the
+tipo input `should('not.exist')` — would have failed against the real updated component.
+Full Cypress suite: 78/78 green, 34 specs, real Postgres.
+
+---
+
 # Review Report — fechas-senaladas — 2026-08-07
 
 ## Result: FAIL ❌ (cycle 1) → tdd-engineer exception applied, see addendum below

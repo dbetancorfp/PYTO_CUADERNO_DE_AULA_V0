@@ -59,8 +59,9 @@ computed, not copied from `key_dates` (see `views/calendario/use-cases.md` UC-08
 ### GET /api/calendario-evaluation-working-days
 
 **Description**: Returns, for one módulo, the count of working days between that módulo's
-course start ("1º de Grado Superior de FP." or "2º de Grado Superior de FP.", whichever
-matches the módulo's own `course`) and each evaluación's "Examen final" date — see
+course start ("Inicio curso: 1º de Grado Superior de FP." or "Inicio curso: 2º de Grado
+Superior de FP.", whichever matches the módulo's own `course`) and each evaluación's
+"Examen final" date — see
 `views/calendario/use-cases.md` UC-09. The only data source for
 `evaluation-working-days-summary`.
 **Allowed roles**: authenticated teacher, only for an `academic_year_module_id` belonging
