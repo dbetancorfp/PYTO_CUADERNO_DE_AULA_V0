@@ -13,7 +13,7 @@ request/response shapes don't change — only their behavior gains a new effect)
 
 **Description**: Returns a módulo's snapshotted calendar entries (see
 `views/calendario/description_calendario.md`) — the only data source for
-`calendario-months`/`calendario-empty-state`/`calendario-day-toast`/`calendario-legend`
+`calendario-months`/`calendario-empty-state`/`calendario-day-tooltip`/`calendario-legend`
 (UC-11).
 **Allowed roles**: authenticated teacher, only for an `academic_year_module_id` belonging
 to one of their own `academic_years`

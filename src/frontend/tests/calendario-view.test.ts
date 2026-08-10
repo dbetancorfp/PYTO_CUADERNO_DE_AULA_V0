@@ -1,9 +1,16 @@
 // elementId: calendario-heading, back-to-dashboard-link, academic-year-filter-prev,
 // academic-year-filter-value, academic-year-filter-next, cycle-filter, module-filter,
-// calendario-months, calendario-empty-state, calendario-day-toast, calendario-legend (see
-// views/calendario/use-cases.md UC-01..UC-05, UC-10, UC-11). Read-only screen — renders
-// exclusively from calendario_modulo (via calendarioModuloService), never key_dates
-// directly.
+// calendario-months, calendario-empty-state, calendario-day-tooltip, calendario-legend
+// (see views/calendario/use-cases.md UC-01..UC-05, UC-10, UC-11). Read-only screen —
+// renders exclusively from calendario_modulo (via calendarioModuloService), never
+// key_dates directly.
+//
+// calendario-day-tooltip (2026-08-10) replaces the earlier calendario-day-toast: a pure
+// Tailwind `group`/`group-hover:block` CSS tooltip, always present in the DOM for a
+// covered day (absent entirely for an uncovered one) rather than a JS-driven element
+// toggled by mouseover/mouseout — real `:hover` reveal is Cypress's job (happy-dom has no
+// real `:hover` state), this only pins DOM presence/absence, content and the Tailwind
+// classes the reveal mechanism depends on.
 //
 // Testing seam: `today` is a settable property (defaults to `new Date()`) so
 // currentSchoolYearStartYear (month >= 9 -> current calendar year, else -> current calendar
@@ -595,8 +602,8 @@ describe('elementId: calendario-months (per-(category,type) color table — UC-1
   });
 });
 
-describe('elementId: calendario-day-toast', () => {
-  it('hovering a marked day shows calendario-day-toast with its event name', async () => {
+describe('elementId: calendario-day-tooltip (UC-05, 2026-08-10)', () => {
+  it('renders a tooltip child with the exact event name for a marked day', async () => {
     const el = await mountView({
       today: new Date('2026-08-07T12:00:00Z'),
       calendarioModulo: fakeCalendarioModuloService({
@@ -604,15 +611,14 @@ describe('elementId: calendario-day-toast', () => {
       }),
     });
 
-    el.shadowRoot!.querySelector('[data-element-id="calendario-month-2025-12-day-25"]')!.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
-    await tick();
-
-    expect(el.shadowRoot!.querySelector('[data-element-id="calendario-day-toast"]')!.textContent).toContain('Vacaciones de Navidad.');
+    const tooltip = el.shadowRoot!.querySelector('[data-element-id="calendario-month-2025-12-day-25-tooltip"]');
+    expect(tooltip).not.toBeNull();
+    expect(tooltip!.textContent).toContain('Vacaciones de Navidad.');
 
     el.remove();
   });
 
-  it('shows every applicable event name when a day has more than one entry', async () => {
+  it('lists every applicable event name, one per line, when a day has more than one entry', async () => {
     const el = await mountView({
       today: new Date('2026-08-07T12:00:00Z'),
       calendarioModulo: fakeCalendarioModuloService({
@@ -623,17 +629,14 @@ describe('elementId: calendario-day-toast', () => {
       }),
     });
 
-    el.shadowRoot!.querySelector('[data-element-id="calendario-month-2026-03-day-01"]')!.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
-    await tick();
-
-    const toastText = el.shadowRoot!.querySelector('[data-element-id="calendario-day-toast"]')!.textContent!;
-    expect(toastText).toContain('Festivo.');
-    expect(toastText).toContain('Evaluación.');
+    const tooltipText = el.shadowRoot!.querySelector('[data-element-id="calendario-month-2026-03-day-01-tooltip"]')!.textContent!;
+    expect(tooltipText).toContain('Festivo.');
+    expect(tooltipText).toContain('Evaluación.');
 
     el.remove();
   });
 
-  it('leaving a marked day dismisses calendario-day-toast immediately', async () => {
+  it('renders no tooltip node at all for a day with no covering calendario_modulo entry (A1)', async () => {
     const el = await mountView({
       today: new Date('2026-08-07T12:00:00Z'),
       calendarioModulo: fakeCalendarioModuloService({
@@ -641,13 +644,29 @@ describe('elementId: calendario-day-toast', () => {
       }),
     });
 
-    const day = el.shadowRoot!.querySelector('[data-element-id="calendario-month-2025-12-day-25"]')!;
-    day.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
-    await tick();
-    day.dispatchEvent(new MouseEvent('mouseout', { bubbles: true }));
-    await tick();
+    expect(el.shadowRoot!.querySelector('[data-element-id="calendario-month-2025-12-day-20-tooltip"]')).toBeNull();
 
-    expect(el.shadowRoot!.querySelector('[data-element-id="calendario-day-toast"]')).toBeNull();
+    el.remove();
+  });
+
+  it('is positioned to the right of its day cell via Tailwind group/group-hover classes, never a fixed screen corner', async () => {
+    const el = await mountView({
+      today: new Date('2026-08-07T12:00:00Z'),
+      calendarioModulo: fakeCalendarioModuloService({
+        findForModule: async () => [{ id: 'cm1', category: 'holidays', name: 'Vacaciones de Navidad.', startDate: '2025-12-25', endDate: '2025-12-25', type: 'Vacaciones' }],
+      }),
+    });
+
+    const dayCell = el.shadowRoot!.querySelector('[data-element-id="calendario-month-2025-12-day-25"]')!;
+    const tooltip = el.shadowRoot!.querySelector('[data-element-id="calendario-month-2025-12-day-25-tooltip"]')!;
+
+    expect(dayCell.className).toContain('group');
+    expect(dayCell.className).toContain('relative');
+    expect(tooltip.className).toContain('hidden');
+    expect(tooltip.className).toContain('group-hover:block');
+    expect(tooltip.className).toContain('absolute');
+    expect(tooltip.className).toContain('left-full');
+    expect(tooltip.className).not.toContain('fixed');
 
     el.remove();
   });

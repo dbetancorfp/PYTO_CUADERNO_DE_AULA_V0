@@ -90,7 +90,7 @@
     },
     {
       "elementId": "calendario-months",
-      "behavior": "Renders 10 month cards (September of the selected school year through June of the next) from the selected módulo's calendario_modulo rows. Each day cell shows only its day number, colored per the categories covering it. Hovering a marked day shows calendario-day-toast with its event name(s); leaving it dismisses the toast immediately.",
+      "behavior": "Renders 10 month cards (September of the selected school year through June of the next) from the selected módulo's calendario_modulo rows. Each day cell shows only its day number, colored per the categories covering it. Hovering a marked day reveals its calendario-day-tooltip child with the event name(s), positioned to the right of the day cell (2026-08-10, replaces the earlier fixed-position toast).",
       "businessRules": [
         "Only calendario_modulo rows for the currently selected academic_year_module_id are used — never key_dates directly",
         "Color is per (category, type) pair, not per category (2026-08-10, see views/calendario/use-cases.md UC-11's color table) — 14 canonical (category,type) rows across 7 category-hue families, each hue's own multi-type members stepped lighter for sub-identity within the family. final_exams (no type column) matches by name suffix instead of type.",
@@ -99,7 +99,8 @@
         "A day covered by more than one entry renders a split background (one color band per active (category,type), hard CSS stops), not just one color chosen arbitrarily",
         "A plain Saturday/Sunday with no calendario_modulo entry is colored neutral gray (#cbd5e1) — a calendar-structure cue, not a (category,type) color, no calendario-legend entry. A Saturday/Sunday covered by an entry uses that entry's real color, never darkened (replaces the pre-2026-08-10 'weekend + public_holidays = darker red' special case)",
         "Week rows start on Monday",
-        "Each month card gets data-element-id=\"calendario-month-<YYYY-MM>\"; each day cell inside it gets data-element-id=\"calendario-month-<YYYY-MM>-day-<DD>\" (documented dynamic pattern, not enumerated per instance)"
+        "Each month card gets data-element-id=\"calendario-month-<YYYY-MM>\"; each day cell inside it gets data-element-id=\"calendario-month-<YYYY-MM>-day-<DD>\" (documented dynamic pattern, not enumerated per instance)",
+        "Each day cell covered by at least one entry also carries a sibling calendario-day-tooltip child, data-element-id=\"calendario-month-<YYYY-MM>-day-<DD>-tooltip\" (2026-08-10) — a day cell with no covering entry has no tooltip child at all"
       ],
       "dataNeeds": [
         "calendario_modulo.academic_year_module_id",
@@ -118,8 +119,8 @@
         "A plain Saturday/Sunday with no entry is colored neutral gray (#cbd5e1)",
         "A Saturday/Sunday covered by an entry is colored that entry's real color, not darkened",
         "A day covered by more than one entry at once shows a split background (one band per (category,type)), not just one color",
-        "Hovering a colored day shows calendario-day-toast with that day's event name(s)",
-        "Moving the mouse off a colored day dismisses calendario-day-toast immediately",
+        "Hovering a colored day reveals its calendario-day-tooltip child, positioned to the right of the day cell, with that day's event name(s)",
+        "Moving the mouse off a colored day hides its calendario-day-tooltip child immediately",
         "When the selected academic_year_module_id has no calendario_modulo rows, calendario-months is not rendered and calendario-empty-state is shown instead"
       ]
     },
@@ -134,17 +135,19 @@
       ]
     },
     {
-      "elementId": "calendario-day-toast",
-      "behavior": "Reuses toast.ts's ToastController/renderToast with a new 'info' ToastVariant (neither 'error' nor 'success' fits a neutral day-info popup). Shown on mouseenter of a marked day cell, dismissed on mouseleave — not on the default 5s auto-dismiss timer, which stays reserved for action-confirmation toasts elsewhere in the app.",
+      "elementId": "calendario-day-tooltip",
+      "behavior": "2026-08-10, replaces the earlier calendario-day-toast (fixed bottom-right, shared ToastController/renderToast from toast.ts — toast.ts itself is untouched, it stays in use elsewhere in the app for action-confirmation toasts). Pure-CSS Tailwind tooltip: the day cell carries `group relative`; its tooltip child carries `hidden group-hover:block absolute left-full top-0`, so it's revealed immediately to the right of the hovered cell on `:hover` and hidden immediately when the cursor leaves — no JS mouseover/mouseout handling, no component re-render, no dismiss timer of any kind (there was never a 5s auto-dismiss for this element, and there still isn't).",
       "businessRules": [
-        "Message text lists every calendario_modulo entry's name covering the hovered day, one per line if more than one",
-        "Dismissal on mouseleave is immediate, bypassing the auto-dismiss timer"
+        "Rendered only for a day cell covered by at least one calendario_modulo entry — a day with no covering entry has no tooltip node in the DOM at all, not just a hidden one",
+        "Content lists every calendario_modulo entry's name covering that day, one per line if more than one",
+        "Positioned to the right of its own day cell (`left-full`), never at a fixed screen corner"
       ],
       "dataNeeds": ["calendario_modulo.name", "calendario_modulo.category"],
       "acceptanceCriteria": [
-        "calendario-day-toast shows the exact event name of a hovered single-category day",
-        "calendario-day-toast shows every applicable event name, one per line, when the hovered day is covered by more than one calendario_modulo entry",
-        "calendario-day-toast disappears as soon as the mouse leaves the day cell, without waiting 5 seconds"
+        "calendario-day-tooltip shows the exact event name of a hovered single-category day",
+        "calendario-day-tooltip shows every applicable event name, one per line, when the hovered day is covered by more than one calendario_modulo entry",
+        "A day cell with no covering calendario_modulo entry has no calendario-day-tooltip node in the DOM",
+        "calendario-day-tooltip is positioned to the right of its day cell (carries the `left-full` class), not fixed to a screen corner"
       ]
     },
     {
