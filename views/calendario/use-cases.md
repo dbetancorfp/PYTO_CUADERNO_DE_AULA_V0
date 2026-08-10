@@ -198,17 +198,28 @@ selected
 
 **Primary actor**: Any signed-in teacher, on `/calendario`
 **Preconditions**: Valid session; `calendario-months` is populated
-**Elements**: `calendario-months`, `calendario-day-toast`
+**Elements**: `calendario-months`, `calendario-day-tooltip`
+
+2026-08-10: replaces the earlier `calendario-day-toast` mechanism (fixed bottom-right,
+shared `toast.ts`'s `ToastController`/`renderToast`) with a Tailwind `group`/
+`group-hover` CSS tooltip, anchored to the right of the hovered day cell instead of a
+fixed screen corner. `toast.ts` itself is unchanged — Configuración's
+`academic-year-toast` keeps using it as before; this view simply stops.
 
 ### Main flow
 
 1. Teacher hovers a colored day cell inside `calendario-months`.
-2. `calendario-day-toast` appears (reuses `toast.ts`'s `ToastController`/`renderToast`
-   with a new neutral `'info'` `ToastVariant`), listing every `calendario_modulo` entry's
-   `name` covering that day, one per line if more than one.
-3. Teacher moves the mouse off the day; `calendario-day-toast` dismisses immediately —
-   not on the shared 5-second auto-dismiss timer used elsewhere in the app for
-   action-confirmation toasts.
+2. That day cell's `calendario-day-tooltip` child (already present in the DOM, initially
+   hidden) becomes visible via pure CSS — no JS event handling, no component re-render —
+   positioned immediately to the right of the day cell, listing every `calendario_modulo`
+   entry's `name` covering that day, one per line if more than one.
+3. Teacher moves the mouse off the day; the tooltip hides immediately, same pure-CSS
+   mechanism, no dismiss timer of any kind.
+
+### Alternative flows
+
+- **A1 — Uncovered day**: a day cell with no `calendario_modulo` entry covering it has no
+  `calendario-day-tooltip` child in the DOM at all — hovering it reveals nothing.
 
 ### Postconditions
 
@@ -216,11 +227,14 @@ selected
 
 ### Acceptance criteria
 
-- [x] `calendario-day-toast` shows the exact event name of a hovered single-category day
-- [x] `calendario-day-toast` shows every applicable event name, one per line, when the
+- [x] `calendario-day-tooltip` shows the exact event name of a hovered single-category day
+- [x] `calendario-day-tooltip` shows every applicable event name, one per line, when the
       hovered day is covered by more than one `calendario_modulo` entry
-- [x] `calendario-day-toast` disappears as soon as the mouse leaves the day cell, without
-      waiting 5 seconds
+- [ ] `calendario-day-tooltip` disappears as soon as the mouse leaves the day cell
+- [x] `calendario-day-tooltip` is positioned to the right of its own day cell, not at a
+      fixed screen corner
+- [x] A day cell with no covering `calendario_modulo` entry has no `calendario-day-tooltip`
+      node in the DOM (A1)
 
 ---
 

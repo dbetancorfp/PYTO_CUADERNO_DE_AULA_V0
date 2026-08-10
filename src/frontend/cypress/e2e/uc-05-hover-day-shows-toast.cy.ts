@@ -1,5 +1,16 @@
 /// <reference types="cypress" />
-// UC-05: See event details on hover (views/calendario/use-cases.md)
+// UC-05: See event details on hover (views/calendario/use-cases.md). 2026-08-10:
+// calendario-day-tooltip replaces the earlier calendario-day-toast — a pure Tailwind
+// `group`/`group-hover:block` CSS reveal instead of a JS mouseover/mouseout-driven toast.
+//
+// Genuine `:hover` activation requires real OS-level cursor movement, which Cypress's
+// `.trigger('mouseover')` (a synthetic DOM event dispatch) does not produce — asserting a
+// visual reveal on top of it would be a pretend mechanism, not a real proof. What *is* real
+// and worth proving here: the tooltip node exists in the real DOM with the exact expected
+// content, real Tailwind CSS actually compiled/served the `hidden` utility (so it starts
+// genuinely `display: none`, not just unstyled), and a day with no event has no tooltip
+// node at all. `group-hover:block`'s own CSS-pseudo-class mechanics are Tailwind's own
+// extensively-tested library behavior, not this app's code — out of this spec's scope.
 
 import { signInAsE2eUser } from './support/sign-in';
 
@@ -40,10 +51,10 @@ describe('UC-05: See event details on hover', () => {
     signInAsE2eUser();
   });
 
-  it('shows calendario-day-toast on hover with the event name, and dismisses it on mouseleave', () => {
+  it('renders a calendario-day-tooltip node with the real event name, hidden by default via real Tailwind CSS', () => {
     const targetStartYear = currentSchoolYearStartYear() + TARGET_OFFSET;
-    const cycleName = `E2E Toast Cycle ${Date.now()}`;
-    const moduleName = `E2E Toast Module ${Date.now()}`;
+    const cycleName = `E2E Tooltip Cycle ${Date.now()}`;
+    const moduleName = `E2E Tooltip Module ${Date.now()}`;
 
     cleanupExistingYear(targetStartYear).then(() => {
       cy.request('POST', '/api/catalog/training-cycles', { name: cycleName }).then(({ body: cycleBody }) => {
@@ -63,15 +74,22 @@ describe('UC-05: See event details on hover', () => {
                 }
                 cy.get('[data-element-id="calendario-months"]').should('exist');
 
-                // calendario-view.ts delegates via mouseover/mouseout (bubbling), not
-                // mouseenter/mouseleave — verified live in Chrome that real pointer movement
-                // never fires mouseenter/mouseleave through a capture-phase ShadowRoot
-                // listener, only mouseover/mouseout/mousemove do.
-                cy.get(`[data-element-id="calendario-month-${targetStartYear}-12-day-25"]`).trigger('mouseover', { bubbles: true });
-                cy.get('[data-element-id="calendario-day-toast"]').should('be.visible').and('contain.text', 'Vacaciones de Navidad.');
+                // Real DOM + real content, on a real, Postgres-seeded holidays entry.
+                cy.get(`[data-element-id="calendario-month-${targetStartYear}-12-day-25-tooltip"]`)
+                  .should('exist')
+                  .and('contain.text', 'Vacaciones de Navidad.');
 
-                cy.get(`[data-element-id="calendario-month-${targetStartYear}-12-day-25"]`).trigger('mouseout', { bubbles: true });
-                cy.get('[data-element-id="calendario-day-toast"]').should('not.exist');
+                // Style application proof: real Tailwind CSS compiled the `hidden` utility
+                // for this element, so it's genuinely display:none by default in the real
+                // browser, not merely absent a class in the DOM.
+                cy.get(`[data-element-id="calendario-month-${targetStartYear}-12-day-25-tooltip"]`).should(
+                  'have.css',
+                  'display',
+                  'none',
+                );
+
+                // A1 — a day cell with no calendario_modulo entry has no tooltip node.
+                cy.get(`[data-element-id="calendario-month-${targetStartYear}-12-day-20-tooltip"]`).should('not.exist');
 
                 cy.request('GET', `/api/academic-years/${academicYearId}/modules`).then(({ body: modulesBody }) => {
                   const assignmentId = (modulesBody as { modules: AcademicYearModule[] }).modules[0]!.id;

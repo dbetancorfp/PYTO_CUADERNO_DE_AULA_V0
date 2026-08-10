@@ -1,3 +1,92 @@
+# Review Report — calendario — 2026-08-10 (e2e-engineer follow-up: tooltip real-browser proof)
+
+Branch `view/calendario-tooltip-hover`. Rewrote `uc-05-hover-day-shows-toast.cy.ts` for
+the new mechanism. Deliberately did **not** simulate a genuine `:hover` reveal —
+`.trigger('mouseover')` is a synthetic DOM dispatch, not real OS-level cursor movement, so
+it never actually activates a real CSS `:hover`/`group-hover` state; asserting a visual
+reveal on top of it would have been a pretend mechanism (`cypress-real-events` would make
+genuine hover simulation possible but wasn't installed — flagged as a possible future
+addition, not done here since it wasn't requested and adds new shared infra). What the spec
+does prove for real: the tooltip node exists with the exact real event name, real Tailwind
+CSS actually compiled the `hidden` utility (`display: none` by default, a genuine style
+application proof), and a day with no covering entry has no tooltip node in the DOM at all.
+
+`bun run e2e` (full suite, real Postgres, real server): **81/81 passing**, 0 fail.
+
+## Result: PASS ✅
+
+---
+
+# Review Report — calendario — 2026-08-10 (UX: calendario-day-tooltip replaces calendario-day-toast)
+
+Branch `view/calendario-tooltip-hover`. UX change requested by the user: the day-hover
+mechanism moves from a shared, fixed-bottom-right `ToastController`/`renderToast` popup
+(JS `mouseover`/`mouseout` handling) to a pure Tailwind `group`/`group-hover:block` CSS
+tooltip anchored to the right of the hovered day cell — always present in the DOM (hidden
+by default) for a covered day, absent entirely for an uncovered one. `toast.ts` itself is
+untouched (`git diff` empty) — Configuración's `academic-year-toast` is unaffected.
+
+## Result: PASS ✅
+
+## Layers implicated: none
+
+## Supervisor notes adjudicated
+
+| Note | Resolution |
+|------|------------|
+| None — supervisor reported `Layers implicated: none`, both unit suites green, `toast.ts`/`src/backend/` confirmed untouched via empty `git diff`, and the implemented classes/elementId confirmed to match `ui-spec.json`/`functional-spec.json`'s `calendario-day-tooltip` entry exactly. | No adjudication needed. |
+
+## SOLID violations found
+
+None. `frontend-implementer` removed `_handleDayMouseOver`/`_handleDayMouseOut`,
+`DAY_ELEMENT_ID_PATTERN` and `parseDayElementId` as dead code once their only caller (the
+mouseover/mouseout listeners) was removed — correct call, not a coverage-gap workaround
+(nothing in the new design needs them; a real system input would never reach them again).
+`_renderDayTooltip` is a small, single-purpose render function (SRP). No `new
+ConcreteImpl()` introduced. No interface changed.
+
+## SonarCloud Quality Gate
+
+| Metric | Threshold | Backend | Frontend | Result |
+|--------|-----------|---------|----------|--------|
+| Coverage | 100% | untouched this cycle, still green | `calendario-view.ts` 100% lines / 97.67% funcs | ✅ (funcs gap shrank, see below) |
+| Bugs | 0 | 0 | 0 | ✅ |
+| Vulnerabilities | 0 | 0 | 0 | ✅ |
+| Duplication | ≤ 3% | n/a | none introduced | ✅ |
+
+`calendario-view.ts` Funcs (lcov): 84/86 — the pre-existing gap (91/94, 3 uncovered,
+tracked across every review of this file since 2026-08-07) **shrank to 2 uncovered**
+this cycle, not grew: dead-code removal (`_handleDayMouseOver`/`_handleDayMouseOut`/
+`parseDayElementId`) removed more functions than `_renderDayTooltip` added, and the new
+function is itself fully exercised (both its "has entries"/"no entries" branches have a
+dedicated test). Not a regression.
+
+`bun test` (full repo): 599 pass / 0 fail. `bun run type-check`: clean.
+
+## Acceptance criteria marked (use-cases.md)
+
+| Criterion | Test that verifies it |
+|-----------|------------------------|
+| UC-05: calendario-day-tooltip shows the exact event name of a hovered single-category day | `calendario-view.test.ts` › "renders a tooltip child with the exact event name for a marked day" |
+| UC-05: calendario-day-tooltip shows every applicable event name, one per line, when covered by more than one entry | `calendario-view.test.ts` › "lists every applicable event name, one per line, when a day has more than one entry" |
+| UC-05: calendario-day-tooltip disappears as soon as the mouse leaves the day cell | Real `:hover` state can't be simulated in `happy-dom` — deferred to `e2e-engineer` below; the CSS mechanism itself (`hidden group-hover:block`) is asserted structurally by the class-list test |
+| UC-05: calendario-day-tooltip is positioned to the right of its own day cell, not at a fixed screen corner | `calendario-view.test.ts` › "is positioned to the right of its day cell via Tailwind group/group-hover classes, never a fixed screen corner" |
+| UC-05/A1: A day cell with no covering entry has no calendario-day-tooltip node in the DOM | `calendario-view.test.ts` › "renders no tooltip node at all for a day with no covering calendario_modulo entry (A1)" |
+
+## Criteria without verifiable coverage
+
+| Criterion | Reason |
+|-----------|--------|
+| UC-05: calendario-day-tooltip disappears as soon as the mouse leaves the day cell | Pure-CSS `:hover`/`group-hover` reveal has no real hover state in `happy-dom` — a unit test can only assert the `hidden`/`group-hover:block` classes are present, not that a real mouseleave actually re-hides it in a real browser. |
+
+## Deferred to e2e-engineer
+
+| File / branch | Why it can't be unit-tested here | What to verify once real infra exists |
+|---|---|---|
+| `calendario-view.ts` — `calendario-day-tooltip` | `happy-dom` has no real `:hover` pseudo-class state | Real Cypress run: hovering a marked day cell (`cy.realHover()` or `.trigger('mouseover')` against the real computed style) actually reveals the tooltip via `group-hover:block`, positioned to the right of the cell, and it hides again on mouseleave — plus update any pre-existing Cypress spec that still hovers `calendario-months` expecting the old `calendario-day-toast` element. |
+
+---
+
 # Review Report — calendario — 2026-08-10 (e2e-engineer follow-up: "Fin de curso" split)
 
 Branch `view/calendario-fin-de-curso`. Updated 6 hardcoded row-count assertions across 2

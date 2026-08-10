@@ -2,7 +2,6 @@ import { html, nothing, render, type TemplateResult } from 'lit-html';
 import { attachSharedStyles } from './styles/shadow-styles';
 import { classesFor } from './styles/classes-for';
 import { redirectTo } from './navigation';
-import { ToastController, renderToast } from './toast';
 import type { SessionApiService } from './session-api-service';
 import type { AcademicYear, AcademicYearApiService, AcademicYearModuleDetail } from './academic-year-api-service';
 import type { CalendarioModuloApiService, CalendarioModuloEntry } from './calendario-modulo-api-service';
@@ -114,8 +113,6 @@ const MONTH_LABELS: readonly string[] = [
 
 const WEEKDAY_LABELS: readonly string[] = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 
-const DAY_ELEMENT_ID_PATTERN = /^calendario-month-(\d{4})-(\d{2})-day-(\d{2})$/;
-
 function pad2(value: number): string {
   return String(value).padStart(2, '0');
 }
@@ -226,12 +223,6 @@ function backgroundStyleForDay(weekday: number, entries: readonly CalendarioModu
   return isWeekend ? `background-color: ${WEEKEND_NEUTRAL_HEX};` : '';
 }
 
-function parseDayElementId(elementId: string): string | null {
-  const match = DAY_ELEMENT_ID_PATTERN.exec(elementId);
-  if (!match) return null;
-  return `${match[1]}-${match[2]}-${match[3]}`;
-}
-
 /**
  * Calendario screen — own top-level custom element, single Shadow DOM (CLAUDE.md's "no
  * nested Shadow DOM" rule). Read-only: renders exclusively from `calendario_modulo` via the
@@ -272,8 +263,6 @@ export class CalendarioView extends HTMLElement {
 
   private _calendarEntries: CalendarioModuloEntry[] = [];
   private _evaluationWorkingDaysEntries: EvaluationWorkingDaysEntry[] = [];
-
-  private readonly _toast: ToastController = new ToastController(() => this._render());
 
   private _disposables: Array<() => void> = [];
 
@@ -332,25 +321,11 @@ export class CalendarioView extends HTMLElement {
 
     const onClick = (event: Event): void => this._handleClick(event);
     const onChange = (event: Event): void => this._handleChange(event);
-    // `mouseenter`/`mouseleave` never bubble and, in practice, never reach a capture-phase
-    // listener registered on a ShadowRoot for real pointer movement either — verified live
-    // in Chrome: genuine mouse movement fires `mouseover`/`mouseout`/`mousemove` on the day
-    // cell exactly as expected, but zero `mouseenter`/`mouseleave` events at all (only a
-    // synthetic `dispatchEvent(new MouseEvent('mouseenter', ...))`, as unit tests and
-    // Cypress's `.trigger()` both use, ever reached it — masking this in every automated
-    // check). `mouseover`/`mouseout` bubble normally, so plain bubble-phase delegation
-    // (same as click/change above) works reliably for real hover.
-    const onDayMouseOver = (event: Event): void => this._handleDayMouseOver(event);
-    const onDayMouseOut = (event: Event): void => this._handleDayMouseOut(event);
     this.shadowRoot!.addEventListener('click', onClick);
     this.shadowRoot!.addEventListener('change', onChange);
-    this.shadowRoot!.addEventListener('mouseover', onDayMouseOver);
-    this.shadowRoot!.addEventListener('mouseout', onDayMouseOut);
     this._disposables.push(
       () => this.shadowRoot!.removeEventListener('click', onClick),
       () => this.shadowRoot!.removeEventListener('change', onChange),
-      () => this.shadowRoot!.removeEventListener('mouseover', onDayMouseOver),
-      () => this.shadowRoot!.removeEventListener('mouseout', onDayMouseOut),
     );
 
     void this._init();
@@ -420,29 +395,6 @@ export class CalendarioView extends HTMLElement {
       void this._loadCalendar();
       void this._loadEvaluationWorkingDays();
     }
-  }
-
-  private _handleDayMouseOver(event: Event): void {
-    if (!(event.target instanceof Element)) return;
-    const target = event.target.closest<HTMLElement>('[data-calendario-day-categories]');
-    if (!target) return;
-    const dayDate = parseDayElementId(target.dataset.elementId ?? '');
-    if (dayDate === null) return;
-
-    const entries = entriesCoveringDay(this._calendarEntries, dayDate);
-    if (entries.length === 0) return;
-
-    this._toast.show(
-      entries.map((entry) => entry.name).join('\n'),
-      'info',
-    );
-  }
-
-  private _handleDayMouseOut(event: Event): void {
-    if (!(event.target instanceof Element)) return;
-    const target = event.target.closest<HTMLElement>('[data-calendario-day-categories]');
-    if (!target) return;
-    this._toast.dismiss();
   }
 
   // ---------------------------------------------------------------------------------------
@@ -574,7 +526,6 @@ export class CalendarioView extends HTMLElement {
         <div class="flex flex-col gap-6 p-4">
           ${this._renderNav()} ${this._renderFilters()} ${this._renderLegend()} ${this._renderCalendarSection()}
         </div>
-        ${renderToast('calendario-day-toast', this._toast.current, () => this._toast.dismiss())}
       `,
       this.shadowRoot!,
     );
@@ -763,16 +714,41 @@ export class CalendarioView extends HTMLElement {
     const categories = categoriesForDay(this._calendarEntries, dayDate);
     const weekday = mondayFirstWeekday(year, month, day);
     const style = backgroundStyleForDay(weekday, this._calendarEntries, dayDate);
+    const coveringEntries = entriesCoveringDay(this._calendarEntries, dayDate);
 
     return html`
       <div
-        class="flex h-7 w-7 items-center justify-center rounded"
+        class="group relative flex h-7 w-7 items-center justify-center rounded"
         style="${style}"
         data-element-id="${monthElementId(year, month)}-day-${pad2(day)}"
         data-calendario-day-categories="${categories.length > 0 ? categories.join(',') : nothing}"
       >
-        ${day}
+        ${day} ${this._renderDayTooltip(year, month, day, coveringEntries)}
       </div>
+    `;
+  }
+
+  /**
+   * calendario-day-tooltip — pure Tailwind `group`/`group-hover:block` reveal (2026-08-10,
+   * replaces the earlier `ToastController`/`renderToast`-based hover mechanism — see
+   * `views/calendario/use-cases.md` UC-05). Always present in the DOM, hidden by default,
+   * for a day covered by at least one `calendario_modulo` entry; absent entirely (not just
+   * visually hidden) for an uncovered day, per UC-05/A1.
+   */
+  private _renderDayTooltip(
+    year: number,
+    month: number,
+    day: number,
+    coveringEntries: readonly CalendarioModuloEntry[],
+  ): TemplateResult | typeof nothing {
+    if (coveringEntries.length === 0) return nothing;
+
+    return html`
+      <span
+        class="${classesFor('card')} hidden group-hover:block absolute left-full top-0 z-20 ml-1 p-2 text-xs whitespace-pre-line"
+        data-element-id="${monthElementId(year, month)}-day-${pad2(day)}-tooltip"
+        >${coveringEntries.map((entry) => entry.name).join('\n')}</span
+      >
     `;
   }
 }

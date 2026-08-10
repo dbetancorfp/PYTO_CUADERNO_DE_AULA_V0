@@ -22,7 +22,7 @@
         "module-filter",
         "calendario-months",
         "calendario-empty-state",
-        "calendario-day-toast",
+        "calendario-day-tooltip",
         "evaluation-working-days-summary",
         "evaluation-working-days-1",
         "evaluation-working-days-2",
@@ -205,16 +205,10 @@
           ],
           "interactions": [
             {
-              "trigger": "mouseenter",
+              "trigger": "hover (CSS :hover via Tailwind's group/group-hover, no JS event needed)",
               "event": "app:calendario-day-hovered",
-              "target_elements": ["calendario-day-toast"],
-              "response": "Shows calendario-day-toast with the name(s) of every key_dates entry covering that day"
-            },
-            {
-              "trigger": "mouseleave",
-              "event": "app:calendario-day-unhovered",
-              "target_elements": ["calendario-day-toast"],
-              "response": "Dismisses calendario-day-toast immediately, without waiting for its auto-dismiss timer"
+              "target_elements": ["calendario-day-tooltip"],
+              "response": "Reveals that day's calendario-day-tooltip child, positioned to the right of the day cell"
             }
           ]
         },
@@ -232,28 +226,22 @@
           "interactions": []
         },
         {
-          "elementId": "calendario-day-toast",
+          "elementId": "calendario-day-tooltip",
           "type": "badge",
           "props": {},
           "states": [
             {
-              "name": "hidden",
-              "description": "No day currently hovered",
-              "visual_cues": ["not rendered"]
+              "name": "populated",
+              "description": "Rendered (in the DOM, initially hidden via Tailwind's `hidden` class) for every day cell covered by at least one calendario_modulo entry — one per day, dynamic id `calendario-month-<YYYY-MM>-day-<DD>-tooltip` (e.g. calendario-month-2026-09-day-05-tooltip), same dynamic-per-day convention already documented for calendario-months's own day-cell ids. Revealed by Tailwind's `group`/`group-hover:block` CSS pattern when the cursor is over that day's cell (the day cell itself carries `group relative`; the tooltip is `hidden group-hover:block absolute left-full top-0`, positioned immediately to the right of the cell it belongs to, never at a fixed screen corner) — no JS mouseover/mouseout handling needed, unlike the toast mechanism this replaces (2026-08-10). Content: the name of every calendario_modulo entry covering that day, one per line if more than one.",
+              "visual_cues": ["small popup anchored to the right edge of the hovered day cell, appears/disappears immediately with the cursor, no fixed-corner positioning, no auto-dismiss timer"]
             },
             {
-              "name": "visible",
-              "description": "A marked day is currently hovered — shows the event name(s) for that day, reusing toast.ts's ToastController/renderToast with a new neutral 'info' ToastVariant (neither 'error' nor 'success' fits a day-info popup)",
-              "visual_cues": ["fixed-position popup, bottom-right, neutral accent color"]
+              "name": "absent",
+              "description": "A day cell with no calendario_modulo entry covering it renders no tooltip node at all — nothing to reveal on hover",
+              "visual_cues": ["not rendered"]
             }
           ],
-          "interactions": [
-            {
-              "trigger": "mouseleave (on the hovered day, bubbles up)",
-              "event": "app:calendario-day-unhovered",
-              "response": "Dismisses immediately"
-            }
-          ]
+          "interactions": []
         },
         {
           "elementId": "evaluation-working-days-summary",
