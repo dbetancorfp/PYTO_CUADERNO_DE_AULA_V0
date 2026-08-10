@@ -1,5 +1,24 @@
 # Review Report — calendario — 2026-08-10 (amendment: UC-09/UC-10 `evaluation_working_days`)
 
+**Post-merge layout follow-up (2026-08-10, branch `view/calendario-working-days-layout-fix`)**:
+user reported, after using the merged view in a real browser, that `evaluation-working-days-summary`
+visually overflowed past the filters `<section>`'s bottom edge (a direct consequence of the
+`position: absolute` fix below — the section stopped "seeing" that content for its own height
+calculation, so taller content just spilled past the card's rendered boundary instead of
+being clipped or accounted for), and that the text should read left-aligned instead of
+right-aligned. Fixed: the `<section>` now carries `min-h-24` (a constant 96px, computed from
+3× `text-xs` line-height + gaps + the block's `top-3` offset + margin) so its height no longer
+varies between the empty and populated states and no longer depends on the absolutely-positioned
+content's own height — genuinely constant, not just "unaffected because absolute," which is
+a stronger and more literal reading of the original "must not change the row's height"
+requirement. `items-end`/`text-right` swapped for `items-start`/`text-left` on the summary's
+own text. `evaluation-working-days-summary`'s Cypress assertions extended to check both
+(no overflow past the section's bottom edge, left edges of different-length lines align —
+the real differentiator between left- and right-alignment, since right-alignment would instead
+align each line's *right* edge). Full 77/77 Cypress suite green afterward; no unit test
+touched (this class of regression isn't observable in `happy-dom`, same reasoning as the
+original deferral).
+
 **Post-review layout bugfix (same day, same cycle)**: `e2e-engineer`'s real-browser
 Cypress run caught exactly the gap this review's own "Criteria without verifiable
 coverage" section flagged as untestable here — `evaluation-working-days-summary`'s
