@@ -24,8 +24,31 @@ interface WorkingDaysEntry {
   evaluationNumber: number;
   workingDays: number;
 }
+interface AcademicYearModule {
+  id: string;
+  catalogModuleId: string;
+}
 
 const TARGET_OFFSET = 1; // currentSchoolYearStartYear + 1 — distinct from the other calendario specs.
+
+// A real teacher's own manual use of the app (same shared dev Postgres, no separate test
+// DB) can land on the same nearby school year this spec targets — defensive cleanup before
+// creating, same guard uc-03-04's spec already uses, so a real pre-existing row never
+// causes a false-negative 409 here.
+function cleanupExistingYear(startYear: number): Cypress.Chainable<unknown> {
+  return cy.request('GET', '/api/academic-years').then(({ body }) => {
+    const existing = (body as { academicYears: { id: string; startYear: number }[] }).academicYears.find(
+      (year) => year.startYear === startYear,
+    );
+    if (!existing) return cy.wrap(null);
+
+    return cy.request('GET', `/api/academic-years/${existing.id}/modules`).then(({ body: modulesBody }) => {
+      const modules = (modulesBody as { modules: AcademicYearModule[] }).modules;
+      const deletions = modules.map((module) => cy.request('DELETE', `/api/academic-year-modules/${module.id}`));
+      return Cypress.Promise.all(deletions).then(() => cy.request('DELETE', `/api/academic-years/${existing.id}`));
+    });
+  });
+}
 
 describe('UC-09/UC-10: evaluation working-days computed and rendered', () => {
   beforeEach(() => {
@@ -37,7 +60,7 @@ describe('UC-09/UC-10: evaluation working-days computed and rendered', () => {
     const cycleName = `E2E UC09-10 Cycle ${Date.now()}`;
     const moduleName = `E2E UC09-10 Module ${Date.now()}`;
 
-    cy.request('POST', '/api/catalog/training-cycles', { name: cycleName }).then(({ body: cycleBody }) => {
+    cleanupExistingYear(startYear).then(() => cy.request('POST', '/api/catalog/training-cycles', { name: cycleName })).then(({ body: cycleBody }) => {
       const cycleId = (cycleBody as CatalogCycle).id;
 
       // course: 1 -> should get all three evaluationNumber rows (1, 2, 3).

@@ -86,3 +86,26 @@ CREATE TABLE IF NOT EXISTS calendario_evaluation_working_days (
 
 CREATE INDEX IF NOT EXISTS calendario_evaluation_working_days_academic_year_module_id_idx
   ON calendario_evaluation_working_days (academic_year_module_id);
+
+-- Migration (2026-08-10) — `type` column on calendario_modulo, added purely for the color
+-- legend (calendario-legend, UC-11): the calendar day-coloring scheme moves from one fixed
+-- color per category to one color per (category, type) pair, matching key_dates' own `type`
+-- column (see views/fechas-senaladas/schema-changes.sql) — `seedForModules` now copies
+-- `keyDate.type` alongside category/name/dates. Nullable, same as key_dates.type: a custom
+-- key_dates row a teacher adds without a tipo still snapshots fine, the frontend falls back
+-- to that category's base hue when type is null. `final_exams` rows have no key_dates row to
+-- copy `type` from (they're computed, not copied) — stay NULL; the frontend distinguishes
+-- "Examen final."/"Examen de recuperación final." by name suffix instead, not by `type`.
+ALTER TABLE calendario_modulo ADD COLUMN IF NOT EXISTS type VARCHAR(100);
+
+-- Backfill the 102 already-live rows (2026-08-10, real dev DB, one existing academic_years
+-- assignment) from key_dates by (category, name) — the exact same natural-key match
+-- `seedForModules` already uses implicitly when it copies a key_dates row. Safe to re-run:
+-- always re-sets the same value. Only affects category != 'final_exams' (no key_dates row
+-- to join for those, they stay NULL, as intended).
+UPDATE calendario_modulo cm
+SET type = kd.type
+FROM key_dates kd
+WHERE cm.category = kd.category
+  AND cm.name = kd.name
+  AND cm.category != 'final_exams';

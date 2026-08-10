@@ -5,13 +5,19 @@
 // "Examen de recuperación final" pair for every "Último día para poner notas" entry,
 // verified via the real HTTP API end to end (business-day math against real, Postgres-seeded
 // key_dates), plus a real-browser style-application proof that final_exams days render
-// light green.
+// their UC-11 color — "Examen final." rows #008300, "Examen de recuperación final." rows
+// #59ae59 (2026-08-10, replaces the earlier uniform light-green scheme).
 
 import { signInAsE2eUser } from './support/sign-in';
 
 function currentSchoolYearStartYear(): number {
   const today = new Date();
   return today.getMonth() >= 8 ? today.getFullYear() : today.getFullYear() - 1;
+}
+
+function dayElementIdFor(isoDate: string): string {
+  const [year, month, day] = isoDate.split('-');
+  return `calendario-month-${year}-${month}-day-${day}`;
 }
 
 interface CatalogCycle {
@@ -82,12 +88,18 @@ describe('UC-08: final_exams dates computed when calendario_modulo is generated'
                 cy.get('[data-element-id="cycle-filter"]').should('contain.text', cycleName);
                 cy.get('[data-element-id="module-filter"]').should('contain.text', moduleName);
 
-                // Style application proof (UC-04's green rule): every final_exams day cell
-                // carries the category in its data attribute and renders #bbf7d0 for real, not
-                // just in the category-resolution logic a unit test already covers.
+                // Style application proof (UC-11 rows 13/14): every final_exams day cell
+                // carries the category in its data attribute and renders its real, per-name-
+                // suffix color, not just in the resolution logic a unit test already covers.
                 cy.get('[data-calendario-day-categories*="final_exams"]').should('have.length', 8);
-                cy.get('[data-calendario-day-categories*="final_exams"]').each(($cell) => {
-                  cy.wrap($cell).should('have.css', 'background-color', 'rgb(187, 247, 208)');
+
+                const examenFinalEntries = finalExams.filter((e) => e.name.endsWith('Examen final.'));
+                const recuperacionEntries = finalExams.filter((e) => e.name.endsWith('Examen de recuperación final.'));
+                examenFinalEntries.forEach((entry) => {
+                  cy.get(`[data-element-id="${dayElementIdFor(entry.startDate)}"]`).should('have.css', 'background-color', 'rgb(0, 131, 0)');
+                });
+                recuperacionEntries.forEach((entry) => {
+                  cy.get(`[data-element-id="${dayElementIdFor(entry.startDate)}"]`).should('have.css', 'background-color', 'rgb(89, 174, 89)');
                 });
 
                 // Cleanup.

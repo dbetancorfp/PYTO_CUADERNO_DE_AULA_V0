@@ -1,8 +1,9 @@
 // elementId: calendario-heading, back-to-dashboard-link, academic-year-filter-prev,
 // academic-year-filter-value, academic-year-filter-next, cycle-filter, module-filter,
-// calendario-months, calendario-empty-state, calendario-day-toast (see
-// views/calendario/use-cases.md UC-01..UC-05). Read-only screen — renders exclusively from
-// calendario_modulo (via calendarioModuloService), never key_dates directly.
+// calendario-months, calendario-empty-state, calendario-day-toast, calendario-legend (see
+// views/calendario/use-cases.md UC-01..UC-05, UC-10, UC-11). Read-only screen — renders
+// exclusively from calendario_modulo (via calendarioModuloService), never key_dates
+// directly.
 //
 // Testing seam: `today` is a settable property (defaults to `new Date()`) so
 // currentSchoolYearStartYear (month >= 9 -> current calendar year, else -> current calendar
@@ -12,8 +13,9 @@
 //
 // Day cells carry `data-calendario-day-categories` (comma-joined category names covering
 // that day, e.g. "holidays" or "evaluations,feoe_project_days") as the test hook for the
-// color-assignment business rule — real computed color is Cypress's job
-// (style-application-proof), this only pins the underlying category-resolution logic.
+// category-resolution logic; the exact color per (category,type) pair (UC-11's table,
+// 2026-08-10) is asserted directly against the `style` attribute's hex, since that table is
+// the single source of truth both calendario-months and calendario-legend read from.
 import { describe, it, expect } from 'bun:test';
 import '../src/calendario-view';
 import type { CalendarioView } from '../src/calendario-view';
@@ -50,6 +52,7 @@ interface CalendarioModuloEntry {
   name: string;
   startDate: string;
   endDate: string;
+  type: string | null;
 }
 
 interface CalendarioModuloApiService {
@@ -368,7 +371,7 @@ describe('elementId: calendario-months, calendario-empty-state', () => {
     const el = await mountView({
       today: new Date('2026-08-07T12:00:00Z'),
       calendarioModulo: fakeCalendarioModuloService({
-        findForModule: async () => [{ id: 'cm1', category: 'holidays', name: 'Vacaciones de Navidad.', startDate: '2025-12-22', endDate: '2026-01-07' }],
+        findForModule: async () => [{ id: 'cm1', category: 'holidays', name: 'Vacaciones de Navidad.', startDate: '2025-12-22', endDate: '2026-01-07', type: null }],
       }),
     });
 
@@ -380,12 +383,12 @@ describe('elementId: calendario-months, calendario-empty-state', () => {
     el.remove();
   });
 
-  it('colors every day of a <=30-day range, including both boundary days', async () => {
+  it('colors every day of a <=30-day range, including both boundary days, using the entry´s (category,type) color', async () => {
     const el = await mountView({
       today: new Date('2026-08-07T12:00:00Z'),
       calendarioModulo: fakeCalendarioModuloService({
         findForModule: async () => [
-          { id: 'cm1', category: 'holidays', name: 'Vacaciones de Navidad.', startDate: '2025-12-22', endDate: '2026-01-07' },
+          { id: 'cm1', category: 'holidays', name: 'Vacaciones de Navidad.', startDate: '2025-12-22', endDate: '2026-01-07', type: 'Vacaciones' },
         ],
       }),
     });
@@ -394,6 +397,9 @@ describe('elementId: calendario-months, calendario-empty-state', () => {
     expect(dayCategories(el, 'calendario-month-2025-12', '25')).toBe('holidays');
     expect(dayCategories(el, 'calendario-month-2026-01', '07')).toBe('holidays');
     expect(dayCategories(el, 'calendario-month-2025-12', '20')).toBeNull();
+    expect(dayStyle(el, 'calendario-month-2025-12', '22')).toContain('#eda100');
+    expect(dayStyle(el, 'calendario-month-2025-12', '25')).toContain('#eda100');
+    expect(dayStyle(el, 'calendario-month-2026-01', '07')).toContain('#eda100');
 
     el.remove();
   });
@@ -403,7 +409,7 @@ describe('elementId: calendario-months, calendario-empty-state', () => {
       today: new Date('2026-08-07T12:00:00Z'),
       calendarioModulo: fakeCalendarioModuloService({
         findForModule: async () => [
-          { id: 'cm1', category: 'academic_key_dates', name: 'Curso escolar', startDate: '2025-09-01', endDate: '2026-07-31' },
+          { id: 'cm1', category: 'academic_key_dates', name: 'Curso escolar', startDate: '2025-09-01', endDate: '2026-07-31', type: 'Curso escolar' },
         ],
       }),
     });
@@ -411,50 +417,18 @@ describe('elementId: calendario-months, calendario-empty-state', () => {
     expect(dayCategories(el, 'calendario-month-2025-09', '01')).toBe('academic_key_dates');
     expect(dayCategories(el, 'calendario-month-2025-10', '15')).toBeNull();
     expect(dayCategories(el, 'calendario-month-2026-06', '15')).toBeNull();
+    expect(dayStyle(el, 'calendario-month-2025-09', '01')).toContain('#2a78d6');
 
     el.remove();
   });
 
-  it('a day covered only by an evaluations/feoe_project_days range is colored blue (category-tagged)', async () => {
+  it('a day covered by more than one entry at once shows a split background (one band per (category,type))', async () => {
     const el = await mountView({
       today: new Date('2026-08-07T12:00:00Z'),
       calendarioModulo: fakeCalendarioModuloService({
         findForModule: async () => [
-          { id: 'cm1', category: 'evaluations', name: 'Sesión de evaluación.', startDate: '2026-03-01', endDate: '2026-03-01' },
-        ],
-      }),
-    });
-
-    expect(dayCategories(el, 'calendario-month-2026-03', '01')).toBe('evaluations');
-
-    el.remove();
-  });
-
-  it('a day covered only by a final_exams entry is colored light green (category-tagged)', async () => {
-    // today=2026-08-07 (before September) -> school year Sept 2025-June 2026, same as the
-    // blue-category test above — 2025-12-09, not 2026-12-09, falls inside that window.
-    const el = await mountView({
-      today: new Date('2026-08-07T12:00:00Z'),
-      calendarioModulo: fakeCalendarioModuloService({
-        findForModule: async () => [
-          { id: 'cm1', category: 'final_exams', name: '1ª Evaluación - Examen final.', startDate: '2025-12-09', endDate: '2025-12-09' },
-        ],
-      }),
-    });
-
-    expect(dayCategories(el, 'calendario-month-2025-12', '09')).toBe('final_exams');
-    expect(dayStyle(el, 'calendario-month-2025-12', '09')).toContain('#bbf7d0');
-
-    el.remove();
-  });
-
-  it('a day covered by both a red and a blue category shows both categories', async () => {
-    const el = await mountView({
-      today: new Date('2026-08-07T12:00:00Z'),
-      calendarioModulo: fakeCalendarioModuloService({
-        findForModule: async () => [
-          { id: 'cm1', category: 'public_holidays', name: 'Festivo.', startDate: '2026-03-01', endDate: '2026-03-01' },
-          { id: 'cm2', category: 'evaluations', name: 'Evaluación.', startDate: '2026-03-01', endDate: '2026-03-01' },
+          { id: 'cm1', category: 'public_holidays', name: 'Festivo.', startDate: '2026-03-01', endDate: '2026-03-01', type: 'Festivo nacional' },
+          { id: 'cm2', category: 'evaluations', name: 'Evaluación.', startDate: '2026-03-01', endDate: '2026-03-01', type: 'Último dia para poner nota' },
         ],
       }),
     });
@@ -462,62 +436,10 @@ describe('elementId: calendario-months, calendario-empty-state', () => {
     const categories = dayCategories(el, 'calendario-month-2026-03', '01')!.split(',');
     expect(categories).toContain('public_holidays');
     expect(categories).toContain('evaluations');
-
-    el.remove();
-  });
-
-  it('a plain Saturday/Sunday with no calendario_modulo entry is colored red', async () => {
-    // 2025-12-06/07 is a Saturday/Sunday not covered by the fixture's one entry (which
-    // starts on the 22nd) — an unrelated entry keeps calendario-months rendered instead of
-    // calendario-empty-state, same as "colors every day of a <=30-day range" above.
-    const el = await mountView({
-      today: new Date('2026-08-07T12:00:00Z'),
-      calendarioModulo: fakeCalendarioModuloService({
-        findForModule: async () => [
-          { id: 'cm1', category: 'holidays', name: 'Vacaciones de Navidad.', startDate: '2025-12-22', endDate: '2026-01-07' },
-        ],
-      }),
-    });
-
-    expect(dayCategories(el, 'calendario-month-2025-12', '06')).toBeNull();
-    expect(dayStyle(el, 'calendario-month-2025-12', '06')).toContain('#fca5a5');
-    expect(dayStyle(el, 'calendario-month-2025-12', '07')).toContain('#fca5a5');
-
-    el.remove();
-  });
-
-  it('a Saturday/Sunday that is also a public_holidays entry is colored a darker red', async () => {
-    // 2025-12-07 is a Sunday.
-    const el = await mountView({
-      today: new Date('2026-08-07T12:00:00Z'),
-      calendarioModulo: fakeCalendarioModuloService({
-        findForModule: async () => [
-          { id: 'cm1', category: 'public_holidays', name: 'Festivo de fin de semana.', startDate: '2025-12-07', endDate: '2025-12-07' },
-        ],
-      }),
-    });
-
-    expect(dayCategories(el, 'calendario-month-2025-12', '07')).toBe('public_holidays');
-    expect(dayStyle(el, 'calendario-month-2025-12', '07')).toContain('#b91c1c');
-
-    el.remove();
-  });
-
-  it('a Saturday/Sunday covered by an evaluations/feoe_project_days entry keeps the blue coloring, not weekend red', async () => {
-    // 2026-03-07 is a Saturday.
-    const el = await mountView({
-      today: new Date('2026-08-07T12:00:00Z'),
-      calendarioModulo: fakeCalendarioModuloService({
-        findForModule: async () => [
-          { id: 'cm1', category: 'evaluations', name: 'Sesión de evaluación de sábado.', startDate: '2026-03-07', endDate: '2026-03-07' },
-        ],
-      }),
-    });
-
-    expect(dayCategories(el, 'calendario-month-2026-03', '07')).toBe('evaluations');
-    expect(dayStyle(el, 'calendario-month-2026-03', '07')).toContain('#93c5fd');
-    expect(dayStyle(el, 'calendario-month-2026-03', '07')).not.toContain('#fca5a5');
-    expect(dayStyle(el, 'calendario-month-2026-03', '07')).not.toContain('#b91c1c');
+    const style = dayStyle(el, 'calendario-month-2026-03', '01')!;
+    expect(style).toContain('linear-gradient');
+    expect(style).toContain('#eb6834');
+    expect(style).toContain('#e87ba4');
 
     el.remove();
   });
@@ -557,12 +479,128 @@ describe('elementId: calendario-months, calendario-empty-state', () => {
   });
 });
 
+describe('elementId: calendario-months (per-(category,type) color table — UC-11, 2026-08-10)', () => {
+  it('colors each (category,type) pair per UC-11´s canonical table, across every category family', async () => {
+    const el = await mountView({
+      today: new Date('2026-08-07T12:00:00Z'),
+      calendarioModulo: fakeCalendarioModuloService({
+        findForModule: async () => [
+          { id: 'cm1', category: 'academic_key_dates', name: 'Curso escolar', startDate: '2025-09-02', endDate: '2025-09-02', type: 'Curso escolar' },
+          { id: 'cm2', category: 'academic_key_dates', name: 'Presentación de proyectos.', startDate: '2025-09-03', endDate: '2025-09-03', type: 'Presentación de proyectos' },
+          { id: 'cm3', category: 'holidays', name: 'Vacaciones.', startDate: '2025-10-05', endDate: '2025-10-05', type: 'Vacaciones' },
+          { id: 'cm4', category: 'public_holidays', name: 'Festivo nacional.', startDate: '2025-10-06', endDate: '2025-10-06', type: 'Festivo nacional' },
+          { id: 'cm5', category: 'public_holidays', name: 'Festivo autonómico.', startDate: '2025-10-07', endDate: '2025-10-07', type: 'Festivo autonómico' },
+          { id: 'cm6', category: 'free_disposal_days', name: 'Libre disposición.', startDate: '2025-11-10', endDate: '2025-11-10', type: 'Libre disposición' },
+          { id: 'cm7', category: 'evaluations', name: '1ª Evaluación - Último día para poner notas.', startDate: '2025-11-11', endDate: '2025-11-11', type: 'Último dia para poner nota' },
+          { id: 'cm8', category: 'evaluations', name: 'Sesión de evaluación.', startDate: '2025-11-12', endDate: '2025-11-12', type: 'Sesión evaluación' },
+          { id: 'cm9', category: 'feoe_project_days', name: 'Día de alternancia.', startDate: '2025-11-13', endDate: '2025-11-13', type: 'Día de alternancia' },
+          { id: 'cm10', category: 'final_exams', name: '1ª Evaluación - Examen final.', startDate: '2025-12-01', endDate: '2025-12-01', type: null },
+          { id: 'cm11', category: 'final_exams', name: '1ª Evaluación - Examen de recuperación final.', startDate: '2025-12-02', endDate: '2025-12-02', type: null },
+        ],
+      }),
+    });
+
+    const expectations: Array<[string, string, string]> = [
+      ['calendario-month-2025-09', '02', '#2a78d6'],
+      ['calendario-month-2025-09', '03', '#75a7e4'],
+      ['calendario-month-2025-10', '05', '#eda100'],
+      ['calendario-month-2025-10', '06', '#eb6834'],
+      ['calendario-month-2025-10', '07', '#ef8961'],
+      ['calendario-month-2025-11', '10', '#1baf7a'],
+      ['calendario-month-2025-11', '11', '#e87ba4'],
+      ['calendario-month-2025-11', '12', '#ee9cbb'],
+      ['calendario-month-2025-11', '13', '#4a3aa7'],
+      ['calendario-month-2025-12', '01', '#008300'],
+      ['calendario-month-2025-12', '02', '#59ae59'],
+    ];
+    for (const [monthId, day, hex] of expectations) {
+      expect(dayStyle(el, monthId, day)).toContain(hex);
+    }
+
+    el.remove();
+  });
+
+  it('a (category,type) pair not in UC-11´s table falls back to that category´s own row-1 hex, distinct from other types in the same category', async () => {
+    const el = await mountView({
+      today: new Date('2026-08-07T12:00:00Z'),
+      calendarioModulo: fakeCalendarioModuloService({
+        findForModule: async () => [
+          { id: 'cm1', category: 'public_holidays', name: 'Festivo inventado.', startDate: '2025-10-08', endDate: '2025-10-08', type: 'Tipo que no existe' },
+          { id: 'cm2', category: 'public_holidays', name: 'Festivo autonómico.', startDate: '2025-10-07', endDate: '2025-10-07', type: 'Festivo autonómico' },
+        ],
+      }),
+    });
+
+    expect(dayStyle(el, 'calendario-month-2025-10', '08')).toContain('#eb6834');
+    expect(dayStyle(el, 'calendario-month-2025-10', '07')).toContain('#ef8961');
+
+    el.remove();
+  });
+
+  it('a plain Saturday/Sunday with no calendario_modulo entry is colored neutral gray', async () => {
+    // 2025-12-06/07 is a Saturday/Sunday not covered by the fixture's one entry (which
+    // starts on the 22nd) — an unrelated entry keeps calendario-months rendered instead of
+    // calendario-empty-state.
+    const el = await mountView({
+      today: new Date('2026-08-07T12:00:00Z'),
+      calendarioModulo: fakeCalendarioModuloService({
+        findForModule: async () => [
+          { id: 'cm1', category: 'holidays', name: 'Vacaciones de Navidad.', startDate: '2025-12-22', endDate: '2026-01-07', type: 'Vacaciones' },
+        ],
+      }),
+    });
+
+    expect(dayCategories(el, 'calendario-month-2025-12', '06')).toBeNull();
+    expect(dayStyle(el, 'calendario-month-2025-12', '06')).toContain('#cbd5e1');
+    expect(dayStyle(el, 'calendario-month-2025-12', '07')).toContain('#cbd5e1');
+
+    el.remove();
+  });
+
+  it('a Saturday/Sunday covered by an entry is colored that entry´s real color, not darkened and not gray', async () => {
+    // 2025-12-07 is a Sunday.
+    const el = await mountView({
+      today: new Date('2026-08-07T12:00:00Z'),
+      calendarioModulo: fakeCalendarioModuloService({
+        findForModule: async () => [
+          { id: 'cm1', category: 'public_holidays', name: 'Festivo de fin de semana.', startDate: '2025-12-07', endDate: '2025-12-07', type: 'Festivo nacional' },
+        ],
+      }),
+    });
+
+    expect(dayCategories(el, 'calendario-month-2025-12', '07')).toBe('public_holidays');
+    expect(dayStyle(el, 'calendario-month-2025-12', '07')).toContain('#eb6834');
+    expect(dayStyle(el, 'calendario-month-2025-12', '07')).not.toContain('#cbd5e1');
+    expect(dayStyle(el, 'calendario-month-2025-12', '07')).not.toContain('#b91c1c');
+
+    el.remove();
+  });
+
+  it('a Saturday covered by an evaluations entry is colored that entry´s real color, not gray', async () => {
+    // 2026-03-07 is a Saturday.
+    const el = await mountView({
+      today: new Date('2026-08-07T12:00:00Z'),
+      calendarioModulo: fakeCalendarioModuloService({
+        findForModule: async () => [
+          { id: 'cm1', category: 'evaluations', name: 'Sesión de evaluación de sábado.', startDate: '2026-03-07', endDate: '2026-03-07', type: 'Último dia para poner nota' },
+        ],
+      }),
+    });
+
+    expect(dayCategories(el, 'calendario-month-2026-03', '07')).toBe('evaluations');
+    expect(dayStyle(el, 'calendario-month-2026-03', '07')).toContain('#e87ba4');
+    expect(dayStyle(el, 'calendario-month-2026-03', '07')).not.toContain('#cbd5e1');
+
+    el.remove();
+  });
+});
+
 describe('elementId: calendario-day-toast', () => {
   it('hovering a marked day shows calendario-day-toast with its event name', async () => {
     const el = await mountView({
       today: new Date('2026-08-07T12:00:00Z'),
       calendarioModulo: fakeCalendarioModuloService({
-        findForModule: async () => [{ id: 'cm1', category: 'holidays', name: 'Vacaciones de Navidad.', startDate: '2025-12-25', endDate: '2025-12-25' }],
+        findForModule: async () => [{ id: 'cm1', category: 'holidays', name: 'Vacaciones de Navidad.', startDate: '2025-12-25', endDate: '2025-12-25', type: 'Vacaciones' }],
       }),
     });
 
@@ -579,8 +617,8 @@ describe('elementId: calendario-day-toast', () => {
       today: new Date('2026-08-07T12:00:00Z'),
       calendarioModulo: fakeCalendarioModuloService({
         findForModule: async () => [
-          { id: 'cm1', category: 'public_holidays', name: 'Festivo.', startDate: '2026-03-01', endDate: '2026-03-01' },
-          { id: 'cm2', category: 'evaluations', name: 'Evaluación.', startDate: '2026-03-01', endDate: '2026-03-01' },
+          { id: 'cm1', category: 'public_holidays', name: 'Festivo.', startDate: '2026-03-01', endDate: '2026-03-01', type: 'Festivo nacional' },
+          { id: 'cm2', category: 'evaluations', name: 'Evaluación.', startDate: '2026-03-01', endDate: '2026-03-01', type: 'Último dia para poner nota' },
         ],
       }),
     });
@@ -599,7 +637,7 @@ describe('elementId: calendario-day-toast', () => {
     const el = await mountView({
       today: new Date('2026-08-07T12:00:00Z'),
       calendarioModulo: fakeCalendarioModuloService({
-        findForModule: async () => [{ id: 'cm1', category: 'holidays', name: 'Vacaciones de Navidad.', startDate: '2025-12-25', endDate: '2025-12-25' }],
+        findForModule: async () => [{ id: 'cm1', category: 'holidays', name: 'Vacaciones de Navidad.', startDate: '2025-12-25', endDate: '2025-12-25', type: 'Vacaciones' }],
       }),
     });
 
@@ -610,6 +648,119 @@ describe('elementId: calendario-day-toast', () => {
     await tick();
 
     expect(el.shadowRoot!.querySelector('[data-element-id="calendario-day-toast"]')).toBeNull();
+
+    el.remove();
+  });
+});
+
+describe('elementId: calendario-legend (UC-11, 2026-08-10)', () => {
+  it('renders one swatch+label per color-table row present, in the table´s canonical order regardless of data order', async () => {
+    const el = await mountView({
+      today: new Date('2026-08-07T12:00:00Z'),
+      calendarioModulo: fakeCalendarioModuloService({
+        // Fed out of canonical order (13, 1, 9, 4) — legend must still render 1, 4, 9, 13.
+        findForModule: async () => [
+          { id: 'cm1', category: 'final_exams', name: '1ª Evaluación - Examen final.', startDate: '2025-12-01', endDate: '2025-12-01', type: null },
+          { id: 'cm2', category: 'academic_key_dates', name: 'Curso escolar', startDate: '2025-09-02', endDate: '2025-09-02', type: 'Curso escolar' },
+          { id: 'cm3', category: 'evaluations', name: '1ª Evaluación - Último día para poner notas.', startDate: '2025-11-11', endDate: '2025-11-11', type: 'Último dia para poner nota' },
+          { id: 'cm4', category: 'public_holidays', name: 'Festivo.', startDate: '2025-10-06', endDate: '2025-10-06', type: 'Festivo nacional' },
+        ],
+      }),
+    });
+
+    const items = [...el.shadowRoot!.querySelectorAll<HTMLElement>('[data-element-id^="calendario-legend-item-"]')];
+    expect(items.map((item) => item.dataset.elementId)).toEqual([
+      'calendario-legend-item-1',
+      'calendario-legend-item-4',
+      'calendario-legend-item-9',
+      'calendario-legend-item-13',
+    ]);
+    expect(items[0]!.textContent).toContain('Curso escolar');
+    expect(items[1]!.textContent).toContain('Festivo nacional');
+    expect(items[2]!.textContent).toContain('Último día para poner notas');
+    expect(items[3]!.textContent).toContain('Examen final');
+
+    el.remove();
+  });
+
+  it('shows exactly one swatch per color-table row even when several entries match it', async () => {
+    const el = await mountView({
+      today: new Date('2026-08-07T12:00:00Z'),
+      calendarioModulo: fakeCalendarioModuloService({
+        findForModule: async () => [
+          { id: 'cm1', category: 'academic_key_dates', name: 'Curso escolar', startDate: '2025-09-02', endDate: '2025-09-02', type: 'Curso escolar' },
+          { id: 'cm2', category: 'academic_key_dates', name: 'Curso escolar (bis)', startDate: '2026-06-30', endDate: '2026-06-30', type: 'Curso escolar' },
+        ],
+      }),
+    });
+
+    const items = el.shadowRoot!.querySelectorAll('[data-element-id^="calendario-legend-item-"]');
+    expect(items).toHaveLength(1);
+
+    el.remove();
+  });
+
+  it('a módulo with zero calendario_modulo rows renders no legend swatches at all', async () => {
+    const el = await mountView({
+      today: new Date('2026-08-07T12:00:00Z'),
+      calendarioModulo: fakeCalendarioModuloService({ findForModule: async () => [] }),
+    });
+
+    expect(el.shadowRoot!.querySelector('[data-element-id="calendario-legend"]')).toBeNull();
+    expect(el.shadowRoot!.querySelectorAll('[data-element-id^="calendario-legend-item-"]')).toHaveLength(0);
+
+    el.remove();
+  });
+
+  it('a módulo missing some color-table rows´ data shows only the rows it has, no placeholder for absent ones', async () => {
+    const el = await mountView({
+      today: new Date('2026-08-07T12:00:00Z'),
+      calendarioModulo: fakeCalendarioModuloService({
+        findForModule: async () => [
+          { id: 'cm1', category: 'free_disposal_days', name: 'Libre disposición.', startDate: '2025-11-10', endDate: '2025-11-10', type: 'Libre disposición' },
+        ],
+      }),
+    });
+
+    const items = el.shadowRoot!.querySelectorAll('[data-element-id^="calendario-legend-item-"]');
+    expect(items).toHaveLength(1);
+    expect(el.shadowRoot!.querySelector('[data-element-id="calendario-legend-item-8"]')).not.toBeNull();
+
+    el.remove();
+  });
+
+  it('each swatch´s color exactly matches calendario-months´s color for that same (category,type)', async () => {
+    const el = await mountView({
+      today: new Date('2026-08-07T12:00:00Z'),
+      calendarioModulo: fakeCalendarioModuloService({
+        findForModule: async () => [
+          { id: 'cm1', category: 'academic_key_dates', name: 'Curso escolar', startDate: '2025-09-02', endDate: '2025-09-02', type: 'Curso escolar' },
+        ],
+      }),
+    });
+
+    const dayColor = dayStyle(el, 'calendario-month-2025-09', '02');
+    const legendItem = el.shadowRoot!.querySelector('[data-element-id="calendario-legend-item-1"]')!;
+
+    expect(dayColor).toContain('#2a78d6');
+    expect(legendItem.getAttribute('style')).toContain('#2a78d6');
+
+    el.remove();
+  });
+
+  it('calendario-legend renders directly below the filters row, laid out horizontally with wrapping, never scrolling', async () => {
+    const el = await mountView({
+      today: new Date('2026-08-07T12:00:00Z'),
+      calendarioModulo: fakeCalendarioModuloService({
+        findForModule: async () => [
+          { id: 'cm1', category: 'academic_key_dates', name: 'Curso escolar', startDate: '2025-09-02', endDate: '2025-09-02', type: 'Curso escolar' },
+        ],
+      }),
+    });
+
+    const legend = el.shadowRoot!.querySelector('[data-element-id="calendario-legend"]')!;
+    expect(legend.className).toContain('flex');
+    expect(legend.className).toContain('flex-wrap');
 
     el.remove();
   });

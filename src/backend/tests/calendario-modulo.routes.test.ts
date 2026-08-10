@@ -24,6 +24,7 @@ interface CalendarioModuloEntryBody {
   name: string;
   startDate: string;
   endDate: string;
+  type: string | null;
 }
 
 async function seededUser(overrides: Partial<User>): Promise<User> {
@@ -109,6 +110,7 @@ beforeAll(async () => {
       startMonth: 12,
       endDay: 7,
       endMonth: 1,
+      type: 'Vacaciones',
     }),
   });
 });
@@ -160,6 +162,7 @@ describe('elementId: calendario-months, calendario-empty-state', () => {
         name: 'Vacaciones de Navidad.',
         startDate: '2026-12-22',
         endDate: '2027-01-07',
+        type: 'Vacaciones',
       }),
     );
   });

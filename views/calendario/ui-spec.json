@@ -4,7 +4,7 @@
   "generated_at": "2026-08-07T16:17:00Z",
   "agent": "view-designer",
   "model": "claude-sonnet-5",
-  "total_elements": 14,
+  "total_elements": 15,
   "screens": [
     {
       "screen_id": "calendario-screen",
@@ -26,7 +26,8 @@
         "evaluation-working-days-summary",
         "evaluation-working-days-1",
         "evaluation-working-days-2",
-        "evaluation-working-days-3"
+        "evaluation-working-days-3",
+        "calendario-legend"
       ],
       "components": [
         {
@@ -297,6 +298,24 @@
           "states": [
             { "name": "default", "description": "'Días laborables 3ª evaluación: <N>' — only rendered when present", "visual_cues": ["small text line"] },
             { "name": "absent", "description": "Módulo's course has no 3ª evaluación data (see use-cases.md UC-09/A1)", "visual_cues": ["not rendered"] }
+          ],
+          "interactions": []
+        },
+        {
+          "elementId": "calendario-legend",
+          "type": "list",
+          "props": { "is_read_only": true },
+          "states": [
+            {
+              "name": "populated",
+              "description": "Directly below the filters row, own card-style row, flex flex-wrap horizontal — one color-swatch + label pair per UC-11 color-table row present in the currently loaded módulo's calendario_modulo data, in the table's fixed order (up to 14). Each item is data-element-id=\"calendario-legend-item-<N>\" (N = the color table's row number 1-14) — dynamic pattern, not enumerated per instance, same convention as calendario-months's per-day ids.",
+              "visual_cues": ["horizontal row of small color swatches with text labels, wraps onto more lines at narrow widths, never scrolls"]
+            },
+            {
+              "name": "empty",
+              "description": "Selected módulo has zero calendario_modulo rows",
+              "visual_cues": ["nothing rendered"]
+            }
           ],
           "interactions": []
         }
