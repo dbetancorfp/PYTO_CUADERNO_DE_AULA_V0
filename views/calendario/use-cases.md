@@ -243,8 +243,9 @@ view's spec, not Año académico's (whose own `use-cases.md` doesn't change).
    pre-existing and newly added), the backend resolves all 6 `key_dates` categories to
    real dates for that year's `startYear` (month ≥ 9 → `startYear`; month ≤ 8 →
    `startYear + 1`), **keeps only the entries applicable to that módulo's own `course`**
-   (see A1), and inserts the kept ones into `calendario_modulo`, one row per resolved
-   `key_dates` entry per módulo.
+   (see A1), splits the `"Inicio curso: <sufijo>."` entry into two single-day rows (see
+   A2), and inserts the result into `calendario_modulo`, one row per resolved `key_dates`
+   entry per módulo (two, for the split entry).
 3. In the same pass, `final_exams` rows are computed from the just-resolved, already
    course-filtered `evaluations` rows and inserted alongside them — see UC-08.
 4. Insertion is idempotent (`ON CONFLICT DO NOTHING` on the natural key) — a módulo that
@@ -273,17 +274,38 @@ view's spec, not Año académico's (whose own `use-cases.md` doesn't change).
   course-1-only, 10 are course-2-only (see UC-06 Postconditions for the resulting
   per-course row counts).
 
+- **A2 — "Inicio curso" / "Fin de curso" split (2026-08-10 UX fix)**: `"Inicio curso: 1º
+  de Grado Superior de FP."` and `"Inicio curso: 2º de Grado Superior de FP."` are each a
+  long `key_dates` range (16/09–22/06 and 16/09–27/05 respectively, both >30 days) — by
+  UC-04/A1's long-range rule, `calendario-months` would otherwise color and make hoverable
+  *both* boundary days of that range, showing the same `"Inicio curso: ..."` name on the
+  end-of-year boundary too, which misleadingly reads as a second "start" instead of the
+  end of that course's teaching period. Fix, applied after A1's course filter, same
+  compute-and-substitute pattern already used for `final_exams` (UC-08) — `key_dates`
+  itself is untouched: replace that one resolved entry with two single-day
+  `calendario_modulo` rows —
+  `"Inicio curso: <sufijo>."` (`start_date = end_date` = the range's original
+  `start_date`) and `"Fin de curso: <sufijo>."` (`start_date = end_date` = the range's
+  original `end_date`) — both `category = 'academic_key_dates'`, `type` copied from the
+  original entry (`'Curso escolar'`, so UC-11's legend/color for both is unchanged, still
+  row 1's hex — the split is a `name`/date-shape change only, not a new color-table row).
+  `"Curso escolar"` itself (01/09–31/07, the generic entry whose name doesn't claim to be
+  a single point in time) is **not** split — no `key_dates` entry that lacks
+  `"Inicio"`/`"Fin"` in its name is affected by this rule.
+
 ### Postconditions
 
 - Every `academic_year_modules` row for that academic year has a full, **course-filtered**
   `calendario_modulo` snapshot (or already had one): a course-1 módulo gets every
-  course-agnostic and course-1-only `key_dates` entry (currently 33 rows) plus 2×`E₁`
+  course-agnostic and course-1-only `key_dates` entry (currently 33 rows, resolved to 34
+  once the `"Inicio curso"` split of A2 turns 1 of those 33 into 2) plus 2×`E₁`
   `final_exams` rows; a course-2 módulo gets every course-agnostic and course-2-only entry
-  (currently 31 rows) plus 2×`E₂` `final_exams` rows. `E꜀` is the number of that course's
-  applicable `evaluations` rows whose name matches "`<prefix>` - Último día para poner
-  notas." (currently `E₁` = 3, `E₂` = 2, see UC-08 — not hardcoded, tracks whatever
-  `key_dates`' `evaluations` category holds at seed time, filtered per A1). Currently: 39
-  rows total for a course-1 módulo, 35 for a course-2 módulo.
+  (currently 31 rows, resolved to 32 by the same split) plus 2×`E₂` `final_exams` rows.
+  `E꜀` is the number of that course's applicable `evaluations` rows whose name matches
+  "`<prefix>` - Último día para poner notas." (currently `E₁` = 3, `E₂` = 2, see UC-08 —
+  not hardcoded, tracks whatever `key_dates`' `evaluations` category holds at seed time,
+  filtered per A1). Currently: 40 rows total for a course-1 módulo, 36 for a course-2
+  módulo.
 
 ### Acceptance criteria
 
@@ -298,8 +320,14 @@ view's spec, not Año académico's (whose own `use-cases.md` doesn't change).
       `holidays`/`public_holidays`/`free_disposal_days` entry, `1ª Evaluación - ...`,
       `Sesión de evaluación sin nota.`) is included in both a course-1 and a course-2
       módulo's snapshot
-- [x] A course-1 módulo's snapshot has exactly 39 rows and a course-2 módulo's has exactly
-      35 rows, given the current `key_dates` seed data (Postconditions)
+- [x] A course-1 módulo's snapshot has exactly 40 rows and a course-2 módulo's has exactly
+      36 rows, given the current `key_dates` seed data (Postconditions)
+- [x] A módulo's snapshot contains `"Inicio curso: <sufijo>."` as a single-day row
+      (`start_date = end_date`) on the course's real start day, and a separate
+      `"Fin de curso: <sufijo>."` single-day row on the course's real end day (A2) — never
+      one long-range row spanning both
+- [x] `"Curso escolar"` is never split — it keeps covering its full `start_date`–`end_date`
+      range as a single row (A2)
 
 ---
 
@@ -437,7 +465,11 @@ Cross-view backend side effect, same nature as UC-06/UC-08.
    1º de Grado Superior de FP."` (`course = 1`) or `"Inicio curso: 2º de Grado Superior de
    FP."` (`course = 2`) — renamed 2026-08-10 from `"1º/2º de Grado Superior de FP."`, see
    `views/fechas-senaladas/schema-changes.sql`'s migration — already resolved to a real date
-   in this same pass — **not** the generic "Curso escolar" entry.
+   in this same pass — **not** the generic "Curso escolar" entry. As of the 2026-08-10
+   "Fin de curso" split (UC-06/A2), this entry is itself already a single-day row (its
+   `start_date` and `end_date` are the same real date) rather than a long range — no
+   change to this step's logic, `courseStartEntry.startDate` still resolves to the same
+   date it always did.
 3. For each `evaluationNumber` found in step 1, count working days in the half-open range
    `[courseStartDate, examenFinalDate)` — course-start day counts if it's a working day,
    the "Examen final" day itself never counts even if it's one. Same working-day
