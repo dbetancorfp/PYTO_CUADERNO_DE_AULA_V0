@@ -1,6 +1,7 @@
 /// <reference types="cypress" />
 // UC-07: Manage Proyecto FEOE (views/fechas-senaladas/use-cases.md) — single-day category,
-// no tipo, same shape as UC-05. category = 'feoe_project_days'.
+// same shape as UC-05 (including tipo — every category carries it now, see UC-04).
+// category = 'feoe_project_days'.
 
 import { signInAsE2eUser } from './support/sign-in';
 

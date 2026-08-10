@@ -23,8 +23,9 @@ reference file — see `.gitignore`).
 - **One table, not one per category.** The six categories in the source JSON
   (`fechas_clave_fp`, `vacaciones`, `dias_festivos`, `libre_disposicion`, `evaluaciones`,
   `proyecto_basado_en_retos_FEOE`) all share the same shape — a named event on a single day
-  or spanning a day range — differing only in whether they carry a `tipo` (only
-  `dias_festivos` does) and whether they're a range or a single day. One `key_dates` table
+  or spanning a day range — differing only in whether they're a range or a single day;
+  every category carries a `tipo` field (free text, nullable), not just `dias_festivos`.
+  One `key_dates` table
   with a `category` column (closed domain, `CHECK` constraint — see CLAUDE.md's "no ENUM"
   rule) avoids six near-identical tables, six near-identical CRUD endpoints, and six
   near-identical frontend sections for what is one entity type.
@@ -61,12 +62,12 @@ against it directly, don't re-derive from memory of the earlier broken version.
 ### Fechas señaladas screen
 
 One table per category (six sections, in the order listed above), each showing that
-category's rows: nombre, fecha (single day, `DD/MM`) or rango (`DD/MM – DD/MM`), and — only
-for Días festivos — tipo. Each section:
+category's rows: nombre, fecha (single day, `DD/MM`) or rango (`DD/MM – DD/MM`), and tipo
+(every category, not just Días festivos). Each section:
 
 - **Create**: inline add row (nombre + fecha-inicio + fecha-fin [same field, disabled/hidden
   for single-day categories — decide the simplest honest UI for this at design time] +
-  tipo [Días festivos only]).
+  tipo [optional, free text, every category]).
 - **Edit**: inline, same pattern as Ciclos/Módulos' rows (Editar → inputs + Guardar/Cancelar).
 - **Delete**: Eliminar, unconditional — nothing else in the schema references `key_dates`
   rows (no dependency-blocked deletion case, unlike Ciclos/Módulos' post-#4 behavior).
@@ -90,8 +91,8 @@ New table, `views/fechas-senaladas/schema-changes.sql`:
 - `key_dates`: `id` (uuid PK), `category` (`varchar`, `CHECK` against the six internal ids
   above), `name` (`varchar`), `start_day`/`start_month` (`integer`, `CHECK` 1–31/1–12),
   `end_day`/`end_month` (`integer`, same `CHECK`s — always populated, equal to start for a
-  single-day entry per the "Domain and scope" note above), `type` (`varchar`, nullable, only
-  meaningful for `public_holidays`), `created_at`.
+  single-day entry per the "Domain and scope" note above), `type` (`varchar`, nullable, free
+  text on every category, not restricted to `public_holidays`), `created_at`.
 - No FK to `users` or `academic_years` — global/shared, per "Domain and scope" above.
 
 ## Seeding — auto-loaded on every backend boot

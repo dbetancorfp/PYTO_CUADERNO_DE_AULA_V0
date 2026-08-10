@@ -62,7 +62,7 @@ const CATEGORIES: readonly CategoryDef[] = [
     addButtonId: 'academic-key-dates-table-add-button',
     label: 'Fechas clave FP',
     hasRange: true,
-    hasType: false,
+    hasType: true,
   },
   {
     category: 'holidays',
@@ -70,7 +70,7 @@ const CATEGORIES: readonly CategoryDef[] = [
     addButtonId: 'holidays-table-add-button',
     label: 'Vacaciones',
     hasRange: true,
-    hasType: false,
+    hasType: true,
   },
   {
     category: 'public_holidays',
@@ -86,7 +86,7 @@ const CATEGORIES: readonly CategoryDef[] = [
     addButtonId: 'free-disposal-days-table-add-button',
     label: 'Días de libre disposición',
     hasRange: false,
-    hasType: false,
+    hasType: true,
   },
   {
     category: 'evaluations',
@@ -94,7 +94,7 @@ const CATEGORIES: readonly CategoryDef[] = [
     addButtonId: 'evaluations-table-add-button',
     label: 'Evaluaciones',
     hasRange: true,
-    hasType: false,
+    hasType: true,
   },
   {
     category: 'feoe_project_days',
@@ -102,7 +102,7 @@ const CATEGORIES: readonly CategoryDef[] = [
     addButtonId: 'feoe-project-days-table-add-button',
     label: 'Proyecto FEOE',
     hasRange: false,
-    hasType: false,
+    hasType: true,
   },
 ];
 

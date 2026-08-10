@@ -379,10 +379,11 @@ Cross-view backend side effect, same nature as UC-06/UC-08.
      `"2ª Evaluación (2º) - Examen final."` if `course = 2`.
    - `evaluationNumber: 3` -> `"3ª Evaluación (1º) - Examen final."` if `course = 1`; no
      row at all if `course = 2` (no `(2º)` variant exists in `key_dates` today — see A1).
-2. Determine the módulo's course-start date: the `academic_key_dates` entry `"1º de Grado
-   Superior de FP."` (`course = 1`) or `"2º de Grado Superior de FP."` (`course = 2`),
-   already resolved to a real date in this same pass — **not** the generic "Curso
-   escolar" entry.
+2. Determine the módulo's course-start date: the `academic_key_dates` entry `"Inicio curso:
+   1º de Grado Superior de FP."` (`course = 1`) or `"Inicio curso: 2º de Grado Superior de
+   FP."` (`course = 2`) — renamed 2026-08-10 from `"1º/2º de Grado Superior de FP."`, see
+   `views/fechas-senaladas/schema-changes.sql`'s migration — already resolved to a real date
+   in this same pass — **not** the generic "Curso escolar" entry.
 3. For each `evaluationNumber` found in step 1, count working days in the half-open range
    `[courseStartDate, examenFinalDate)` — course-start day counts if it's a working day,
    the "Examen final" day itself never counts even if it's one. Same working-day
@@ -418,9 +419,9 @@ Cross-view backend side effect, same nature as UC-06/UC-08.
 - [x] `working_days` excludes days inside that módulo's resolved `holidays`/
       `public_holidays`/`free_disposal_days` ranges
 - [x] `working_days` does **not** exclude days inside `academic_key_dates` ranges
-- [x] The course-start date used is `"1º de Grado Superior de FP."` or `"2º de Grado
-      Superior de FP."` (matching the módulo's `course`), never the generic "Curso
-      escolar" entry
+- [x] The course-start date used is `"Inicio curso: 1º de Grado Superior de FP."` or
+      `"Inicio curso: 2º de Grado Superior de FP."` (matching the módulo's `course`), never
+      the generic "Curso escolar" entry
 - [x] Re-running the generation for an already-snapshotted módulo never duplicates
       `calendario_evaluation_working_days` rows
 - [x] Deleting a módulo assignment removes every `calendario_evaluation_working_days` row

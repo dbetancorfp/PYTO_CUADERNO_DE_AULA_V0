@@ -111,7 +111,7 @@ function computeEvaluationWorkingDaysEntries(
   moduleEntries: CalendarioModuloInsert[],
   finalExamsEntries: CalendarioModuloInsert[],
 ): CalendarioEvaluationWorkingDaysInsert[] {
-  const courseStartName = module.course === 1 ? '1º de Grado Superior de FP.' : '2º de Grado Superior de FP.';
+  const courseStartName = module.course === 1 ? 'Inicio curso: 1º de Grado Superior de FP.' : 'Inicio curso: 2º de Grado Superior de FP.';
   const courseStartEntry = moduleEntries.find(
     (entry) => entry.category === 'academic_key_dates' && entry.name === courseStartName,
   );
