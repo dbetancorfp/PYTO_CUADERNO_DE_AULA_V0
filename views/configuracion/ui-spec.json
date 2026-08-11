@@ -1,10 +1,10 @@
 {
   "view_id": "configuracion",
-  "version": 4,
-  "generated_at": "2026-08-04T20:20:00.000Z",
+  "version": 5,
+  "generated_at": "2026-08-11T13:04:00.000Z",
   "agent": "view-designer",
   "model": "claude-sonnet-5",
-  "total_elements": 33,
+  "total_elements": 55,
   "screens": [
     {
       "screen_id": "teacher-settings-screen",
@@ -19,6 +19,7 @@
         "teacher-nav-link",
         "training-catalog-nav-link",
         "academic-year-nav-link",
+        "schedule-nav-link",
         "teacher-full-name-input",
         "teacher-save-name-button",
         "teacher-name-save-message",
@@ -71,11 +72,11 @@
             },
             {
               "name": "inactive",
-              "description": "Current screen is one of the other two",
+              "description": "Current screen is one of the other four",
               "visual_cues": [
                 "plain link styling"
               ],
-              "condition": "route is /configuracion/ciclos-modulos or /configuracion/ano-academico"
+              "condition": "route is /configuracion/ciclos-modulos or /configuracion/fechas-senaladas or /configuracion/ano-academico or /configuracion/horario"
             }
           ],
           "interactions": [
@@ -102,11 +103,11 @@
             },
             {
               "name": "inactive",
-              "description": "Current screen is one of the other two",
+              "description": "Current screen is one of the other four",
               "visual_cues": [
                 "plain link styling"
               ],
-              "condition": "route is /configuracion/profesor or /configuracion/ano-academico"
+              "condition": "route is /configuracion/profesor or /configuracion/fechas-senaladas or /configuracion/ano-academico or /configuracion/horario"
             }
           ],
           "interactions": [
@@ -133,11 +134,11 @@
             },
             {
               "name": "inactive",
-              "description": "Current screen is one of the other two",
+              "description": "Current screen is one of the other four",
               "visual_cues": [
                 "plain link styling"
               ],
-              "condition": "route is /configuracion/profesor or /configuracion/ciclos-modulos"
+              "condition": "route is /configuracion/profesor or /configuracion/ciclos-modulos or /configuracion/fechas-senaladas or /configuracion/horario"
             }
           ],
           "interactions": [
@@ -145,6 +146,37 @@
               "trigger": "click",
               "event": "app:settings-nav-clicked",
               "response": "Navigates to /configuracion/ano-academico (no-op if already there)"
+            }
+          ]
+        },
+        {
+          "elementId": "schedule-nav-link",
+          "type": "link",
+          "label": "Horario",
+          "props": {},
+          "states": [
+            {
+              "name": "active",
+              "description": "Current screen is this one",
+              "visual_cues": [
+                "highlighted/underlined"
+              ],
+              "condition": "route is /configuracion/horario"
+            },
+            {
+              "name": "inactive",
+              "description": "Current screen is one of the other four",
+              "visual_cues": [
+                "plain link styling"
+              ],
+              "condition": "route is /configuracion/profesor or /configuracion/ciclos-modulos or /configuracion/fechas-senaladas or /configuracion/ano-academico"
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "click",
+              "event": "app:settings-nav-clicked",
+              "response": "Navigates to /configuracion/horario (no-op if already there)"
             }
           ]
         },
@@ -468,6 +500,7 @@
         "teacher-nav-link",
         "training-catalog-nav-link",
         "academic-year-nav-link",
+        "schedule-nav-link",
         "catalog-training-cycle-table",
         "catalog-training-cycle-table-add-button",
         "catalog-module-table",
@@ -517,11 +550,11 @@
             },
             {
               "name": "inactive",
-              "description": "Current screen is one of the other two",
+              "description": "Current screen is one of the other four",
               "visual_cues": [
                 "plain link styling"
               ],
-              "condition": "route is /configuracion/ciclos-modulos or /configuracion/ano-academico"
+              "condition": "route is /configuracion/ciclos-modulos or /configuracion/fechas-senaladas or /configuracion/ano-academico or /configuracion/horario"
             }
           ],
           "interactions": [
@@ -548,11 +581,11 @@
             },
             {
               "name": "inactive",
-              "description": "Current screen is one of the other two",
+              "description": "Current screen is one of the other four",
               "visual_cues": [
                 "plain link styling"
               ],
-              "condition": "route is /configuracion/profesor or /configuracion/ano-academico"
+              "condition": "route is /configuracion/profesor or /configuracion/fechas-senaladas or /configuracion/ano-academico or /configuracion/horario"
             }
           ],
           "interactions": [
@@ -579,11 +612,11 @@
             },
             {
               "name": "inactive",
-              "description": "Current screen is one of the other two",
+              "description": "Current screen is one of the other four",
               "visual_cues": [
                 "plain link styling"
               ],
-              "condition": "route is /configuracion/profesor or /configuracion/ciclos-modulos"
+              "condition": "route is /configuracion/profesor or /configuracion/ciclos-modulos or /configuracion/fechas-senaladas or /configuracion/horario"
             }
           ],
           "interactions": [
@@ -591,6 +624,37 @@
               "trigger": "click",
               "event": "app:settings-nav-clicked",
               "response": "Navigates to /configuracion/ano-academico (no-op if already there)"
+            }
+          ]
+        },
+        {
+          "elementId": "schedule-nav-link",
+          "type": "link",
+          "label": "Horario",
+          "props": {},
+          "states": [
+            {
+              "name": "active",
+              "description": "Current screen is this one",
+              "visual_cues": [
+                "highlighted/underlined"
+              ],
+              "condition": "route is /configuracion/horario"
+            },
+            {
+              "name": "inactive",
+              "description": "Current screen is one of the other four",
+              "visual_cues": [
+                "plain link styling"
+              ],
+              "condition": "route is /configuracion/profesor or /configuracion/ciclos-modulos or /configuracion/fechas-senaladas or /configuracion/ano-academico"
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "click",
+              "event": "app:settings-nav-clicked",
+              "response": "Navigates to /configuracion/horario (no-op if already there)"
             }
           ]
         },
@@ -750,6 +814,7 @@
         "teacher-nav-link",
         "training-catalog-nav-link",
         "academic-year-nav-link",
+        "schedule-nav-link",
         "academic-year-table",
         "academic-year-table-add-button",
         "training-cycle-table",
@@ -805,11 +870,11 @@
             },
             {
               "name": "inactive",
-              "description": "Current screen is one of the other two",
+              "description": "Current screen is one of the other four",
               "visual_cues": [
                 "plain link styling"
               ],
-              "condition": "route is /configuracion/ciclos-modulos or /configuracion/ano-academico"
+              "condition": "route is /configuracion/ciclos-modulos or /configuracion/fechas-senaladas or /configuracion/ano-academico or /configuracion/horario"
             }
           ],
           "interactions": [
@@ -836,11 +901,11 @@
             },
             {
               "name": "inactive",
-              "description": "Current screen is one of the other two",
+              "description": "Current screen is one of the other four",
               "visual_cues": [
                 "plain link styling"
               ],
-              "condition": "route is /configuracion/profesor or /configuracion/ano-academico"
+              "condition": "route is /configuracion/profesor or /configuracion/fechas-senaladas or /configuracion/ano-academico or /configuracion/horario"
             }
           ],
           "interactions": [
@@ -867,11 +932,11 @@
             },
             {
               "name": "inactive",
-              "description": "Current screen is one of the other two",
+              "description": "Current screen is one of the other four",
               "visual_cues": [
                 "plain link styling"
               ],
-              "condition": "route is /configuracion/profesor or /configuracion/ciclos-modulos"
+              "condition": "route is /configuracion/profesor or /configuracion/ciclos-modulos or /configuracion/fechas-senaladas or /configuracion/horario"
             }
           ],
           "interactions": [
@@ -879,6 +944,37 @@
               "trigger": "click",
               "event": "app:settings-nav-clicked",
               "response": "Navigates to /configuracion/ano-academico (no-op if already there)"
+            }
+          ]
+        },
+        {
+          "elementId": "schedule-nav-link",
+          "type": "link",
+          "label": "Horario",
+          "props": {},
+          "states": [
+            {
+              "name": "active",
+              "description": "Current screen is this one",
+              "visual_cues": [
+                "highlighted/underlined"
+              ],
+              "condition": "route is /configuracion/horario"
+            },
+            {
+              "name": "inactive",
+              "description": "Current screen is one of the other four",
+              "visual_cues": [
+                "plain link styling"
+              ],
+              "condition": "route is /configuracion/profesor or /configuracion/ciclos-modulos or /configuracion/fechas-senaladas or /configuracion/ano-academico"
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "click",
+              "event": "app:settings-nav-clicked",
+              "response": "Navigates to /configuracion/horario (no-op if already there)"
             }
           ]
         },
@@ -1278,6 +1374,669 @@
             "aria_live": "assertive"
           },
           "note": "New, reusable component (not scoped to this view) — a floating, auto-dismissing notification, distinct from the existing inline '*-save-message' paragraph pattern used elsewhere in this app. This view is its first user: duplicate-start-year-on-edit and delete-blocked-by-dependents errors. Implemented as its own Web Component (e.g. app-toast) that any future view can reuse."
+        }
+      ]
+    },
+    {
+      "screen_id": "schedule-settings-screen",
+      "screen_name": "Configuración — Horario",
+      "file": "schedule-settings-view.ts",
+      "route": "/configuracion/horario",
+      "role_guard": [
+        "authenticated"
+      ],
+      "element_ids": [
+        "back-to-dashboard-link",
+        "teacher-nav-link",
+        "training-catalog-nav-link",
+        "key-dates-nav-link",
+        "academic-year-nav-link",
+        "schedule-nav-link",
+        "schedule-academic-year-filter-prev",
+        "schedule-academic-year-filter-value",
+        "schedule-academic-year-filter-next",
+        "schedule-cycle-filter",
+        "schedule-module-filter",
+        "schedule-empty-state",
+        "schedule-monday-select",
+        "schedule-tuesday-select",
+        "schedule-wednesday-select",
+        "schedule-thursday-select",
+        "schedule-friday-select",
+        "schedule-save-button",
+        "schedule-save-message"
+      ],
+      "data_needs": [
+        "academic_years",
+        "academic_year_modules",
+        "catalog_modules",
+        "catalog_cycles",
+        "academic_year_module_schedules"
+      ],
+      "notes": "New 5th settings screen (2026-08-11), own top-level custom element (app-schedule-settings-view), sibling to the other four (teacher/training-catalog/key-dates/academic-year) — key-dates-nav-link (Fechas señaladas, its own view directory, views/fechas-senaladas/) shares this same nav bar via the shared settings-nav.ts, included here for completeness even though it isn't documented in this file's other, pre-existing screens (a gap that predates this change, out of this view's scope to retrofit). Filter bar reuses the exact 3-level cascading pattern from Calendario (academic-year-filter-prev/value/next carousel + cycle-filter + module-filter, prefixed schedule-* here to stay unique within this view) — same data source (GET /api/academic-years, GET /api/academic-years/:id/modules), same default-to-current-school-year logic. Unlike Calendario, selecting a módulo here doesn't load a read-only calendar but a 5-day (Mon-Fri) editable grid of academic_year_module_schedules, one select per weekday (values 1-3 or empty = no class that day), committed together via schedule-save-button (draft-until-saved, same UX shape as module-selection-save-button — not per-cell autosave).",
+      "components": [
+        {
+          "elementId": "back-to-dashboard-link",
+          "type": "link",
+          "label": "Volver",
+          "props": {},
+          "states": [
+            {
+              "name": "default",
+              "description": "Always visible on all four settings screens",
+              "visual_cues": [
+                "plain link styling"
+              ]
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "click",
+              "event": "app:back-to-dashboard-clicked",
+              "response": "Navigates to /dashboard"
+            }
+          ]
+        },
+        {
+          "elementId": "teacher-nav-link",
+          "type": "link",
+          "label": "Profesor",
+          "props": {},
+          "states": [
+            {
+              "name": "active",
+              "description": "Current screen is this one",
+              "visual_cues": [
+                "highlighted/underlined"
+              ],
+              "condition": "route is /configuracion/profesor"
+            },
+            {
+              "name": "inactive",
+              "description": "Current screen is one of the other four",
+              "visual_cues": [
+                "plain link styling"
+              ],
+              "condition": "route is /configuracion/ciclos-modulos or /configuracion/fechas-senaladas or /configuracion/ano-academico or /configuracion/horario"
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "click",
+              "event": "app:settings-nav-clicked",
+              "response": "Navigates to /configuracion/profesor (no-op if already there)"
+            }
+          ]
+        },
+        {
+          "elementId": "training-catalog-nav-link",
+          "type": "link",
+          "label": "Ciclos/Módulos",
+          "props": {},
+          "states": [
+            {
+              "name": "active",
+              "description": "Current screen is this one",
+              "visual_cues": [
+                "highlighted/underlined"
+              ],
+              "condition": "route is /configuracion/ciclos-modulos"
+            },
+            {
+              "name": "inactive",
+              "description": "Current screen is one of the other four",
+              "visual_cues": [
+                "plain link styling"
+              ],
+              "condition": "route is /configuracion/profesor or /configuracion/fechas-senaladas or /configuracion/ano-academico or /configuracion/horario"
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "click",
+              "event": "app:settings-nav-clicked",
+              "response": "Navigates to /configuracion/ciclos-modulos (no-op if already there)"
+            }
+          ]
+        },
+        {
+          "elementId": "key-dates-nav-link",
+          "type": "link",
+          "label": "Fechas señaladas",
+          "props": {},
+          "states": [
+            {
+              "name": "active",
+              "description": "Current screen is this one",
+              "visual_cues": [
+                "highlighted/underlined, centered in the settings nav"
+              ],
+              "condition": "route is /configuracion/fechas-senaladas"
+            },
+            {
+              "name": "inactive",
+              "description": "Current screen is one of the other four",
+              "visual_cues": [
+                "plain link styling"
+              ],
+              "condition": "route is /configuracion/profesor or /configuracion/ciclos-modulos or /configuracion/ano-academico or /configuracion/horario"
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "click",
+              "event": "app:settings-nav-clicked",
+              "response": "Navigates to /configuracion/fechas-senaladas (no-op if already there)"
+            }
+          ],
+          "note": "Belongs to views/fechas-senaladas/ - its own view directory and elementSpecs - documented here only because settings-nav.ts's shared NAV_LINKS renders it on every Configuracion-family screen, this one included."
+        },
+        {
+          "elementId": "academic-year-nav-link",
+          "type": "link",
+          "label": "Año académico",
+          "props": {},
+          "states": [
+            {
+              "name": "active",
+              "description": "Current screen is this one",
+              "visual_cues": [
+                "highlighted/underlined"
+              ],
+              "condition": "route is /configuracion/ano-academico"
+            },
+            {
+              "name": "inactive",
+              "description": "Current screen is one of the other four",
+              "visual_cues": [
+                "plain link styling"
+              ],
+              "condition": "route is /configuracion/profesor or /configuracion/ciclos-modulos or /configuracion/fechas-senaladas or /configuracion/horario"
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "click",
+              "event": "app:settings-nav-clicked",
+              "response": "Navigates to /configuracion/ano-academico (no-op if already there)"
+            }
+          ]
+        },
+        {
+          "elementId": "schedule-nav-link",
+          "type": "link",
+          "label": "Horario",
+          "props": {},
+          "states": [
+            {
+              "name": "active",
+              "description": "Current screen is this one",
+              "visual_cues": [
+                "highlighted/underlined"
+              ],
+              "condition": "route is /configuracion/horario"
+            },
+            {
+              "name": "inactive",
+              "description": "Current screen is one of the other four",
+              "visual_cues": [
+                "plain link styling"
+              ],
+              "condition": "route is /configuracion/profesor or /configuracion/ciclos-modulos or /configuracion/fechas-senaladas or /configuracion/ano-academico"
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "click",
+              "event": "app:settings-nav-clicked",
+              "response": "Navigates to /configuracion/horario (no-op if already there)"
+            }
+          ]
+        },
+        {
+          "elementId": "schedule-academic-year-filter-prev",
+          "type": "icon-button",
+          "label": "‹",
+          "props": {
+            "variant": "ghost",
+            "size": "sm"
+          },
+          "states": [
+            {
+              "name": "default",
+              "description": "Enabled — moves the carousel one school year back",
+              "visual_cues": [
+                "enabled icon button"
+              ]
+            },
+            {
+              "name": "disabled",
+              "description": "No earlier school year exists for this teacher (no academic_years row with a smaller startYear)",
+              "visual_cues": [
+                "disabled/greyed icon button"
+              ]
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "click",
+              "event": "app:schedule-academic-year-filter-changed",
+              "target_elements": [
+                "schedule-academic-year-filter-value",
+                "schedule-cycle-filter",
+                "schedule-module-filter",
+                "schedule-monday-select",
+                "schedule-tuesday-select",
+                "schedule-wednesday-select",
+                "schedule-thursday-select",
+                "schedule-friday-select"
+              ],
+              "response": "Selects the previous school year (startYear - 1) if it exists for this teacher; re-derives cycle-filter/module-filter and reloads the schedule grid (discards any unsaved draft)"
+            }
+          ]
+        },
+        {
+          "elementId": "schedule-academic-year-filter-value",
+          "type": "paragraph",
+          "props": {},
+          "states": [
+            {
+              "name": "default",
+              "description": "Shows the currently selected school year as \"startYear-startYear+1\" (e.g. \"2026-2027\") — by default the current school year, if the teacher has one",
+              "visual_cues": [
+                "plain text label between the two arrows"
+              ]
+            }
+          ],
+          "interactions": []
+        },
+        {
+          "elementId": "schedule-academic-year-filter-next",
+          "type": "icon-button",
+          "label": "›",
+          "props": {
+            "variant": "ghost",
+            "size": "sm"
+          },
+          "states": [
+            {
+              "name": "default",
+              "description": "Enabled while the selected year is below currentSchoolYearStartYear + 5",
+              "visual_cues": [
+                "enabled icon button"
+              ]
+            },
+            {
+              "name": "disabled",
+              "description": "Selected year has reached currentSchoolYearStartYear + 5, the carousel's forward limit",
+              "visual_cues": [
+                "disabled/greyed icon button"
+              ]
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "click",
+              "event": "app:schedule-academic-year-filter-changed",
+              "target_elements": [
+                "schedule-academic-year-filter-value",
+                "schedule-cycle-filter",
+                "schedule-module-filter",
+                "schedule-monday-select",
+                "schedule-tuesday-select",
+                "schedule-wednesday-select",
+                "schedule-thursday-select",
+                "schedule-friday-select"
+              ],
+              "response": "Selects the next school year (startYear + 1) up to the forward limit; re-derives cycle-filter/module-filter and reloads the schedule grid (discards any unsaved draft)"
+            }
+          ]
+        },
+        {
+          "elementId": "schedule-cycle-filter",
+          "type": "select",
+          "label": "Ciclo",
+          "props": {
+            "is_reactive": false
+          },
+          "states": [
+            {
+              "name": "populated",
+              "description": "Lists the distinct training cycles the authenticated teacher teaches in the selected school year, first one selected by default",
+              "visual_cues": [
+                "dropdown with options"
+              ]
+            },
+            {
+              "name": "empty",
+              "description": "Selected school year has no academic_years row yet, or has one but no módulos assigned",
+              "visual_cues": [
+                "disabled dropdown, no options"
+              ]
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "change",
+              "event": "app:schedule-cycle-filter-changed",
+              "target_elements": [
+                "schedule-module-filter",
+                "schedule-monday-select",
+                "schedule-tuesday-select",
+                "schedule-wednesday-select",
+                "schedule-thursday-select",
+                "schedule-friday-select"
+              ],
+              "response": "Re-derives schedule-module-filter's options to this cycle's módulos, selects the first one, reloads the schedule grid (discards any unsaved draft)"
+            }
+          ]
+        },
+        {
+          "elementId": "schedule-module-filter",
+          "type": "select",
+          "label": "Módulo",
+          "props": {
+            "is_reactive": false
+          },
+          "states": [
+            {
+              "name": "populated",
+              "description": "Lists the módulos of the selected cycle (within the selected school year), first one selected by default",
+              "visual_cues": [
+                "dropdown with options"
+              ]
+            },
+            {
+              "name": "empty",
+              "description": "No cycle selected, or the selected cycle has no módulos in this school year",
+              "visual_cues": [
+                "disabled dropdown, no options"
+              ]
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "change",
+              "event": "app:schedule-module-filter-changed",
+              "target_elements": [
+                "schedule-monday-select",
+                "schedule-tuesday-select",
+                "schedule-wednesday-select",
+                "schedule-thursday-select",
+                "schedule-friday-select"
+              ],
+              "response": "Loads academic_year_module_schedules for the newly selected academic_year_module_id into the 5 weekday selects (empty/\"Sin clase\" for any weekday with no row); discards any unsaved draft for the previously selected módulo"
+            }
+          ]
+        },
+        {
+          "elementId": "schedule-empty-state",
+          "type": "paragraph",
+          "props": {},
+          "states": [
+            {
+              "name": "default",
+              "description": "\"Selecciona un módulo para ver y editar su horario\" (or equivalent) — shown instead of the weekday grid when schedule-module-filter has no módulo selected (empty school year or empty cycle)",
+              "visual_cues": [
+                "empty-state message"
+              ]
+            }
+          ],
+          "interactions": []
+        },
+        {
+          "elementId": "schedule-monday-select",
+          "type": "select",
+          "label": "Lunes",
+          "props": {
+            "is_reactive": false
+          },
+          "states": [
+            {
+              "name": "hidden",
+              "description": "No módulo selected — schedule-empty-state is shown instead",
+              "visual_cues": [
+                "not rendered"
+              ],
+              "condition": "schedule-module-filter has no selection"
+            },
+            {
+              "name": "populated",
+              "description": "Options: (blank/\"Sin clase\"), 1, 2, 3 — reflects the loaded or in-progress draft value for Monday",
+              "visual_cues": [
+                "dropdown with 4 options"
+              ]
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "change",
+              "event": "app:schedule-weekday-hours-changed",
+              "target_elements": [
+                "schedule-save-button"
+              ],
+              "response": "Updates this weekday's value in the local, in-progress, unsaved draft only — no network request until schedule-save-button is clicked"
+            }
+          ]
+        },
+        {
+          "elementId": "schedule-tuesday-select",
+          "type": "select",
+          "label": "Martes",
+          "props": {
+            "is_reactive": false
+          },
+          "states": [
+            {
+              "name": "hidden",
+              "description": "No módulo selected — schedule-empty-state is shown instead",
+              "visual_cues": [
+                "not rendered"
+              ],
+              "condition": "schedule-module-filter has no selection"
+            },
+            {
+              "name": "populated",
+              "description": "Options: (blank/\"Sin clase\"), 1, 2, 3 — reflects the loaded or in-progress draft value for Tuesday",
+              "visual_cues": [
+                "dropdown with 4 options"
+              ]
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "change",
+              "event": "app:schedule-weekday-hours-changed",
+              "target_elements": [
+                "schedule-save-button"
+              ],
+              "response": "Updates this weekday's value in the local, in-progress, unsaved draft only — no network request until schedule-save-button is clicked"
+            }
+          ]
+        },
+        {
+          "elementId": "schedule-wednesday-select",
+          "type": "select",
+          "label": "Miércoles",
+          "props": {
+            "is_reactive": false
+          },
+          "states": [
+            {
+              "name": "hidden",
+              "description": "No módulo selected — schedule-empty-state is shown instead",
+              "visual_cues": [
+                "not rendered"
+              ],
+              "condition": "schedule-module-filter has no selection"
+            },
+            {
+              "name": "populated",
+              "description": "Options: (blank/\"Sin clase\"), 1, 2, 3 — reflects the loaded or in-progress draft value for Wednesday",
+              "visual_cues": [
+                "dropdown with 4 options"
+              ]
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "change",
+              "event": "app:schedule-weekday-hours-changed",
+              "target_elements": [
+                "schedule-save-button"
+              ],
+              "response": "Updates this weekday's value in the local, in-progress, unsaved draft only — no network request until schedule-save-button is clicked"
+            }
+          ]
+        },
+        {
+          "elementId": "schedule-thursday-select",
+          "type": "select",
+          "label": "Jueves",
+          "props": {
+            "is_reactive": false
+          },
+          "states": [
+            {
+              "name": "hidden",
+              "description": "No módulo selected — schedule-empty-state is shown instead",
+              "visual_cues": [
+                "not rendered"
+              ],
+              "condition": "schedule-module-filter has no selection"
+            },
+            {
+              "name": "populated",
+              "description": "Options: (blank/\"Sin clase\"), 1, 2, 3 — reflects the loaded or in-progress draft value for Thursday",
+              "visual_cues": [
+                "dropdown with 4 options"
+              ]
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "change",
+              "event": "app:schedule-weekday-hours-changed",
+              "target_elements": [
+                "schedule-save-button"
+              ],
+              "response": "Updates this weekday's value in the local, in-progress, unsaved draft only — no network request until schedule-save-button is clicked"
+            }
+          ]
+        },
+        {
+          "elementId": "schedule-friday-select",
+          "type": "select",
+          "label": "Viernes",
+          "props": {
+            "is_reactive": false
+          },
+          "states": [
+            {
+              "name": "hidden",
+              "description": "No módulo selected — schedule-empty-state is shown instead",
+              "visual_cues": [
+                "not rendered"
+              ],
+              "condition": "schedule-module-filter has no selection"
+            },
+            {
+              "name": "populated",
+              "description": "Options: (blank/\"Sin clase\"), 1, 2, 3 — reflects the loaded or in-progress draft value for Friday",
+              "visual_cues": [
+                "dropdown with 4 options"
+              ]
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "change",
+              "event": "app:schedule-weekday-hours-changed",
+              "target_elements": [
+                "schedule-save-button"
+              ],
+              "response": "Updates this weekday's value in the local, in-progress, unsaved draft only — no network request until schedule-save-button is clicked"
+            }
+          ]
+        },
+        {
+          "elementId": "schedule-save-button",
+          "type": "submit-button",
+          "label": "Guardar horario",
+          "props": {
+            "variant": "primary"
+          },
+          "states": [
+            {
+              "name": "hidden",
+              "description": "No módulo selected — schedule-empty-state is shown instead",
+              "visual_cues": [
+                "not rendered"
+              ],
+              "condition": "schedule-module-filter has no selection"
+            },
+            {
+              "name": "default",
+              "description": "Módulo selected, enabled",
+              "visual_cues": [
+                "solid primary color"
+              ]
+            },
+            {
+              "name": "loading",
+              "description": "Request in flight",
+              "visual_cues": [
+                "loading indicator",
+                "disabled"
+              ],
+              "condition": "save request sent, no response yet"
+            }
+          ],
+          "interactions": [
+            {
+              "trigger": "click",
+              "event": "app:schedule-save-submitted",
+              "target_elements": [
+                "schedule-save-message"
+              ],
+              "response": "PUTs the 5 weekday values (1/2/3 or absent) for the selected academic_year_module_id in one request — upserts a row per weekday with a value, deletes any existing row for a weekday now left blank. On success shows schedule-save-message."
+            }
+          ]
+        },
+        {
+          "elementId": "schedule-save-message",
+          "type": "paragraph",
+          "label": "Resultado guardar horario",
+          "props": {},
+          "states": [
+            {
+              "name": "hidden",
+              "description": "No save attempted yet, or a filter changed since the last save",
+              "visual_cues": [
+                "not rendered"
+              ]
+            },
+            {
+              "name": "success",
+              "description": "Save succeeded",
+              "visual_cues": [
+                "green text"
+              ],
+              "condition": "save succeeded"
+            },
+            {
+              "name": "error",
+              "description": "Save failed",
+              "visual_cues": [
+                "red text"
+              ],
+              "condition": "save failed"
+            }
+          ],
+          "interactions": [],
+          "accessibility": {
+            "aria_live": "polite"
+          }
         }
       ]
     }

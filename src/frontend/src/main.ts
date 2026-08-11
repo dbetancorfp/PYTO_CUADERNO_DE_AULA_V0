@@ -113,6 +113,26 @@ export async function bootstrap(): Promise<void> {
     return;
   }
 
+  if (window.location.pathname === '/configuracion/horario') {
+    // New 5th settings screen (2026-08-11) — reuses the same
+    // HttpAcademicYearApiService the Año académico screen already wires, for the
+    // Año/Ciclo/Módulo filter cascade (see views/configuracion/api-contracts.md's
+    // "Horario" section).
+    const [{ HttpSessionApiService }, { HttpAcademicYearApiService }, { HttpAcademicYearModuleScheduleApiService }, { ScheduleSettingsView }] =
+      await Promise.all([
+        import('./http-session-api-service'),
+        import('./http-academic-year-api-service'),
+        import('./http-academic-year-module-schedule-api-service'),
+        import('./schedule-settings-view'),
+      ]);
+    const scheduleSettingsView = document.createElement('app-schedule-settings-view') as InstanceType<typeof ScheduleSettingsView>;
+    scheduleSettingsView.sessionService = new HttpSessionApiService();
+    scheduleSettingsView.academicYearService = new HttpAcademicYearApiService();
+    scheduleSettingsView.scheduleService = new HttpAcademicYearModuleScheduleApiService();
+    document.body.appendChild(scheduleSettingsView);
+    return;
+  }
+
   if (window.location.pathname === '/configuracion/fechas-senaladas') {
     const [{ HttpSessionApiService }, { HttpKeyDateApiService }, { KeyDateSettingsView }] = await Promise.all([
       import('./http-session-api-service'),

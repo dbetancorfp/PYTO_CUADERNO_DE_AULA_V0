@@ -5,7 +5,9 @@ shared, global tables (`catalog_cycles`, `catalog_modules`), un-scoped from any 
 of 2026-08-05. Año académico's old, teacher-owned tables were dropped in that same redesign
 and got a UI-only stub — 2026-08-05 gives it a real data layer again (`academic_years`,
 `academic_year_modules`, see UC-06 through UC-09), built on top of the shared catalog
-instead of duplicating it per teacher.
+instead of duplicating it per teacher. 2026-08-11 adds a 4th screen, Horario
+(`academic_year_module_schedules`, see UC-10/UC-11): a weekly Mon-Fri hours grid per
+`academic_year_module`, reusing Calendario's Año/Ciclo/Módulo filter-bar pattern.
 
 ## UC-01: Edit the teacher's name
 
@@ -89,11 +91,14 @@ instead of duplicating it per teacher.
 **Primary actor**: Any signed-in teacher
 **Preconditions**: Valid session
 **Elements**: `back-to-dashboard-link`, `teacher-nav-link`, `training-catalog-nav-link`,
-`academic-year-nav-link`
+`academic-year-nav-link`, `schedule-nav-link` (plus `key-dates-nav-link`, which belongs to
+`views/fechas-senaladas/` — its own view — but is rendered on this nav bar too via the
+shared `settings-nav.ts`)
 
 ### Main flow
 
-1. Teacher is on one of the three settings screens.
+1. Teacher is on one of this view's four settings screens (a 5th, `/configuracion/fechas-
+   senaladas`, is `views/fechas-senaladas/`'s own screen sharing this same nav bar).
 2. Teacher clicks the nav link for another screen.
 3. The app navigates there.
 
@@ -101,7 +106,7 @@ instead of duplicating it per teacher.
 
 - **A1 — Clicking the link for the screen already active**: no-op, no navigation.
 - **A2 — Teacher clicks `back-to-dashboard-link`**: the app navigates to `/dashboard`,
-  regardless of which of the three settings screens is currently active.
+  regardless of which settings screen is currently active.
 
 ### Postconditions
 
@@ -109,9 +114,9 @@ instead of duplicating it per teacher.
 
 ### Acceptance criteria
 
-- [x] Each nav link shows an active state on its own screen, inactive on the other two
-- [x] Clicking any nav link from either other screen navigates to its route
-- [x] `back-to-dashboard-link` is present on all three settings screens
+- [x] Each nav link shows an active state on its own screen, inactive on every other one
+- [x] Clicking any nav link from any other screen navigates to its route
+- [x] `back-to-dashboard-link` is present on all of this view's settings screens
 - [x] Clicking `back-to-dashboard-link` navigates to `/dashboard`
 
 ---
@@ -421,3 +426,122 @@ A6) — see each flow below.
 - [x] Extend-existing flow: a click adds only the newly-checked módulos to the already-
       selected year, then shows `module-selection-save-message`
 - [ ] On success, returns to normal mode with the affected academic year selected
+
+---
+
+## UC-10: Browse and select a módulo's horario via the filter bar
+
+**Primary actor**: Any signed-in teacher, on `/configuracion/horario`
+**Preconditions**: Valid session
+**Elements**: `schedule-academic-year-filter-prev`, `schedule-academic-year-filter-value`,
+`schedule-academic-year-filter-next`, `schedule-cycle-filter`, `schedule-module-filter`,
+`schedule-empty-state`
+
+### Main flow
+
+1. On load, `schedule-academic-year-filter-value` shows the computed current school year
+   (`currentSchoolYearStartYear`, same September-cutoff rule as Calendario's UC-02),
+   formatted `"<year>-<year+1>"`, if the teacher has that `academic_years` row.
+2. `GET /api/academic-years` and `GET /api/academic-years/:id/modules` (both already
+   exist, reused as-is — same calls Calendario's filter bar makes) derive
+   `schedule-cycle-filter`'s and `schedule-module-filter`'s options, same cascading logic
+   as Calendario's UC-02/UC-03/UC-04: `schedule-cycle-filter` lists the distinct cycles
+   the teacher teaches in the selected year (first one selected by default);
+   `schedule-module-filter` lists the selected cycle's módulos (first one selected by
+   default).
+3. Teacher changes `schedule-academic-year-filter-prev`/`-next`,
+   `schedule-cycle-filter`, or `schedule-module-filter`; the filters below re-derive, and
+   any unsaved weekday draft (UC-11) for the previously selected módulo is discarded.
+4. Once a módulo is selected, `GET /api/academic-year-modules/:id/schedule` loads its
+   saved weekly schedule into the grid (see UC-11).
+
+### Alternative flows
+
+- **A1 — Backward limit**: `schedule-academic-year-filter-prev` is disabled once there's
+  no `academic_years` row for this teacher with `startYear` below the currently selected
+  year — same rule as Calendario's UC-02/A1.
+- **A2 — Forward limit**: `schedule-academic-year-filter-next` is disabled once the
+  selected year reaches `currentSchoolYearStartYear + 5` — same rule as Calendario's
+  UC-02/A2.
+- **A3 — No cycles**: selected school year has no `academic_years` row yet, or has one
+  with zero módulos assigned — `schedule-cycle-filter` shows its empty state,
+  `schedule-empty-state` is shown instead of the weekday grid and `schedule-save-button`.
+- **A4 — No módulos in cycle**: selected cycle has no módulos in this school year —
+  `schedule-module-filter` shows its empty state, same `schedule-empty-state` fallback
+  as A3.
+
+### Postconditions
+
+- `schedule-module-filter`'s selection (or lack of one) determines whether the weekday
+  grid (UC-11) or `schedule-empty-state` is shown.
+
+### Acceptance criteria
+
+- [x] On first load, `schedule-academic-year-filter-value` shows the school year
+      containing today's date, formatted `"<year>-<year+1>"`
+- [x] `schedule-academic-year-filter-prev` is disabled when the teacher has no
+      `academic_years` row with `startYear` less than the currently selected year
+- [x] `schedule-academic-year-filter-next` is disabled once the selected year equals
+      `currentSchoolYearStartYear + 5`
+- [x] `schedule-cycle-filter` lists exactly the distinct cycles present in the selected
+      year's módulo assignments, first one selected by default
+- [x] `schedule-module-filter` lists exactly the selected cycle's módulos, first one
+      selected by default
+- [ ] Changing any filter discards an unsaved weekday draft for the previously selected
+      módulo
+- [x] `schedule-empty-state` is shown instead of the weekday grid whenever
+      `schedule-module-filter` has no selection
+
+---
+
+## UC-11: Edit and save a módulo's weekly horario
+
+**Primary actor**: Any signed-in teacher, on `/configuracion/horario`
+**Preconditions**: Valid session; a módulo is selected (UC-10)
+**Elements**: `schedule-monday-select`, `schedule-tuesday-select`, `schedule-wednesday-select`,
+`schedule-thursday-select`, `schedule-friday-select`, `schedule-save-button`,
+`schedule-save-message`
+
+### Main flow
+
+1. `GET /api/academic-year-modules/:id/schedule` (UC-10 step 4) returns the
+   `academic_year_module_schedules` rows already saved for this módulo; each weekday
+   select shows its saved `hours` (1-3), or blank/"Sin clase" if no row exists for that
+   weekday.
+2. Teacher changes one or more weekday selects; each change updates only the local,
+   in-progress draft — no request sent yet.
+3. Teacher clicks `schedule-save-button`.
+4. `PUT /api/academic-year-modules/:id/schedule` sends all 5 weekdays' current draft
+   values in one request: weekdays with a value (1-3) are upserted, weekdays left blank
+   are removed if a row existed for them.
+5. `schedule-save-message` shows a success state.
+
+### Alternative flows
+
+- **A1 — Server error**: `schedule-save-message` shows an error state; persisted schedule
+  unchanged.
+- **A2 — Filter changed after a save**: `schedule-save-message` hides again as soon as any
+  of UC-10's filters or a weekday select changes, so it never shows a stale result.
+
+### Postconditions
+
+- On success: `academic_year_module_schedules` for this `academic_year_module_id` exactly
+  matches the 5 weekday selects' values at save time (a blank weekday has no row).
+
+### Acceptance criteria
+
+- [x] Each weekday select offers exactly 4 options: blank/"Sin clase", 1, 2, 3
+- [x] On load, each weekday select reflects its saved value, or blank if no row exists for
+      that weekday
+- [x] Changing a weekday select does not send a request by itself
+- [x] Clicking `schedule-save-button` sends exactly one request with all 5 weekdays'
+      current draft values
+- [x] A weekday left blank in the draft has no `academic_year_module_schedules` row after
+      a successful save
+- [x] A weekday set to 1/2/3 has exactly that value persisted after a successful save
+- [ ] `schedule-save-button` shows a loading state and is disabled from click until the
+      response arrives
+- [x] `schedule-save-message` shows success after a successful response
+- [x] `schedule-save-message` shows an error after a failed response
+- [ ] `schedule-save-message` hides again as soon as a filter or weekday select changes
+      after a save
