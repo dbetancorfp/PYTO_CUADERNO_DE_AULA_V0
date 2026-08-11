@@ -100,7 +100,9 @@
         "A plain Saturday/Sunday with no calendario_modulo entry is colored neutral gray (#cbd5e1) — a calendar-structure cue, not a (category,type) color, no calendario-legend entry. A Saturday/Sunday covered by an entry uses that entry's real color, never darkened (replaces the pre-2026-08-10 'weekend + public_holidays = darker red' special case)",
         "Week rows start on Monday",
         "Each month card gets data-element-id=\"calendario-month-<YYYY-MM>\"; each day cell inside it gets data-element-id=\"calendario-month-<YYYY-MM>-day-<DD>\" (documented dynamic pattern, not enumerated per instance)",
-        "Each day cell covered by at least one entry also carries a sibling calendario-day-tooltip child, data-element-id=\"calendario-month-<YYYY-MM>-day-<DD>-tooltip\" (2026-08-10) — a day cell with no covering entry has no tooltip child at all"
+        "Each day cell covered by at least one entry also carries a sibling calendario-day-tooltip child, data-element-id=\"calendario-month-<YYYY-MM>-day-<DD>-tooltip\" (2026-08-10) — a day cell with no covering entry has no tooltip child at all",
+        "2026-08-11: a day cell covered by a calendario_horario row also carries a data-calendario-horario=\"true\" attribute and a #06b6d4 ring/border overlay around the day number, independent of and layered over whatever (category,type) fill (if any) already covers that day — never a 15th color-table row, never replacing the fill",
+        "The calendario-horario ring's own presence (not its absence) also triggers a sibling calendario-day-tooltip child on a day that otherwise has no calendario_modulo entry at all"
       ],
       "dataNeeds": [
         "calendario_modulo.academic_year_module_id",
@@ -108,7 +110,9 @@
         "calendario_modulo.name",
         "calendario_modulo.start_date",
         "calendario_modulo.end_date",
-        "calendario_modulo.type"
+        "calendario_modulo.type",
+        "calendario_horario.date",
+        "calendario_horario.hours"
       ],
       "acceptanceCriteria": [
         "calendario-months renders exactly 10 month cards, from September of the selected school year through June of the following year, in order",
@@ -121,33 +125,38 @@
         "A day covered by more than one entry at once shows a split background (one band per (category,type)), not just one color",
         "Hovering a colored day reveals its calendario-day-tooltip child, positioned to the right of the day cell, with that day's event name(s)",
         "Moving the mouse off a colored day hides its calendario-day-tooltip child immediately",
-        "When the selected academic_year_module_id has no calendario_modulo rows, calendario-months is not rendered and calendario-empty-state is shown instead"
+        "When the selected academic_year_module_id has zero calendario_modulo rows AND zero calendario_horario rows, calendario-months is not rendered and calendario-empty-state is shown instead (2026-08-11 revision: gating widened from calendario_modulo alone, since a día can have a calendario_horario row with no calendario_modulo entry at all — UC-13/A1, the common case)",
+        "A day covered by a calendario_horario row shows the #06b6d4 ring around its day number, whether or not that day also has a calendario_modulo entry",
+        "calendario-months still renders (grid + ring, no fill) when the selected módulo has zero calendario_modulo rows but at least one calendario_horario row"
       ]
     },
     {
       "elementId": "calendario-empty-state",
-      "behavior": "Shown instead of calendario-months whenever there's nothing to render: no académico year row for the selected year, no cycles/módulos in it, or a selected módulo with zero calendario_modulo rows.",
+      "behavior": "Shown instead of calendario-months whenever there's nothing to render: no académico year row for the selected year, no cycles/módulos in it, or a selected módulo with zero calendario_modulo rows AND zero calendario_horario rows (2026-08-11: widened from calendario_modulo alone, see calendario-months' own acceptanceCriteria).",
       "businessRules": [],
       "dataNeeds": [],
       "acceptanceCriteria": [
         "calendario-empty-state is shown when the selected school year has no academic_years row for this teacher",
-        "calendario-empty-state is shown when the selected academic_year_module_id has zero calendario_modulo rows"
+        "calendario-empty-state is shown when the selected academic_year_module_id has zero calendario_modulo rows AND zero calendario_horario rows",
+        "calendario-empty-state is NOT shown when the selected academic_year_module_id has zero calendario_modulo rows but at least one calendario_horario row (2026-08-11)"
       ]
     },
     {
       "elementId": "calendario-day-tooltip",
-      "behavior": "2026-08-10, replaces the earlier calendario-day-toast (fixed bottom-right, shared ToastController/renderToast from toast.ts — toast.ts itself is untouched, it stays in use elsewhere in the app for action-confirmation toasts). Pure-CSS Tailwind tooltip: the day cell carries `group relative`; its tooltip child carries `hidden group-hover:block absolute left-full top-0`, so it's revealed immediately to the right of the hovered cell on `:hover` and hidden immediately when the cursor leaves — no JS mouseover/mouseout handling, no component re-render, no dismiss timer of any kind (there was never a 5s auto-dismiss for this element, and there still isn't).",
+      "behavior": "2026-08-10, replaces the earlier calendario-day-toast (fixed bottom-right, shared ToastController/renderToast from toast.ts — toast.ts itself is untouched, it stays in use elsewhere in the app for action-confirmation toasts). Pure-CSS Tailwind tooltip: the day cell carries `group relative`; its tooltip child carries `hidden group-hover:block absolute left-full top-0`, so it's revealed immediately to the right of the hovered cell on `:hover` and hidden immediately when the cursor leaves — no JS mouseover/mouseout handling, no component re-render, no dismiss timer of any kind (there was never a 5s auto-dismiss for this element, and there still isn't). 2026-08-11: also carries a calendario_horario line when that day has one.",
       "businessRules": [
-        "Rendered only for a day cell covered by at least one calendario_modulo entry — a day with no covering entry has no tooltip node in the DOM at all, not just a hidden one",
-        "Content lists every calendario_modulo entry's name covering that day, one per line if more than one",
+        "Rendered for a day cell covered by at least one calendario_modulo entry and/or a calendario_horario row — a day with neither has no tooltip node in the DOM at all, not just a hidden one",
+        "Content lists every calendario_modulo entry's name covering that day, one per line if more than one, followed (if the day also has a calendario_horario row) by one final line \"Horario: N horas\" (N = that row's hours)",
         "Positioned to the right of its own day cell (`left-full`), never at a fixed screen corner"
       ],
-      "dataNeeds": ["calendario_modulo.name", "calendario_modulo.category"],
+      "dataNeeds": ["calendario_modulo.name", "calendario_modulo.category", "calendario_horario.hours"],
       "acceptanceCriteria": [
         "calendario-day-tooltip shows the exact event name of a hovered single-category day",
         "calendario-day-tooltip shows every applicable event name, one per line, when the hovered day is covered by more than one calendario_modulo entry",
-        "A day cell with no covering calendario_modulo entry has no calendario-day-tooltip node in the DOM",
-        "calendario-day-tooltip is positioned to the right of its day cell (carries the `left-full` class), not fixed to a screen corner"
+        "A day cell with no covering calendario_modulo entry and no calendario_horario row has no calendario-day-tooltip node in the DOM",
+        "calendario-day-tooltip is positioned to the right of its day cell (carries the `left-full` class), not fixed to a screen corner",
+        "calendario-day-tooltip shows an extra \"Horario: N horas\" line, last, when the hovered day has a calendario_horario row",
+        "calendario-day-tooltip is rendered (with only the Horario line) for a day that has a calendario_horario row but no calendario_modulo entry at all"
       ]
     },
     {
@@ -193,20 +202,23 @@
     },
     {
       "elementId": "calendario-legend",
-      "behavior": "Directly below the filters row, its own horizontal, wrapping row of color swatch+label pairs — one per UC-11's color-table row that has at least one matching calendario_modulo entry in the currently loaded módulo's data, in the table's fixed canonical order. Renders nothing when calendario_modulo is empty. Child swatches use a documented dynamic elementId pattern, calendario-legend-item-<index> (index = the color table's own row number 1-14), not individually enumerated here — same convention calendario-months already uses for its per-day elementIds.",
+      "behavior": "Directly below the filters row, its own horizontal, wrapping row of color swatch+label pairs — one per UC-11's color-table row that has at least one matching calendario_modulo entry in the currently loaded módulo's data, in the table's fixed canonical order. Renders nothing when calendario_modulo is empty. Child swatches use a documented dynamic elementId pattern, calendario-legend-item-<index> (index = the color table's own row number 1-14), not individually enumerated here — same convention calendario-months already uses for its per-day elementIds. 2026-08-11: when the currently loaded módulo has at least one calendario_horario row, one extra item is appended last, data-element-id=\"calendario-legend-item-horario\", label \"Horario\", rendered as an outlined/ring swatch (not filled) to visually read as an overlay marker rather than another category color.",
       "businessRules": [
         "Reloads on module-filter change, same trigger as calendario-months (UC-04/UC-11)",
         "Same color table calendario-months reads from (UC-11) — never a second, independently-maintained color list",
         "Only color-table rows with at least one matching entry in the current módulo's data render a swatch — no placeholder for absent rows",
-        "No swatch for the plain-weekend neutral gray — that's a calendar-structure cue, not a (category,type) color"
+        "No swatch for the plain-weekend neutral gray — that's a calendar-structure cue, not a (category,type) color",
+        "The horario item is never part of the 14-row color table — it's a 15th, always-last, conditionally-rendered item outside that table, keyed on calendario_horario having at least one row for the currently loaded módulo, independent of calendario_modulo's own rows"
       ],
-      "dataNeeds": ["calendario_modulo.category", "calendario_modulo.type", "calendario_modulo.name"],
+      "dataNeeds": ["calendario_modulo.category", "calendario_modulo.type", "calendario_modulo.name", "calendario_horario.date"],
       "acceptanceCriteria": [
         "calendario-legend sits directly below the filters row, laid out horizontally (flex flex-wrap), wrapping rather than scrolling",
         "calendario-legend shows exactly one swatch+label per color-table row present in the currently loaded data, in the table's fixed order",
         "Each swatch's color exactly matches calendario-months's color for that same (category,type) or final_exams name-suffix",
         "A módulo with zero calendario_modulo rows renders no legend swatches",
-        "A módulo missing some color-table rows' data shows only the rows it has"
+        "A módulo missing some color-table rows' data shows only the rows it has",
+        "calendario-legend shows a data-element-id=\"calendario-legend-item-horario\" item, last, labeled \"Horario\", when the currently loaded módulo has at least one calendario_horario row",
+        "calendario-legend does not show the horario item when the currently loaded módulo has zero calendario_horario rows, even if calendario_modulo has data"
       ]
     }
   ],

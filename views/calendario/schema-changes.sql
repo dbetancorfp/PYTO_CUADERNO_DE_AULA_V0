@@ -109,3 +109,25 @@ FROM key_dates kd
 WHERE cm.category = kd.category
   AND cm.name = kd.name
   AND cm.category != 'final_exams';
+
+-- calendario_horario (2026-08-11) — one row per real, laborable school-year date whose
+-- weekday has an hours value in academic_year_module_schedules (see
+-- views/configuracion/schema-changes.sql), regenerated in full every time Horario's
+-- schedule-save-button is clicked (see use-cases.md UC-12). Independent of
+-- calendario_modulo: a day can have a calendario_horario row with zero calendario_modulo
+-- entries (the common case — most school days have no key_dates entry at all), or both at
+-- once (UC-13/A2). Never a color-table row (UC-11) — an overlay ring on calendario-months,
+-- not a fill.
+CREATE TABLE IF NOT EXISTS calendario_horario (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  -- ON DELETE CASCADE: deleting the módulo assignment (or the academic year it cascades
+  -- from) removes its horario overlay with it — same as calendario_modulo (UC-07).
+  academic_year_module_id UUID NOT NULL REFERENCES academic_year_modules(id) ON DELETE CASCADE,
+  date DATE NOT NULL,
+  hours SMALLINT NOT NULL CHECK (hours BETWEEN 1 AND 3),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (academic_year_module_id, date)
+);
+
+CREATE INDEX IF NOT EXISTS calendario_horario_academic_year_module_id_idx
+  ON calendario_horario (academic_year_module_id);

@@ -1,3 +1,102 @@
+# Review Report — calendario (Horario overlay, UC-12/UC-13) — 2026-08-11
+
+## Result: PASS ✅
+
+## Layers implicated: none
+
+## Supervisor notes adjudicated
+| Note | Resolution |
+|------|------------|
+| Supervisor reported: backend unit tests PASS (374/374), frontend unit tests PASS (313/313), integration smoke test PASS (real HTTP against `PUT /api/academic-year-modules/:id/schedule` → `GET /api/calendario-horario`, verified 37 laborable Mondays generated for a 2026-2027 módulo with the seeded Navidad holiday Monday correctly excluded; `http-calendario-horario-api-service.ts` calls the same route/query-param/shape) | Accepted as-is — independently re-verified in Step 2 below (re-ran both suites, re-read the smoke-tested files); no further action |
+| Orchestrator flagged: `NON_WORKING_CATEGORIES` duplicated between `calendario-modulo.service.ts` (private, unexported) and the new `calendario-horario.service.ts` | Adjudicated below (SOLID audit) — accepted as-is, non-blocking |
+| Orchestrator flagged: verify the widened `calendario-months`/`calendario-empty-state` gate (now `calendario_modulo` OR `calendario_horario`, not `calendario_modulo` alone) is consistently applied | Adjudicated below — implementation is consistent; found and will note a stale JSDoc comment (see SOLID audit) |
+
+## SOLID violations found
+
+None blocking. Audited every new/modified file for this increment:
+
+- `src/backend/src/repositories/calendario-horario.repository.ts` (interface)
+- `src/backend/src/repositories/in-memory/calendario-horario-store.ts` + `in-memory-calendario-horario.repository.ts`
+- `src/backend/src/repositories/postgres/pg-calendario-horario.repository.ts`
+- `src/backend/src/services/calendario-horario.service.ts`
+- `src/backend/src/routes/calendario-horario.routes.ts`
+- `src/backend/src/services/academic-year-module-schedule.service.ts` (4th constructor arg; `isOwnedByTeacher` renamed `ownedYear`, now returns the year row instead of a boolean — clean, no wasted re-fetch)
+- `src/backend/src/app.ts` (additive DI wiring only)
+- `src/frontend/src/calendario-horario-api-service.ts` (interface), `http-calendario-horario-api-service.ts`
+- `src/frontend/src/calendario-view.ts` (ring overlay, tooltip extension, legend extension, widened render gate)
+- `src/frontend/src/main.ts` (additive bootstrap wiring only)
+
+`CalendarioHorarioService`/`AcademicYearModuleScheduleService` take every dependency via
+constructor injection against interfaces (DIP) — `CalendarioHorarioSeeder` is the narrow
+seam `AcademicYearModuleScheduleService` depends on (ISP: it only ever triggers
+regeneration, never reads `calendario_horario` back), mirroring the already-established
+`CalendarioModuloSeeder` pattern exactly. `CalendarioView` never calls `fetch()` directly —
+`calendarioHorarioService` is an injected property, same as its three sibling services.
+
+**Non-blocking notes (documented, not fixed this pass — no functional/test/coverage
+impact):**
+
+1. **`NON_WORKING_CATEGORIES` duplication** — `src/backend/src/services/calendario-horario.service.ts:30`
+   redeclares the same 3-category `Set` `calendario-modulo.service.ts` already has
+   (unexported there). `calendario-horario.service.ts`'s own comment already flags this
+   ("both lists must be kept in sync by hand"). This is a DRY/maintainability concern, not
+   a SOLID violation (no class takes on a second responsibility, no interface is violated)
+   — accepted as-is. If it drifts in a future change, the fix is a one-line export from
+   `calendario-modulo.service.ts` plus an import here; not urgent enough to redo this cycle
+   over.
+2. **Stale JSDoc comment** — `src/frontend/src/calendario-view.ts:739-745`, the comment
+   above `_renderCalendarSection` still reads "calendario-months only renders once the
+   selected módulo's calendario_modulo snapshot has at least one entry," which was true
+   before this increment but is now inaccurate: the method's own body (correctly) renders
+   the grid when `calendario_modulo` OR `calendario_horario` has data (UC-13/A1 — the
+   common case, most school days have a `calendario_horario` row with zero `calendario_modulo`
+   entries). The **code is correct**; only the comment describing it is stale. Cosmetic,
+   zero behavioral/test impact — flagged for `frontend-implementer` to fix on its next
+   touch of this file rather than spending a cycle on a comment-only change now.
+
+## SonarCloud Quality Gate
+| Metric | Threshold | Backend | Frontend | Result |
+|--------|-----------|---------|----------|--------|
+| Coverage (lines) | 100% | 100.00% (all 7 new/modified backend files) | 100.00% (all 4 new/modified frontend files) | ✅ |
+| Bugs | 0 | 0 | 0 | ✅ |
+| Vulnerabilities | 0 | 0 | 0 | ✅ |
+| Duplication | ≤ 3% | 0% (the 1-line `NON_WORKING_CATEGORIES` set doesn't move this metric) | 0% | ✅ |
+| Maintainability rating | A | A | A | ✅ |
+
+`bun test --coverage --coverage-reporter=lcov src/backend/tests src/frontend/tests`:
+687 pass / 0 fail across both suites.
+
+## Acceptance criteria marked (use-cases.md)
+
+| Criterion | Test that verifies it |
+|-----------|------------------------|
+| UC-12: saving a schedule with N weekdays generates one row per laborable date matching | `calendario-horario.service.test.ts` — "inserts one row per laborable school-year date matching a scheduled weekday" + `calendario-horario.routes.test.ts` — "saving a schedule... generates calendario_horario, readable via GET" |
+| UC-12: a scheduled weekday on a holiday/public-holiday/free-disposal-day date gets no row | `calendario-horario.service.test.ts` — "excludes a scheduled weekday date that falls inside a holidays/..." + routes test, same scenario |
+| UC-12: saving an all-blank schedule leaves `calendario_horario` empty | `calendario-horario.service.test.ts` — "an empty schedule replaces with an empty array" + routes test — "saving an all-blank schedule clears calendario_horario" |
+| UC-12: saving a changed schedule removes stale dates and adds new ones in the same request | `calendario-horario.routes.test.ts` — "saving a new schedule replaces the previous one in full — a removed weekday disappears" |
+| UC-12: deleting the módulo assignment removes its `calendario_horario` rows too (cascade) | `calendario-horario.routes.test.ts` — "deleting a módulo assignment removes its calendario_horario rows (cascade)" |
+| UC-13: a day covered by `calendario_horario` shows the `#06b6d4` ring | `calendario-view.test.ts` — "a day covered by a calendario_horario entry carries data-calendario-horario=\"true\" and a #06b6d4 ring" |
+| UC-13: the ring renders together with an existing fill, never replacing it | `calendario-view.test.ts` — "the ring renders together with an existing (category,type) fill on the same day, not replacing it" |
+| UC-13: a day with a horario row but no `calendario_modulo` entry still shows the ring, on its normal background | Same test as above — its fixture has zero `calendario_modulo` entries configured, exercising exactly this case |
+| UC-13: `calendario-legend` shows the "Horario" item, last, when the módulo has ≥1 `calendario_horario` row | `calendario-view.test.ts` — "calendario-legend shows a \"Horario\" item, last, when the módulo has at least one calendario_horario row" |
+| UC-13: `calendario-legend` shows no "Horario" item when the módulo has 0 rows, even with `calendario_modulo` data | `calendario-view.test.ts` — "calendario-legend shows no \"Horario\" item when the módulo has zero calendario_horario rows, even with calendario_modulo data" |
+| UC-13: hovering a ringed day's tooltip shows "Horario: N horas" last | `calendario-view.test.ts` — "a day with both a calendario_modulo entry and a calendario_horario entry lists the event name(s) first, \"Horario: N horas\" last" |
+| UC-13: a day with only a `calendario_horario` row still shows a tooltip, with just the Horario line | `calendario-view.test.ts` — "a day with only a calendario_horario entry (no calendario_modulo) still renders a calendario-day-tooltip, with just the Horario line" |
+| UC-13: changing `module-filter` reloads the ring/legend/tooltip data | `calendario-view.test.ts` — "changing module-filter reloads the horario overlay for the newly selected módulo" |
+
+## Criteria without verifiable coverage
+
+| Criterion | Reason |
+|-----------|--------|
+| UC-12: "Re-saving the same schedule twice never duplicates calendario_horario rows (full replace, not additive)" | No test explicitly calls `PUT .../schedule` twice with the *identical* body and asserts the row count stays constant — `replaceAll`'s delete-then-reinsert design makes this true by construction (verified by code inspection), but per Step 6b's rule a criterion is only marked from a concrete matching test, not from reading the implementation. The closest existing test ("saving a new schedule replaces the previous one in full") only covers a *changed* schedule, not a repeated identical one. |
+
+## Deferred to e2e-engineer
+
+None — everything above is unit-testable and was unit-tested; nothing here depends on
+infrastructure `e2e-engineer` hasn't built yet.
+
+---
+
 # Review Report — calendario — 2026-08-10 (e2e-engineer follow-up: tooltip real-browser proof)
 
 Branch `view/calendario-tooltip-hover`. Rewrote `uc-05-hover-day-shows-toast.cy.ts` for

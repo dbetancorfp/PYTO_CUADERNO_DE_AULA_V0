@@ -6,6 +6,7 @@ import type { SessionApiService } from './session-api-service';
 import type { AcademicYear, AcademicYearApiService, AcademicYearModuleDetail } from './academic-year-api-service';
 import type { CalendarioModuloApiService, CalendarioModuloEntry } from './calendario-modulo-api-service';
 import type { EvaluationWorkingDaysApiService, EvaluationWorkingDaysEntry } from './evaluation-working-days-api-service';
+import type { CalendarioHorarioApiService, CalendarioHorarioEntry } from './calendario-horario-api-service';
 
 interface DistinctCycle {
   id: string;
@@ -68,6 +69,12 @@ const COLOR_TABLE: readonly ColorTableRow[] = [
  * structure cue, not a `(category, type)` color, so it has no `calendario-legend` entry (see
  * `views/calendario/use-cases.md` UC-04/A4). */
 const WEEKEND_NEUTRAL_HEX = '#cbd5e1';
+
+/** The Horario overlay's ring color (UC-12/UC-13, 2026-08-11) — an independent data source
+ * from `calendario_modulo`'s color table, never a 15th color-table row: it's layered as a
+ * ring/border around the day number over whatever `(category,type)` fill already covers
+ * that day, never replacing it. */
+const HORARIO_RING_HEX = '#06b6d4';
 
 function isSuffixRow(row: ColorTableRow): row is ColorTableRowBySuffix {
   return row.nameSuffix !== undefined;
@@ -223,6 +230,19 @@ function backgroundStyleForDay(weekday: number, entries: readonly CalendarioModu
   return isWeekend ? `background-color: ${WEEKEND_NEUTRAL_HEX};` : '';
 }
 
+/** The `calendario_horario` row covering `dayDate`, if any (UC-12/UC-13, 2026-08-11) — at
+ * most one row exists per date, per module, since UC-12's generation is a full
+ * delete-then-reinsert keyed by date. */
+function horarioEntryForDay(entries: readonly CalendarioHorarioEntry[], dayDate: string): CalendarioHorarioEntry | undefined {
+  return entries.find((entry) => entry.date === dayDate);
+}
+
+/** An inset ring, layered over (never replacing) `backgroundStyleForDay`'s own
+ * background-color/-image declaration in the same `style` attribute (UC-13). */
+function ringStyleForDay(hasHorarioEntry: boolean): string {
+  return hasHorarioEntry ? `box-shadow: inset 0 0 0 2px ${HORARIO_RING_HEX};` : '';
+}
+
 /**
  * Calendario screen — own top-level custom element, single Shadow DOM (CLAUDE.md's "no
  * nested Shadow DOM" rule). Read-only: renders exclusively from `calendario_modulo` via the
@@ -247,6 +267,7 @@ export class CalendarioView extends HTMLElement {
   private _academicYearService: CalendarioAcademicYearApiService | null = null;
   private _calendarioModuloService: CalendarioModuloApiService | null = null;
   private _evaluationWorkingDaysService: EvaluationWorkingDaysApiService | null = null;
+  private _calendarioHorarioService: CalendarioHorarioApiService | null = null;
   private _today: Date = new Date();
 
   private _authenticated = false;
@@ -263,6 +284,7 @@ export class CalendarioView extends HTMLElement {
 
   private _calendarEntries: CalendarioModuloEntry[] = [];
   private _evaluationWorkingDaysEntries: EvaluationWorkingDaysEntry[] = [];
+  private _calendarioHorarioEntries: CalendarioHorarioEntry[] = [];
 
   private _disposables: Array<() => void> = [];
 
@@ -308,6 +330,17 @@ export class CalendarioView extends HTMLElement {
       throw new Error('CalendarioView.evaluationWorkingDaysService must be set before use');
     }
     return this._evaluationWorkingDaysService;
+  }
+
+  set calendarioHorarioService(value: CalendarioHorarioApiService) {
+    this._calendarioHorarioService = value;
+  }
+
+  get calendarioHorarioService(): CalendarioHorarioApiService {
+    if (this._calendarioHorarioService === null) {
+      throw new Error('CalendarioView.calendarioHorarioService must be set before use');
+    }
+    return this._calendarioHorarioService;
   }
 
   set today(value: Date) {
@@ -387,6 +420,7 @@ export class CalendarioView extends HTMLElement {
       this._render();
       void this._loadCalendar();
       void this._loadEvaluationWorkingDays();
+      void this._loadCalendarioHorario();
       return;
     }
     if (elementId === 'module-filter') {
@@ -394,6 +428,7 @@ export class CalendarioView extends HTMLElement {
       this._render();
       void this._loadCalendar();
       void this._loadEvaluationWorkingDays();
+      void this._loadCalendarioHorario();
     }
   }
 
@@ -433,6 +468,7 @@ export class CalendarioView extends HTMLElement {
     this._selectedModuleId = null;
     this._calendarEntries = [];
     this._evaluationWorkingDaysEntries = [];
+    this._calendarioHorarioEntries = [];
     this._render();
 
     if (row === null) return;
@@ -445,6 +481,7 @@ export class CalendarioView extends HTMLElement {
     this._render();
     void this._loadCalendar();
     void this._loadEvaluationWorkingDays();
+    void this._loadCalendarioHorario();
   }
 
   // ---------------------------------------------------------------------------------------
@@ -508,6 +545,24 @@ export class CalendarioView extends HTMLElement {
     const entries = await this.evaluationWorkingDaysService.findForModule(moduleId);
     if (this._selectedModuleId !== moduleId) return; // stale — the módulo changed again meanwhile
     this._evaluationWorkingDaysEntries = entries;
+    this._render();
+  }
+
+  /** Loads the Horario overlay's data for the selected módulo — same trigger points as
+   * `_loadCalendar`/`_loadEvaluationWorkingDays` (initial load, cycle change, módulo
+   * change; see `views/calendario/use-cases.md` UC-13). An independent data source from
+   * `calendario_modulo`: most days it covers have no `calendario_modulo` entry at all. */
+  private async _loadCalendarioHorario(): Promise<void> {
+    const moduleId = this._selectedModuleId;
+    if (moduleId === null) {
+      this._calendarioHorarioEntries = [];
+      this._render();
+      return;
+    }
+
+    const entries = await this.calendarioHorarioService.findForModule(moduleId);
+    if (this._selectedModuleId !== moduleId) return; // stale — the módulo changed again meanwhile
+    this._calendarioHorarioEntries = entries;
     this._render();
   }
 
@@ -643,14 +698,13 @@ export class CalendarioView extends HTMLElement {
    * `calendario-empty-state` covers for `calendario-months` (UC-11/A1).
    */
   private _renderLegend(): TemplateResult | typeof nothing {
-    if (this._calendarEntries.length === 0) return nothing;
-
     const rows = COLOR_TABLE.filter((row) => this._calendarEntries.some((entry) => rowMatchesEntry(row, entry)));
-    if (rows.length === 0) return nothing;
+    const showHorarioItem = this._calendarioHorarioEntries.length > 0;
+    if (rows.length === 0 && !showHorarioItem) return nothing;
 
     return html`
       <section class="${classesFor('card')} flex flex-wrap items-center gap-3 px-4 py-3" data-element-id="calendario-legend">
-        ${rows.map((row) => this._renderLegendItem(row))}
+        ${rows.map((row) => this._renderLegendItem(row))} ${showHorarioItem ? this._renderHorarioLegendItem() : nothing}
       </section>
     `;
   }
@@ -667,6 +721,21 @@ export class CalendarioView extends HTMLElement {
     `;
   }
 
+  /** UC-13's 15th, always-last legend item — an outlined/ring swatch (not filled), since it
+   * marks an overlay independent of `calendario_modulo`'s own 14-row color table, never one
+   * more entry in that table. */
+  private _renderHorarioLegendItem(): TemplateResult {
+    return html`
+      <span
+        class="${classesFor('badge')} gap-1"
+        data-element-id="calendario-legend-item-horario"
+        style="background-color: transparent; border: 2px solid ${HORARIO_RING_HEX};"
+      >
+        Horario
+      </span>
+    `;
+  }
+
   /**
    * calendario-months only renders once the selected módulo's calendario_modulo snapshot
    * has at least one entry — zero entries (no year row for the selected school year, a year
@@ -675,7 +744,8 @@ export class CalendarioView extends HTMLElement {
    * criteria.
    */
   private _renderCalendarSection(): TemplateResult {
-    return this._calendarEntries.length > 0 ? this._renderMonthsGrid() : this._renderEmptyState();
+    const hasAnyData = this._calendarEntries.length > 0 || this._calendarioHorarioEntries.length > 0;
+    return hasAnyData ? this._renderMonthsGrid() : this._renderEmptyState();
   }
 
   private _renderEmptyState(): TemplateResult {
@@ -713,7 +783,8 @@ export class CalendarioView extends HTMLElement {
     const dayDate = dayDateString(year, month, day);
     const categories = categoriesForDay(this._calendarEntries, dayDate);
     const weekday = mondayFirstWeekday(year, month, day);
-    const style = backgroundStyleForDay(weekday, this._calendarEntries, dayDate);
+    const horarioEntry = horarioEntryForDay(this._calendarioHorarioEntries, dayDate);
+    const style = `${backgroundStyleForDay(weekday, this._calendarEntries, dayDate)} ${ringStyleForDay(horarioEntry !== undefined)}`;
     const coveringEntries = entriesCoveringDay(this._calendarEntries, dayDate);
 
     return html`
@@ -722,8 +793,9 @@ export class CalendarioView extends HTMLElement {
         style="${style}"
         data-element-id="${monthElementId(year, month)}-day-${pad2(day)}"
         data-calendario-day-categories="${categories.length > 0 ? categories.join(',') : nothing}"
+        data-calendario-horario="${horarioEntry !== undefined ? 'true' : nothing}"
       >
-        ${day} ${this._renderDayTooltip(year, month, day, coveringEntries)}
+        ${day} ${this._renderDayTooltip(year, month, day, coveringEntries, horarioEntry)}
       </div>
     `;
   }
@@ -732,22 +804,28 @@ export class CalendarioView extends HTMLElement {
    * calendario-day-tooltip — pure Tailwind `group`/`group-hover:block` reveal (2026-08-10,
    * replaces the earlier `ToastController`/`renderToast`-based hover mechanism — see
    * `views/calendario/use-cases.md` UC-05). Always present in the DOM, hidden by default,
-   * for a day covered by at least one `calendario_modulo` entry; absent entirely (not just
-   * visually hidden) for an uncovered day, per UC-05/A1.
+   * for a day covered by at least one `calendario_modulo` entry and/or a `calendario_horario`
+   * row (2026-08-11, UC-13); absent entirely (not just visually hidden) for a day covered by
+   * neither, per UC-05/A1. `calendario_modulo` event name(s) list first, unchanged; a final
+   * "Horario: N horas" line is appended when that day also has a `calendario_horario` row.
    */
   private _renderDayTooltip(
     year: number,
     month: number,
     day: number,
     coveringEntries: readonly CalendarioModuloEntry[],
+    horarioEntry: CalendarioHorarioEntry | undefined,
   ): TemplateResult | typeof nothing {
-    if (coveringEntries.length === 0) return nothing;
+    if (coveringEntries.length === 0 && horarioEntry === undefined) return nothing;
+
+    const lines = coveringEntries.map((entry) => entry.name);
+    if (horarioEntry !== undefined) lines.push(`Horario: ${horarioEntry.hours} horas`);
 
     return html`
       <span
         class="${classesFor('card')} hidden group-hover:block absolute left-full top-0 z-20 ml-1 p-2 text-xs whitespace-pre-line"
         data-element-id="${monthElementId(year, month)}-day-${pad2(day)}-tooltip"
-        >${coveringEntries.map((entry) => entry.name).join('\n')}</span
+        >${lines.join('\n')}</span
       >
     `;
   }

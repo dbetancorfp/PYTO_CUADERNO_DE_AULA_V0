@@ -9,12 +9,14 @@ import type { SqlExecutor } from './db/sql-executor';
 import { AcademicYearModuleScheduleStore } from './repositories/in-memory/academic-year-module-schedule-store';
 import { AcademicYearStore } from './repositories/in-memory/academic-year-store';
 import { CalendarioEvaluationWorkingDaysStore } from './repositories/in-memory/calendario-evaluation-working-days-store';
+import { CalendarioHorarioStore } from './repositories/in-memory/calendario-horario-store';
 import { CalendarioModuloStore } from './repositories/in-memory/calendario-modulo-store';
 import { CatalogStore } from './repositories/in-memory/catalog-store';
 import { InMemoryAcademicYearModuleScheduleRepository } from './repositories/in-memory/in-memory-academic-year-module-schedule.repository';
 import { InMemoryAcademicYearModuleRepository } from './repositories/in-memory/in-memory-academic-year-module.repository';
 import { InMemoryAcademicYearRepository } from './repositories/in-memory/in-memory-academic-year.repository';
 import { InMemoryCalendarioEvaluationWorkingDaysRepository } from './repositories/in-memory/in-memory-calendario-evaluation-working-days.repository';
+import { InMemoryCalendarioHorarioRepository } from './repositories/in-memory/in-memory-calendario-horario.repository';
 import { InMemoryCalendarioModuloRepository } from './repositories/in-memory/in-memory-calendario-modulo.repository';
 import { InMemoryCatalogModuleRepository } from './repositories/in-memory/in-memory-catalog-module.repository';
 import { InMemoryCatalogTrainingCycleRepository } from './repositories/in-memory/in-memory-catalog-training-cycle.repository';
@@ -26,6 +28,7 @@ import { PgAcademicYearModuleScheduleRepository } from './repositories/postgres/
 import { PgAcademicYearModuleRepository } from './repositories/postgres/pg-academic-year-module.repository';
 import { PgAcademicYearRepository } from './repositories/postgres/pg-academic-year.repository';
 import { PgCalendarioEvaluationWorkingDaysRepository } from './repositories/postgres/pg-calendario-evaluation-working-days.repository';
+import { PgCalendarioHorarioRepository } from './repositories/postgres/pg-calendario-horario.repository';
 import { PgCalendarioModuloRepository } from './repositories/postgres/pg-calendario-modulo.repository';
 import { PgCatalogModuleRepository } from './repositories/postgres/pg-catalog-module.repository';
 import { PgCatalogTrainingCycleRepository } from './repositories/postgres/pg-catalog-training-cycle.repository';
@@ -35,6 +38,7 @@ import type { AcademicYearModuleScheduleRepository } from './repositories/academ
 import type { AcademicYearModuleRepository } from './repositories/academic-year-module.repository';
 import type { AcademicYearRepository } from './repositories/academic-year.repository';
 import type { CalendarioEvaluationWorkingDaysRepository } from './repositories/calendario-evaluation-working-days.repository';
+import type { CalendarioHorarioRepository } from './repositories/calendario-horario.repository';
 import type { CalendarioModuloRepository } from './repositories/calendario-modulo.repository';
 import type { CatalogModuleRepository } from './repositories/catalog-module.repository';
 import type { CatalogTrainingCycleRepository } from './repositories/catalog-training-cycle.repository';
@@ -44,6 +48,7 @@ import { academicYearModuleRouter } from './routes/academic-year-module.routes';
 import { academicYearRouter } from './routes/academic-year.routes';
 import { authRouter } from './routes/auth.routes';
 import { calendarioEvaluationWorkingDaysRouter } from './routes/calendario-evaluation-working-days.routes';
+import { calendarioHorarioRouter } from './routes/calendario-horario.routes';
 import { calendarioModuloRouter } from './routes/calendario-modulo.routes';
 import { catalogCycleModulesRouter, catalogModuleRouter } from './routes/catalog-module.routes';
 import { catalogTrainingCycleRouter } from './routes/catalog-training-cycle.routes';
@@ -53,6 +58,7 @@ import { teacherSettingsRouter } from './routes/teacher-settings.routes';
 import { AcademicYearModuleScheduleService } from './services/academic-year-module-schedule.service';
 import { AcademicYearService } from './services/academic-year.service';
 import { AuthService } from './services/auth.service';
+import { CalendarioHorarioService } from './services/calendario-horario.service';
 import { CalendarioModuloService } from './services/calendario-modulo.service';
 import { CatalogModuleService } from './services/catalog-module.service';
 import { CatalogTrainingCycleService } from './services/catalog-training-cycle.service';
@@ -78,6 +84,7 @@ interface Repositories {
   keyDateRepository: KeyDateRepository;
   calendarioModuloRepository: CalendarioModuloRepository;
   calendarioEvaluationWorkingDaysRepository: CalendarioEvaluationWorkingDaysRepository;
+  calendarioHorarioRepository: CalendarioHorarioRepository;
 }
 
 function buildRepositories(deps: AppDeps): Repositories {
@@ -104,6 +111,9 @@ function buildRepositories(deps: AppDeps): Repositories {
     // isolation, no cross-store dependency — see repositories/calendario-evaluation-working-
     // days.repository.ts.
     const calendarioEvaluationWorkingDaysStore = new CalendarioEvaluationWorkingDaysStore();
+    // calendario_horario is its own store, keyed only by academic_year_module_id — no
+    // cross-store dependency, same isolation as calendario_modulo's store above.
+    const calendarioHorarioStore = new CalendarioHorarioStore();
     return {
       userRepository: new InMemoryUserRepository(deps.seedUsers ?? []),
       catalogTrainingCycleRepository: new InMemoryCatalogTrainingCycleRepository(store),
@@ -116,6 +126,7 @@ function buildRepositories(deps: AppDeps): Repositories {
       calendarioEvaluationWorkingDaysRepository: new InMemoryCalendarioEvaluationWorkingDaysRepository(
         calendarioEvaluationWorkingDaysStore,
       ),
+      calendarioHorarioRepository: new InMemoryCalendarioHorarioRepository(calendarioHorarioStore),
     };
   }
 
@@ -136,6 +147,7 @@ function buildRepositories(deps: AppDeps): Repositories {
     keyDateRepository: new PgKeyDateRepository(sql),
     calendarioModuloRepository: new PgCalendarioModuloRepository(sql),
     calendarioEvaluationWorkingDaysRepository: new PgCalendarioEvaluationWorkingDaysRepository(sql),
+    calendarioHorarioRepository: new PgCalendarioHorarioRepository(sql),
   };
 }
 
@@ -150,6 +162,7 @@ export function createApp(deps: AppDeps): Express {
     keyDateRepository,
     calendarioModuloRepository,
     calendarioEvaluationWorkingDaysRepository,
+    calendarioHorarioRepository,
   } = buildRepositories(deps);
 
   const authService = new AuthService(userRepository);
@@ -173,10 +186,17 @@ export function createApp(deps: AppDeps): Express {
     calendarioModuloService,
   );
   const keyDateService = new KeyDateService(keyDateRepository);
+  const calendarioHorarioService = new CalendarioHorarioService(
+    calendarioHorarioRepository,
+    calendarioModuloRepository,
+    academicYearModuleRepository,
+    academicYearRepository,
+  );
   const academicYearModuleScheduleService = new AcademicYearModuleScheduleService(
     academicYearModuleScheduleRepository,
     academicYearModuleRepository,
     academicYearRepository,
+    calendarioHorarioService,
   );
 
   const app = express();
@@ -201,6 +221,7 @@ export function createApp(deps: AppDeps): Express {
     '/api/calendario-evaluation-working-days',
     calendarioEvaluationWorkingDaysRouter(calendarioModuloService, sessionService),
   );
+  app.use('/api/calendario-horario', calendarioHorarioRouter(calendarioHorarioService, sessionService));
 
   const frontendDist = path.join(import.meta.dir, '..', '..', 'frontend', 'dist');
   const frontendIndex = path.join(import.meta.dir, '..', '..', 'frontend', 'index.html');
