@@ -6,6 +6,11 @@
 // academic_year_id -> an academic_years row owned by teacherId. weekday/hours range
 // validation (1-5 / 1-3) and duplicate-weekday rejection happen at the route layer (see
 // academic-year-module-schedule.routes.test.ts), not here — this service trusts its input.
+//
+// 2026-08-11: also takes a CalendarioHorarioSeeder (mirrors AcademicYearService's own
+// CalendarioModuloSeeder dependency) — see "calendario_horario side effect" below for
+// views/calendario/use-cases.md's UC-12 (the saveSchedule side effect that regenerates
+// calendario_horario).
 import { describe, it, expect } from 'bun:test';
 import { AcademicYearModuleScheduleService } from '../src/services/academic-year-module-schedule.service';
 import type {
@@ -14,6 +19,7 @@ import type {
 } from '../src/repositories/academic-year-module-schedule.repository';
 import type { AcademicYearModuleRef, AcademicYearModuleRepository } from '../src/repositories/academic-year-module.repository';
 import type { AcademicYear, AcademicYearRepository } from '../src/repositories/academic-year.repository';
+import type { CalendarioHorarioSeeder } from '../src/services/calendario-horario.service';
 
 const TEACHER = 'teacher-1';
 
@@ -25,7 +31,9 @@ interface FakeRepos {
   scheduleRepository: AcademicYearModuleScheduleRepository;
   academicYearModuleRepository: AcademicYearModuleRepository;
   academicYearRepository: AcademicYearRepository;
+  calendarioHorarioSeeder: CalendarioHorarioSeeder;
   replaceAllCalls: { academicYearModuleId: string; entries: AcademicYearModuleScheduleEntry[] }[];
+  seedForModuleCalls: { academicYearModuleId: string; startYear: number; entries: AcademicYearModuleScheduleEntry[] }[];
 }
 
 function fakeRepos(
@@ -38,12 +46,19 @@ function fakeRepos(
   const years = overrides.years ?? [makeYear()];
   const moduleRefs = overrides.moduleRefs ?? { am1: { id: 'am1', academicYearId: 'y1', catalogModuleId: 'm1' } };
   const replaceAllCalls: { academicYearModuleId: string; entries: AcademicYearModuleScheduleEntry[] }[] = [];
+  const seedForModuleCalls: { academicYearModuleId: string; startYear: number; entries: AcademicYearModuleScheduleEntry[] }[] = [];
 
   const scheduleRepository: AcademicYearModuleScheduleRepository = {
     findByModuleId: async () => overrides.scheduleEntries ?? [],
     replaceAll: async (academicYearModuleId: string, entries: AcademicYearModuleScheduleEntry[]) => {
       replaceAllCalls.push({ academicYearModuleId, entries });
       return entries;
+    },
+  };
+
+  const calendarioHorarioSeeder: CalendarioHorarioSeeder = {
+    seedForModule: async (academicYearModuleId: string, startYear: number, entries: AcademicYearModuleScheduleEntry[]) => {
+      seedForModuleCalls.push({ academicYearModuleId, startYear, entries });
     },
   };
 
@@ -67,7 +82,14 @@ function fakeRepos(
     delete: async () => {},
   };
 
-  return { scheduleRepository, academicYearModuleRepository, academicYearRepository, replaceAllCalls };
+  return {
+    scheduleRepository,
+    academicYearModuleRepository,
+    academicYearRepository,
+    calendarioHorarioSeeder,
+    replaceAllCalls,
+    seedForModuleCalls,
+  };
 }
 
 function makeService(repos: FakeRepos): AcademicYearModuleScheduleService {
@@ -75,6 +97,7 @@ function makeService(repos: FakeRepos): AcademicYearModuleScheduleService {
     repos.scheduleRepository,
     repos.academicYearModuleRepository,
     repos.academicYearRepository,
+    repos.calendarioHorarioSeeder,
   );
 }
 
@@ -163,5 +186,53 @@ describe('elementId: schedule-save-button', () => {
 
     expect(result).toBeNull();
     expect(repos.replaceAllCalls).toHaveLength(0);
+  });
+});
+
+describe('elementId: calendario-months, calendario-legend, calendario-day-tooltip (calendario_horario side effect, UC-12)', () => {
+  it('saveSchedule triggers calendarioHorarioSeeder.seedForModule with the módulo id, its academic year startYear, and the saved entries', async () => {
+    const repos = fakeRepos({ years: [makeYear({ id: 'y1', startYear: 2026 })] });
+    const service = makeService(repos);
+    const entries: AcademicYearModuleScheduleEntry[] = [{ weekday: 1, hours: 2 }, { weekday: 5, hours: 3 }];
+
+    await service.saveSchedule(TEACHER, 'am1', entries);
+
+    expect(repos.seedForModuleCalls).toEqual([{ academicYearModuleId: 'am1', startYear: 2026, entries }]);
+  });
+
+  it('saveSchedule with an empty array still triggers the seeder, with an empty entries array (clears calendario_horario too)', async () => {
+    const repos = fakeRepos();
+    const service = makeService(repos);
+
+    await service.saveSchedule(TEACHER, 'am1', []);
+
+    expect(repos.seedForModuleCalls).toEqual([{ academicYearModuleId: 'am1', startYear: 2026, entries: [] }]);
+  });
+
+  it('saveSchedule never triggers the seeder when the academic_year_modules row does not exist', async () => {
+    const repos = fakeRepos({ moduleRefs: {} });
+    const service = makeService(repos);
+
+    await service.saveSchedule(TEACHER, 'unknown', [{ weekday: 1, hours: 2 }]);
+
+    expect(repos.seedForModuleCalls).toHaveLength(0);
+  });
+
+  it("saveSchedule never triggers the seeder when the row's year belongs to a different teacher", async () => {
+    const repos = fakeRepos({ years: [makeYear({ teacherId: 'other' })] });
+    const service = makeService(repos);
+
+    await service.saveSchedule(TEACHER, 'am1', [{ weekday: 1, hours: 2 }]);
+
+    expect(repos.seedForModuleCalls).toHaveLength(0);
+  });
+
+  it('getSchedule never triggers the seeder — only saveSchedule regenerates calendario_horario', async () => {
+    const repos = fakeRepos();
+    const service = makeService(repos);
+
+    await service.getSchedule(TEACHER, 'am1');
+
+    expect(repos.seedForModuleCalls).toHaveLength(0);
   });
 });

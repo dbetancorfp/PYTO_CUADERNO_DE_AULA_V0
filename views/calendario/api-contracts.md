@@ -1,11 +1,11 @@
 # API Contracts — Calendario
 
-Two read-only endpoints (`GET /api/calendario-modulo`, `GET
-/api/calendario-evaluation-working-days`), plus a documented side-effect change to three
-endpoints that already exist in `views/configuracion/api-contracts.md` (their
-request/response shapes don't change — only their behavior gains a new effect). `GET
-/api/academic-years/:id/modules` (already documented there) is reused as-is by
-`cycle-filter`/`module-filter`, no changes.
+Three read-only endpoints (`GET /api/calendario-modulo`, `GET
+/api/calendario-evaluation-working-days`, `GET /api/calendario-horario`), plus a documented
+side-effect change to four endpoints that already exist in
+`views/configuracion/api-contracts.md` (their request/response shapes don't change — only
+their behavior gains a new effect). `GET /api/academic-years/:id/modules` (already
+documented there) is reused as-is by `cycle-filter`/`module-filter`, no changes.
 
 ---
 
@@ -109,6 +109,48 @@ módulo) simply has no `evaluationNumber: 3` entry, not a `workingDays: 0` one. 
 
 ---
 
+### GET /api/calendario-horario
+
+**Description**: Returns a módulo's `calendario_horario` snapshot (see
+`views/calendario/description_calendario.md`'s "Horario" section, UC-13) — one row per
+real, laborable school-year date whose weekday has an hours value in the module's saved
+Horario schedule. The data source for `calendario-months`'s ring overlay,
+`calendario-legend`'s extra "Horario" item, and `calendario-day-tooltip`'s extra line.
+**Allowed roles**: authenticated teacher, only for an `academic_year_module_id` belonging
+to one of their own `academic_years` — same ownership check as `GET
+/api/calendario-modulo`.
+**Elements**: `calendario-months`, `calendario-legend`, `calendario-day-tooltip`
+
+#### Request
+
+- **Query**: `{ academicYearModuleId: string (UUID) }` — required
+
+#### Response 200
+
+```json
+{
+  "entries": [
+    { "date": "2026-09-07", "hours": 2 },
+    { "date": "2026-09-11", "hours": 3 }
+  ]
+}
+```
+
+`entries` is `[]` (not a 404) when the módulo exists but Horario has never been saved for
+it, or was saved all-blank — same "empty is a valid 200" convention `GET
+/api/calendario-modulo` and `GET /api/calendario-evaluation-working-days` already follow.
+Sorted by `date`, ascending.
+
+#### Errors
+
+| Code | Condition |
+|------|-----------|
+| 400 | `academicYearModuleId` missing or not a well-formed UUID |
+| 401 | Not authenticated |
+| 404 | `academicYearModuleId` doesn't match an `academic_year_modules` row owned (via its `academic_year_id`) by the authenticated teacher |
+
+---
+
 ## Modified existing endpoints (side effect only — shapes unchanged)
 
 These three are already fully documented in `views/configuracion/api-contracts.md`
@@ -149,3 +191,17 @@ CASCADE`, both `calendario_modulo.academic_year_module_id` and
 enforced at the database level, no application-code change to this route, no new error
 codes.
 **Elements**: `module-table-row-<id>-delete` (`views/configuracion/`)
+
+### PUT /api/academic-year-modules/:id/schedule
+
+**New side effect (2026-08-11, see UC-12)**: already fully documented in
+`views/configuracion/api-contracts.md`'s "Horario" section (request/response shapes,
+existing 400/404 errors — all unchanged). After persisting the weekly schedule, regenerates
+`calendario_horario` for this `academic_year_module_id` in full (delete every existing row,
+then insert one row per real, laborable school-year date matching the just-saved weekday
+pattern — see UC-12's Main flow for the exact algorithm). Purely additive to the response
+shape (`{ schedule }`, unchanged); the regeneration itself never fails the request — no new
+error codes. `academic_year_modules(id) ON DELETE CASCADE` also covers
+`calendario_horario.academic_year_module_id` (see `views/calendario/schema-changes.sql`),
+same as `DELETE /api/academic-year-modules/:id` above already does for `calendario_modulo`.
+**Elements**: `schedule-save-button` (`views/configuracion/`)

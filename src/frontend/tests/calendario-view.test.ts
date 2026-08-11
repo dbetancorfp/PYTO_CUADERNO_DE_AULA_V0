@@ -75,6 +75,15 @@ interface EvaluationWorkingDaysApiService {
   findForModule(academicYearModuleId: string): Promise<EvaluationWorkingDaysEntry[]>;
 }
 
+interface CalendarioHorarioEntry {
+  date: string;
+  hours: number;
+}
+
+interface CalendarioHorarioApiService {
+  findForModule(academicYearModuleId: string): Promise<CalendarioHorarioEntry[]>;
+}
+
 function fakeSessionService(): SessionApiService {
   return { getSession: async () => ({ authenticated: true, fullName: 'Ana García' }), logout: async () => {} };
 }
@@ -119,10 +128,18 @@ function fakeEvaluationWorkingDaysService(overrides: Partial<EvaluationWorkingDa
   };
 }
 
+function fakeCalendarioHorarioService(overrides: Partial<CalendarioHorarioApiService> = {}): CalendarioHorarioApiService {
+  return {
+    findForModule: async () => [],
+    ...overrides,
+  };
+}
+
 async function mountView(overrides?: {
   academicYear?: AcademicYearApiService;
   calendarioModulo?: CalendarioModuloApiService;
   evaluationWorkingDays?: EvaluationWorkingDaysApiService;
+  calendarioHorario?: CalendarioHorarioApiService;
   today?: Date;
 }): Promise<CalendarioView> {
   const el = document.createElement('app-calendario-view') as CalendarioView;
@@ -130,6 +147,7 @@ async function mountView(overrides?: {
   el.academicYearService = overrides?.academicYear ?? fakeAcademicYearService();
   el.calendarioModuloService = overrides?.calendarioModulo ?? fakeCalendarioModuloService();
   el.evaluationWorkingDaysService = overrides?.evaluationWorkingDays ?? fakeEvaluationWorkingDaysService();
+  el.calendarioHorarioService = overrides?.calendarioHorario ?? fakeCalendarioHorarioService();
   if (overrides?.today) el.today = overrides.today;
   document.body.appendChild(el);
   await new Promise((resolve) => setTimeout(resolve, 0));
@@ -780,6 +798,144 @@ describe('elementId: calendario-legend (UC-11, 2026-08-10)', () => {
     const legend = el.shadowRoot!.querySelector('[data-element-id="calendario-legend"]')!;
     expect(legend.className).toContain('flex');
     expect(legend.className).toContain('flex-wrap');
+
+    el.remove();
+  });
+});
+
+describe('elementId: calendario-months, calendario-day-tooltip, calendario-legend (Horario overlay — UC-12/UC-13, 2026-08-11)', () => {
+  it('a day covered by a calendario_horario entry carries data-calendario-horario="true" and a #06b6d4 ring', async () => {
+    const el = await mountView({
+      today: new Date('2026-08-07T12:00:00Z'),
+      calendarioHorario: fakeCalendarioHorarioService({ findForModule: async () => [{ date: '2025-09-08', hours: 2 }] }),
+    });
+
+    const dayCell = el.shadowRoot!.querySelector('[data-element-id="calendario-month-2025-09-day-08"]')!;
+    expect(dayCell.getAttribute('data-calendario-horario')).toBe('true');
+    expect(dayCell.outerHTML).toContain('#06b6d4');
+
+    el.remove();
+  });
+
+  it('a day with no calendario_horario entry has no data-calendario-horario attribute', async () => {
+    const el = await mountView({
+      today: new Date('2026-08-07T12:00:00Z'),
+      calendarioHorario: fakeCalendarioHorarioService({ findForModule: async () => [{ date: '2025-09-08', hours: 2 }] }),
+    });
+
+    const dayCell = el.shadowRoot!.querySelector('[data-element-id="calendario-month-2025-09-day-09"]')!;
+    expect(dayCell.getAttribute('data-calendario-horario')).toBeNull();
+
+    el.remove();
+  });
+
+  it('the ring renders together with an existing (category,type) fill on the same day, not replacing it', async () => {
+    const el = await mountView({
+      today: new Date('2026-08-07T12:00:00Z'),
+      calendarioModulo: fakeCalendarioModuloService({
+        findForModule: async () => [{ id: 'cm1', category: 'holidays', name: 'Vacaciones de Navidad.', startDate: '2025-09-08', endDate: '2025-09-08', type: 'Vacaciones' }],
+      }),
+      calendarioHorario: fakeCalendarioHorarioService({ findForModule: async () => [{ date: '2025-09-08', hours: 2 }] }),
+    });
+
+    const dayCell = el.shadowRoot!.querySelector('[data-element-id="calendario-month-2025-09-day-08"]')!;
+    expect(dayCell.getAttribute('data-calendario-horario')).toBe('true');
+    expect(dayStyle(el, 'calendario-month-2025-09', '08')).toContain('#eda100');
+    expect(dayCell.outerHTML).toContain('#06b6d4');
+
+    el.remove();
+  });
+
+  it('a day with only a calendario_horario entry (no calendario_modulo) still renders a calendario-day-tooltip, with just the Horario line', async () => {
+    const el = await mountView({
+      today: new Date('2026-08-07T12:00:00Z'),
+      calendarioHorario: fakeCalendarioHorarioService({ findForModule: async () => [{ date: '2025-09-08', hours: 2 }] }),
+    });
+
+    const tooltip = el.shadowRoot!.querySelector('[data-element-id="calendario-month-2025-09-day-08-tooltip"]');
+    expect(tooltip).not.toBeNull();
+    expect(tooltip!.textContent).toContain('Horario: 2 horas');
+
+    el.remove();
+  });
+
+  it('a day with both a calendario_modulo entry and a calendario_horario entry lists the event name(s) first, "Horario: N horas" last', async () => {
+    const el = await mountView({
+      today: new Date('2026-08-07T12:00:00Z'),
+      calendarioModulo: fakeCalendarioModuloService({
+        findForModule: async () => [{ id: 'cm1', category: 'holidays', name: 'Vacaciones de Navidad.', startDate: '2025-09-08', endDate: '2025-09-08', type: 'Vacaciones' }],
+      }),
+      calendarioHorario: fakeCalendarioHorarioService({ findForModule: async () => [{ date: '2025-09-08', hours: 3 }] }),
+    });
+
+    const tooltipText = el.shadowRoot!.querySelector('[data-element-id="calendario-month-2025-09-day-08-tooltip"]')!.textContent!;
+    const eventIndex = tooltipText.indexOf('Vacaciones de Navidad.');
+    const horarioIndex = tooltipText.indexOf('Horario: 3 horas');
+    expect(eventIndex).toBeGreaterThanOrEqual(0);
+    expect(horarioIndex).toBeGreaterThan(eventIndex);
+
+    el.remove();
+  });
+
+  it('a day with no calendario_modulo entry and no calendario_horario entry has no tooltip node at all', async () => {
+    const el = await mountView({ today: new Date('2026-08-07T12:00:00Z') });
+
+    expect(el.shadowRoot!.querySelector('[data-element-id="calendario-month-2025-09-day-08-tooltip"]')).toBeNull();
+
+    el.remove();
+  });
+
+  it('calendario-legend shows a "Horario" item, last, when the módulo has at least one calendario_horario row', async () => {
+    const el = await mountView({
+      today: new Date('2026-08-07T12:00:00Z'),
+      calendarioModulo: fakeCalendarioModuloService({
+        findForModule: async () => [{ id: 'cm1', category: 'academic_key_dates', name: 'Curso escolar', startDate: '2025-09-02', endDate: '2025-09-02', type: 'Curso escolar' }],
+      }),
+      calendarioHorario: fakeCalendarioHorarioService({ findForModule: async () => [{ date: '2025-09-08', hours: 2 }] }),
+    });
+
+    const items = [...el.shadowRoot!.querySelectorAll<HTMLElement>('[data-element-id^="calendario-legend-item-"]')];
+    expect(items.at(-1)!.dataset.elementId).toBe('calendario-legend-item-horario');
+    expect(items.at(-1)!.textContent).toContain('Horario');
+
+    el.remove();
+  });
+
+  it('calendario-legend shows no "Horario" item when the módulo has zero calendario_horario rows, even with calendario_modulo data', async () => {
+    const el = await mountView({
+      today: new Date('2026-08-07T12:00:00Z'),
+      calendarioModulo: fakeCalendarioModuloService({
+        findForModule: async () => [{ id: 'cm1', category: 'academic_key_dates', name: 'Curso escolar', startDate: '2025-09-02', endDate: '2025-09-02', type: 'Curso escolar' }],
+      }),
+      calendarioHorario: fakeCalendarioHorarioService({ findForModule: async () => [] }),
+    });
+
+    expect(el.shadowRoot!.querySelector('[data-element-id="calendario-legend-item-horario"]')).toBeNull();
+
+    el.remove();
+  });
+
+  it('changing module-filter reloads the horario overlay for the newly selected módulo', async () => {
+    const el = await mountView({
+      today: new Date('2026-08-07T12:00:00Z'),
+      academicYear: fakeAcademicYearService({ listModules: async () => [MODULE_DAW, MODULE_DAM] }),
+      calendarioModulo: fakeCalendarioModuloService({
+        findForModule: async () => [{ id: 'cm1', category: 'academic_key_dates', name: 'Curso escolar', startDate: '2025-09-02', endDate: '2025-09-02', type: 'Curso escolar' }],
+      }),
+      calendarioHorario: fakeCalendarioHorarioService({
+        findForModule: async (academicYearModuleId: string) =>
+          academicYearModuleId === 'am2' ? [{ date: '2025-09-08', hours: 1 }] : [],
+      }),
+    });
+
+    expect(el.shadowRoot!.querySelector('[data-element-id="calendario-month-2025-09-day-08"]')!.getAttribute('data-calendario-horario')).toBeNull();
+
+    const cycleSelect = el.shadowRoot!.querySelector<HTMLSelectElement>('[data-element-id="cycle-filter"]')!;
+    cycleSelect.value = 'c2';
+    cycleSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    await tick();
+
+    expect(el.shadowRoot!.querySelector('[data-element-id="calendario-month-2025-09-day-08"]')!.getAttribute('data-calendario-horario')).toBe('true');
 
     el.remove();
   });

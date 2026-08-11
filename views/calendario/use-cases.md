@@ -151,9 +151,12 @@ selected
   stops), not just one color chosen arbitrarily — generalizes the same rule from
   category-level (pre-2026-08-10) to `(category, type)`-level.
 - **A3 — Empty**: selected `academic_year_module_id` has zero `calendario_modulo` rows
-  (module assigned, but its snapshot never generated, or the school year itself has no
+  AND zero `calendario_horario` rows (module assigned, but neither snapshot exists yet —
+  e.g. no key_dates seeded, or Horario never saved — or the school year itself has no
   `academic_years` row) — `calendario-months` isn't rendered, `calendario-empty-state`
-  is shown instead.
+  is shown instead. **2026-08-11**: widened from `calendario_modulo` alone — a módulo
+  with `calendario_horario` rows but zero `calendario_modulo` entries still renders the
+  grid (ring-only, no fill on any day), see UC-13/A1.
 - **A4 — Weekend (2026-08-10)**: a Saturday/Sunday with no entry covering it renders a
   neutral gray (`#cbd5e1`) instead of the plain-weekday's uncolored background — a purely
   calendar-structure cue, not a `(category, type)` color, so it has no `calendario-legend`
@@ -652,3 +655,140 @@ fallback rule), but the legend only ever lists colors that come from this fixed 
 - [x] A módulo with zero `calendario_modulo` rows renders no legend swatches at all
 - [x] A módulo missing some color-table rows' data shows only the rows it has, no
       placeholder for absent ones
+
+---
+
+## UC-12: `calendario_horario` is generated when a módulo's weekly schedule is saved (Horario)
+
+**Primary actor**: Any signed-in teacher, on `/configuracion/horario`
+**Preconditions**: Valid session; a módulo is selected (same precondition Horario's own
+UC-10 already documents in `views/configuracion/use-cases.md`)
+**Elements**: `schedule-save-button` (existing element, `views/configuracion/`)
+
+Cross-view backend side effect, not a UI flow of this screen — documented here for the
+same reason UC-06 is: `calendario_horario` is this view's own data source (UC-13 below),
+so its generation rule belongs to this view's spec, not Horario's own `use-cases.md`
+(which doesn't change).
+
+### Main flow
+
+1. Teacher clicks `schedule-save-button`; the frontend sends the full current draft
+   (`PUT /api/academic-year-modules/:id/schedule`, see
+   `views/configuracion/api-contracts.md`'s "Horario" section — full replace, unchanged
+   request/response shape).
+2. Before responding, the backend resolves this `academic_year_module`'s academic year
+   `startYear` and its school-year date range (1 September `startYear` – 30 June
+   `startYear + 1`, same 10-month range `calendario-months` renders, UC-04 — not the
+   longer 01/09–31/07 span `"Curso escolar"` itself covers in `key_dates`, since no July
+   month card ever renders for a row to be visible on) and reads this same
+   módulo's own already-seeded `calendario_modulo` rows (UC-06 already guarantees these
+   exist — a módulo always has its `calendario_modulo` snapshot before it can have a
+   schedule, since it can only be selected in Horario's own filter cascade once it's
+   assigned via Año académico) to derive the real non-working date ranges: only
+   `holidays`/`public_holidays`/`free_disposal_days` entries count (`academic_key_dates`
+   is informational, same exclusion `business-day.ts`'s callers already apply for UC-08/
+   UC-09 — see A2 there).
+3. Every existing `calendario_horario` row for this `academic_year_module_id` is deleted.
+4. The backend walks every date in the school-year range; for each date whose weekday
+   (Monday=1 … Friday=5) has an entry in the just-saved schedule **and** is laborable
+   (`business-day.ts`'s `isLaborable`, excluding the ranges from step 2), it inserts one
+   `calendario_horario` row with that weekday's `hours`.
+5. Regeneration is a full replace (delete-then-reinsert), same semantics `PUT
+   /api/academic-year-modules/:id/schedule` itself already has — never a partial patch,
+   never duplicated across repeated identical saves.
+
+### Alternative flows
+
+- **A1 — Every weekday left blank**: the draft has zero entries — step 3's delete still
+  runs, step 4 inserts nothing, leaving `calendario_horario` empty for that módulo.
+- **A2 — A scheduled weekday falls on a non-working day**: e.g. a Monday with `hours`
+  saved that lands inside `Vacaciones de Navidad` — no `calendario_horario` row is
+  inserted for that specific date, even though the weekday pattern says "Monday has
+  class"; the day's own `calendario_modulo`-driven color (Vacaciones) is unaffected
+  either way.
+- **A3 — Módulo unassigned**: `DELETE /api/academic-year-modules/:id` (see
+  `views/configuracion/api-contracts.md`) removes the `academic_year_modules` row;
+  `calendario_horario`'s `ON DELETE CASCADE` FK removes its rows for that módulo too, same
+  as `calendario_modulo` already does (UC-07).
+
+### Postconditions
+
+- `calendario_horario` for this `academic_year_module_id` contains exactly one row per
+  real, laborable school-year date whose weekday has an hours value in the just-saved
+  schedule — never a row for a non-laborable date, never a row for a weekday left blank.
+
+### Acceptance criteria
+
+- [x] Saving a schedule with N weekdays set generates exactly one `calendario_horario` row
+      per laborable school-year date matching one of those N weekdays
+- [x] A scheduled weekday that falls on a holiday/public-holiday/free-disposal-day date
+      gets no `calendario_horario` row for that specific date (A2)
+- [x] Saving an all-blank schedule leaves `calendario_horario` empty for that módulo (A1)
+- [ ] Re-saving the same schedule twice never duplicates `calendario_horario` rows (full
+      replace, not additive)
+- [x] Saving a changed schedule (e.g. Monday removed, Wednesday added) removes the
+      now-stale dates and adds the newly-scheduled ones in the same request
+- [x] Deleting the módulo's `academic_year_modules` assignment removes its
+      `calendario_horario` rows too (A3, cascade)
+
+---
+
+## UC-13: See a módulo's horario overlaid on its calendar
+
+**Primary actor**: Any signed-in teacher, on `/calendario`
+**Preconditions**: Valid session; a módulo is selected (same precondition as UC-04)
+**Elements**: `calendario-months`, `calendario-day-tooltip`, `calendario-legend`
+
+### Main flow
+
+1. Once a módulo is selected (UC-04), `GET /api/calendario-horario?academicYearModuleId=...`
+   fetches this módulo's `calendario_horario` rows, alongside the existing
+   `GET /api/calendario-modulo` call.
+2. Every day cell in `calendario-months` whose date is covered by a `calendario_horario`
+   row shows a `#06b6d4` ring/border around its day number — layered over whatever
+   `(category,type)` fill (UC-11) already covers that day, if any, never replacing it.
+3. `calendario-legend` appends one extra, always-last item (`calendario-legend-item-
+   horario`, label "Horario", an outlined ring swatch rather than a filled one) whenever
+   the currently loaded módulo has at least one `calendario_horario` row.
+4. Hovering a ringed day reveals `calendario-day-tooltip` with an added, final line
+   "Horario: N horas" (N = that day's `hours`) — appended after any `calendario_modulo`
+   event name(s) already listed for that day (UC-05).
+5. Teacher changes `module-filter` (or the year/cycle filters); the ring/legend/tooltip
+   data reloads for the newly selected módulo, same trigger UC-04/UC-11 already use.
+
+### Alternative flows
+
+- **A1 — Horario day with no other event**: the vast majority of school days have no
+  `calendario_modulo` entry at all (only holidays/evaluations/exam days do) — a day with a
+  `calendario_horario` row but no `calendario_modulo` entry shows the ring alone, on the
+  day's normal (uncolored) background, and its tooltip shows only the "Horario: N horas"
+  line.
+- **A2 — Horario day that's also a colored event day**: a day covered by both a
+  `calendario_modulo` entry and a `calendario_horario` row shows the fill color **and**
+  the ring together; its tooltip lists the event name(s) first, "Horario: N horas" last.
+- **A3 — Empty**: the selected módulo has zero `calendario_horario` rows (Horario never
+  saved for it, or saved all-blank) — no rings anywhere on `calendario-months`, no
+  `calendario-legend-item-horario`; `calendario-months`/`calendario-legend`'s own
+  rendering (from `calendario_modulo`, UC-04/UC-11) is otherwise unaffected.
+
+### Postconditions
+
+- No data changes (read-only).
+
+### Acceptance criteria
+
+- [x] A day covered by a `calendario_horario` row shows a `#06b6d4` ring around its day
+      number
+- [x] The ring renders together with any existing `(category,type)` fill on the same day,
+      never replacing it (A2)
+- [x] A day with a `calendario_horario` row but no `calendario_modulo` entry still shows
+      the ring, on its normal background (A1)
+- [x] `calendario-legend` shows the "Horario" item, last, exactly when the selected
+      módulo has at least one `calendario_horario` row
+- [x] `calendario-legend` shows no "Horario" item when the selected módulo has zero
+      `calendario_horario` rows, even if it has `calendario_modulo` rows (A3)
+- [x] Hovering a ringed day's tooltip shows "Horario: N horas" as its last line
+- [x] A day with only a `calendario_horario` row (no `calendario_modulo` entry) still
+      shows a `calendario-day-tooltip` on hover, with just the "Horario: N horas" line
+- [x] Changing `module-filter` reloads the ring/legend/tooltip data for the newly selected
+      módulo

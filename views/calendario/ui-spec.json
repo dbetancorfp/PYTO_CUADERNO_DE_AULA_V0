@@ -1,7 +1,7 @@
 {
   "view_id": "calendario",
-  "version": 1,
-  "generated_at": "2026-08-07T16:17:00Z",
+  "version": 2,
+  "generated_at": "2026-08-11T18:35:00Z",
   "agent": "view-designer",
   "model": "claude-sonnet-5",
   "total_elements": 15,
@@ -188,18 +188,18 @@
           "states": [
             {
               "name": "populated",
-              "description": "10 month cards, September of the selected school year through June of the next — each a plain element (not a nested custom element) inside app-calendario-view's single Shadow DOM, per CLAUDE.md's no-nested-Shadow-DOM rule. Each card's own elementId is data-element-id=\"calendario-month-<YYYY-MM>\" (e.g. calendario-month-2026-09); each day cell inside it is data-element-id=\"calendario-month-<YYYY-MM>-day-<DD>\" (e.g. calendario-month-2026-09-day-05) — this dynamic per-day naming is a documented pattern, not enumerated as individual static elementIds here, mirroring how key-date-settings-view.ts's row ids are generated per data row rather than declared statically.",
+              "description": "10 month cards, September of the selected school year through June of the next — each a plain element (not a nested custom element) inside app-calendario-view's single Shadow DOM, per CLAUDE.md's no-nested-Shadow-DOM rule. Each card's own elementId is data-element-id=\"calendario-month-<YYYY-MM>\" (e.g. calendario-month-2026-09); each day cell inside it is data-element-id=\"calendario-month-<YYYY-MM>-day-<DD>\" (e.g. calendario-month-2026-09-day-05) — this dynamic per-day naming is a documented pattern, not enumerated as individual static elementIds here, mirroring how key-date-settings-view.ts's row ids are generated per data row rather than declared statically. **2026-08-11**: a day cell covered by a calendario_horario row (see description_calendario.md's 'Horario' section) additionally carries a `data-calendario-horario=\"true\"` attribute and a `#06b6d4` ring/border overlay around the day number — layered on top of whatever (category,type) fill color (if any) already covers that day, never replacing it; a day with only a horario row and no calendario_modulo entry shows the ring alone, on the plain background.",
               "visual_cues": [
                 "grid of 10 month cards",
-                "days marked red for academic_key_dates/holidays/public_holidays/free_disposal_days",
-                "days marked blue for evaluations/feoe_project_days",
+                "each day cell's fill follows UC-11's 14-row (category,type) color table",
                 "days spanning >30-day ranges show color only on their start and end day, not every day in between",
-                "days with more than one active category split their background into color stripes"
+                "days with more than one active category split their background into color stripes",
+                "a day covered by calendario_horario shows a cian (#06b6d4) ring/border around the day number, independent of and layered over the fill color"
               ]
             },
             {
               "name": "empty",
-              "description": "No módulo selected yet, or the selected academic_year_module_id has no calendario_modulo rows",
+              "description": "No módulo selected yet, or the selected academic_year_module_id has zero calendario_modulo rows AND zero calendario_horario rows (2026-08-11: widened gate — a módulo with only calendario_horario rows still renders the grid, ring-only, no fill)",
               "visual_cues": ["calendario-empty-state shown instead"]
             }
           ],
@@ -232,12 +232,12 @@
           "states": [
             {
               "name": "populated",
-              "description": "Rendered (in the DOM, initially hidden via Tailwind's `hidden` class) for every day cell covered by at least one calendario_modulo entry — one per day, dynamic id `calendario-month-<YYYY-MM>-day-<DD>-tooltip` (e.g. calendario-month-2026-09-day-05-tooltip), same dynamic-per-day convention already documented for calendario-months's own day-cell ids. Revealed by Tailwind's `group`/`group-hover:block` CSS pattern when the cursor is over that day's cell (the day cell itself carries `group relative`; the tooltip is `hidden group-hover:block absolute left-full top-0`, positioned immediately to the right of the cell it belongs to, never at a fixed screen corner) — no JS mouseover/mouseout handling needed, unlike the toast mechanism this replaces (2026-08-10). Content: the name of every calendario_modulo entry covering that day, one per line if more than one.",
+              "description": "Rendered (in the DOM, initially hidden via Tailwind's `hidden` class) for every day cell covered by at least one calendario_modulo entry and/or a calendario_horario row (2026-08-11) — one per day, dynamic id `calendario-month-<YYYY-MM>-day-<DD>-tooltip` (e.g. calendario-month-2026-09-day-05-tooltip), same dynamic-per-day convention already documented for calendario-months's own day-cell ids. Revealed by Tailwind's `group`/`group-hover:block` CSS pattern when the cursor is over that day's cell (the day cell itself carries `group relative`; the tooltip is `hidden group-hover:block absolute left-full top-0`, positioned immediately to the right of the cell it belongs to, never at a fixed screen corner) — no JS mouseover/mouseout handling needed, unlike the toast mechanism this replaces (2026-08-10). Content: the name of every calendario_modulo entry covering that day, one per line if more than one; plus, if that day has a calendario_horario row, one extra line \"Horario: N horas\" (N = that row's hours, 1-3) appended last.",
               "visual_cues": ["small popup anchored to the right edge of the hovered day cell, appears/disappears immediately with the cursor, no fixed-corner positioning, no auto-dismiss timer"]
             },
             {
               "name": "absent",
-              "description": "A day cell with no calendario_modulo entry covering it renders no tooltip node at all — nothing to reveal on hover",
+              "description": "A day cell with no calendario_modulo entry and no calendario_horario row covering it renders no tooltip node at all — nothing to reveal on hover",
               "visual_cues": ["not rendered"]
             }
           ],
@@ -296,12 +296,12 @@
           "states": [
             {
               "name": "populated",
-              "description": "Directly below the filters row, own card-style row, flex flex-wrap horizontal — one color-swatch + label pair per UC-11 color-table row present in the currently loaded módulo's calendario_modulo data, in the table's fixed order (up to 14). Each item is data-element-id=\"calendario-legend-item-<N>\" (N = the color table's row number 1-14) — dynamic pattern, not enumerated per instance, same convention as calendario-months's per-day ids.",
-              "visual_cues": ["horizontal row of small color swatches with text labels, wraps onto more lines at narrow widths, never scrolls"]
+              "description": "Directly below the filters row, own card-style row, flex flex-wrap horizontal — one color-swatch + label pair per UC-11 color-table row present in the currently loaded módulo's calendario_modulo data, in the table's fixed order (up to 14), plus (2026-08-11) one extra, always-last item for calendario_horario when the selected módulo has at least one calendario_horario row: data-element-id=\"calendario-legend-item-horario\", label \"Horario\", a ring-style swatch (a `#06b6d4` bordered/outlined square, not filled — visually distinct from the 14 filled swatches, matching how the ring itself is an overlay on the day cell, not a fill) so it reads as \"this ring marks a day\" rather than another category color. The 14 color-table items keep their existing data-element-id=\"calendario-legend-item-<N>\" pattern, unaffected.",
+              "visual_cues": ["horizontal row of small color swatches with text labels, wraps onto more lines at narrow widths, never scrolls", "the horario item (when present) is always last and rendered as an outlined ring swatch, not a filled one"]
             },
             {
               "name": "empty",
-              "description": "Selected módulo has zero calendario_modulo rows",
+              "description": "Selected módulo has zero calendario_modulo rows — same gating condition calendario-months/calendario-empty-state use (2026-08-11: a módulo with calendario_modulo rows but no calendario_horario yet still renders the 14-row legend, just without the horario item)",
               "visual_cues": ["nothing rendered"]
             }
           ],
@@ -314,9 +314,10 @@
         "catalog_modules",
         "catalog_cycles",
         "calendario_modulo (new table — see views/calendario/description_calendario.md)",
-        "calendario_evaluation_working_days (new table — see views/calendario/use-cases.md UC-09)"
+        "calendario_evaluation_working_days (new table — see views/calendario/use-cases.md UC-09)",
+        "calendario_horario (new table, 2026-08-11 — see views/calendario/description_calendario.md's 'Horario' section)"
       ],
-      "notes": "Own top-level custom element (app-calendario-view), reachable from the dashboard's existing calendar-card (src/frontend/src/dashboard-view.ts:22, route /calendario already wired, screen not yet implemented). Read-only — no CRUD from this screen. Renders exclusively from calendario_modulo, a snapshot table populated as a side effect of Año académico's 'Guardar selección' flow (see views/calendario/description_calendario.md) — never reads key_dates directly. Own single-use nav bar (not renderSettingsNav, which is specific to the four Configuración screens), same visual pattern (classesFor('card'), heading far left, link far right). The three filters cascade left to right: school year (simulated carousel, arrows, no real <select>) -> cycle -> módulo, each derived client-side from GET /api/academic-years/:id/modules the same way academic-year-settings-view.ts already derives training-cycle-table's distinct cycles."
+      "notes": "Own top-level custom element (app-calendario-view), reachable from the dashboard's existing calendar-card (src/frontend/src/dashboard-view.ts:22, route /calendario already wired, screen not yet implemented). Read-only — no CRUD from this screen. Renders exclusively from calendario_modulo, a snapshot table populated as a side effect of Año académico's 'Guardar selección' flow (see views/calendario/description_calendario.md) — never reads key_dates directly. Own single-use nav bar (not renderSettingsNav, which is specific to the four Configuración screens), same visual pattern (classesFor('card'), heading far left, link far right). The three filters cascade left to right: school year (simulated carousel, arrows, no real <select>) -> cycle -> módulo, each derived client-side from GET /api/academic-years/:id/modules the same way academic-year-settings-view.ts already derives training-cycle-table's distinct cycles. **2026-08-11**: also renders from calendario_horario (GET /api/calendario-horario?academicYearModuleId=...), a second, independent snapshot table populated as a side effect of Configuración → Horario's 'Guardar horario' flow (see description_calendario.md's 'Horario' section) — an overlay ring on calendario-months's day cells, an extra always-last item in calendario-legend, and an extra line in calendario-day-tooltip, never a fill color of its own and never mixed into the UC-11 color table."
     }
   ]
 }

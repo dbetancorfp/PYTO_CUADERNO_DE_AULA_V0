@@ -96,12 +96,14 @@ export async function bootstrap(): Promise<void> {
       { HttpAcademicYearApiService },
       { HttpCalendarioModuloApiService },
       { HttpEvaluationWorkingDaysApiService },
+      { HttpCalendarioHorarioApiService },
       { CalendarioView },
     ] = await Promise.all([
       import('./http-session-api-service'),
       import('./http-academic-year-api-service'),
       import('./http-calendario-modulo-api-service'),
       import('./http-evaluation-working-days-api-service'),
+      import('./http-calendario-horario-api-service'),
       import('./calendario-view'),
     ]);
     const calendarioView = document.createElement('app-calendario-view') as InstanceType<typeof CalendarioView>;
@@ -109,6 +111,7 @@ export async function bootstrap(): Promise<void> {
     calendarioView.academicYearService = new HttpAcademicYearApiService();
     calendarioView.calendarioModuloService = new HttpCalendarioModuloApiService();
     calendarioView.evaluationWorkingDaysService = new HttpEvaluationWorkingDaysApiService();
+    calendarioView.calendarioHorarioService = new HttpCalendarioHorarioApiService();
     document.body.appendChild(calendarioView);
     return;
   }

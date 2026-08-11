@@ -108,6 +108,27 @@ escolares** (septiembre del año seleccionado a junio del siguiente, 10 meses).
   completo(s) del evento — se cierra al quitar el ratón (`dismiss()`), no espera al
   auto-dismiss de 5s.
 
+### Horario (2026-08-11)
+
+Cuando el profesor guarda el horario semanal de un módulo (Configuración → Horario,
+`PUT /api/academic-year-modules/:id/schedule`), se genera como efecto colateral una nueva
+tabla, `calendario_horario`: una fila por cada día real (dentro de septiembre del año
+seleccionado a junio del siguiente) que caiga en un día de la semana con horas asignadas
+**y** sea laborable de verdad — se excluyen `holidays`, `public_holidays` y
+`free_disposal_days` (mismas categorías que ya excluye `business-day.ts`'s `isLaborable`
+para los cómputos de días laborables por evaluación y exámenes finales, UC-08/UC-09;
+`academic_key_dates` no cuenta como día no laborable, igual que en esos cómputos). Se
+regenera por completo (borra + reinserta) cada vez que se guarda el horario — mismo patrón
+de efecto colateral que `CalendarioModuloSeeder`, ahora disparado desde
+`AcademicYearModuleScheduleService.saveSchedule` en vez de desde `AcademicYearService`.
+
+En el Calendario, cada día cubierto por una fila de `calendario_horario` se pinta con un
+anillo/borde de color (`#06b6d4`, cian — no coincide con ninguna de las 14 filas de la
+tabla de colores de UC-11, es un overlay sobre el relleno de categoría existente, no un
+relleno más) alrededor del número del día. La leyenda (`calendario-legend`) añade una
+entrada propia para este anillo. El tooltip existente de cada día (`calendario-day-tooltip`)
+añade una línea "Horario: N horas" cuando ese día tiene fila en `calendario_horario`.
+
 ## Fuera de alcance
 
 - Ningún CRUD sobre `calendario_modulo` desde esta vista — es de solo lectura, generada
