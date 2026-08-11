@@ -122,6 +122,31 @@ adding mode was entered —
 
 Either way, returns to normal mode on success with the affected year selected.
 
+### Section: Horario
+
+**Nueva tabla**: `academic_year_module_schedules` — horario semanal (lunes-viernes) por
+módulo dentro de un año académico concreto, no por año académico en general (un profesor
+con varios módulos tiene un horario distinto por cada uno).
+
+**Filtros** (3, igual patrón que Calendario — Año carrusel / Ciclo / Módulo, cada cambio
+actualiza el siguiente):
+1. **Año**: por defecto el año escolar actual calculado (mismo criterio que Calendario:
+   mes actual ≥ 9 → año natural actual; si no, año natural actual − 1); solo años con fila
+   real en `academic_years`.
+2. **Ciclo**: ciclos del profesor autenticado en el año seleccionado.
+3. **Módulo**: módulos del ciclo seleccionado.
+
+Al quedar seleccionado un módulo concreto (`academic_year_module_id`), se carga (o se
+inicializa vacío si no existe aún) su horario.
+
+**Grid de horario**: fila con los 5 días (Lunes-Viernes) y debajo de cada uno un
+combobox con valores 1, 2, 3 y una opción vacía ("Sin clase") — ningún día es obligatorio.
+
+**Guardado**: botón único **Guardar horario** — envía los 5 valores juntos en una sola
+petición (upsert de las filas de `academic_year_module_schedules` para ese
+`academic_year_module_id`; los días marcados "Sin clase" no generan fila, o borran la
+existente).
+
 ## Behavior
 
 - Reaching `/configuracion` requires a valid session, same gate as Dashboard: no session →
@@ -160,6 +185,11 @@ Either way, returns to normal mode on success with the affected year selected.
     here.
   - Deleting an `academic_years` row is blocked (application-level check, not a DB
     constraint) whenever it still has `academic_year_modules` rows — see its section above.
+- **New table** (Horario, 2026-08-11):
+  - `academic_year_module_schedules`: `id`, `academic_year_module_id` (FK
+    `academic_year_modules`, `ON DELETE CASCADE`), `weekday` (SMALLINT 1-5, lunes=1),
+    `hours` (SMALLINT, CHECK 1-3), unique within (`academic_year_module_id`, `weekday`).
+    Ausencia de fila para un día = "sin clase" ese día (no se guarda 0).
 
 ## Initial data load (Ciclos/Módulos)
 

@@ -1,3 +1,100 @@
+# Review Report — configuracion (Horario, UC-10/UC-11) — 2026-08-11
+
+## Result: PASS ✅
+
+## Layers implicated: none (was `requires-tdd-engineer`, closed this same pass — see below)
+
+## Also implicated: none
+
+## Supervisor notes adjudicated
+| Note | Resolution |
+|------|------------|
+| Supervisor reported: backend unit tests PASS (345/345), frontend unit tests PASS (301/301), integration smoke test PASS (real HTTP against `GET`/`PUT /api/academic-year-modules/:id/schedule`, response shapes matched `api-contracts.md` exactly, frontend's `HttpAcademicYearModuleScheduleApiService` calls the same route/method/payload) | Accepted as-is — independently re-verified in Step 2 below (re-ran both suites, re-read the smoke-tested files); no further action |
+
+## SOLID violations found
+
+None. Audited every new/modified file for this increment against the full S/O/L/I/D
+checklist:
+
+- `src/backend/src/repositories/academic-year-module-schedule.repository.ts` (interface)
+- `src/backend/src/repositories/in-memory/academic-year-module-schedule-store.ts`
+- `src/backend/src/repositories/in-memory/in-memory-academic-year-module-schedule.repository.ts`
+- `src/backend/src/repositories/postgres/pg-academic-year-module-schedule.repository.ts`
+- `src/backend/src/services/academic-year-module-schedule.service.ts`
+- `src/backend/src/routes/academic-year-module.routes.ts` (routes added: `GET`/`PUT /:id/schedule`)
+- `src/backend/src/app.ts` (additive DI wiring only)
+- `src/frontend/src/academic-year-module-schedule-api-service.ts` (interface)
+- `src/frontend/src/http-academic-year-module-schedule-api-service.ts`
+- `src/frontend/src/schedule-settings-view.ts`
+- `src/frontend/src/settings-nav.ts` (additive `NAV_LINKS` entry only)
+- `src/frontend/src/main.ts` (additive bootstrap block only)
+
+Notable compliance points, not violations: `AcademicYearModuleScheduleService` takes all
+three dependencies via constructor injection against interfaces (DIP), never a concrete
+`Pg*`/`InMemory*` class; `ScheduleSettingsView` narrows its injected academic-year service
+to `Pick<AcademicYearApiService, 'list' | 'listModules'>` (ISP — it never writes through
+that service, same pattern `calendario-view.ts` already uses); the weekday grid's markup
+and the save payload both derive from one `WEEKDAYS` array (OCP — no per-weekday `if`
+chain); route-layer validation (`isValidScheduleEntry`/`hasDuplicateWeekday`) stays out of
+the service, which trusts its input, matching `academic-year.routes.ts`'s existing
+validate-at-the-route convention.
+
+## SonarCloud Quality Gate
+| Metric | Threshold | Backend | Frontend | Result |
+|--------|-----------|---------|----------|--------|
+| Coverage (lines) | 100% | 100.00% | 100.00% | ✅ |
+| Bugs | 0 | 0 | 0 | ✅ |
+| Vulnerabilities | 0 | 0 | 0 | ✅ |
+| Duplication | ≤ 3% | 0% | 0% | ✅ |
+| Maintainability rating | A | A | A | ✅ |
+
+`bun test --coverage --coverage-reporter=lcov src/backend/tests src/frontend/tests`:
+647 pass / 0 fail across both suites (one more than the first pass's 646 — the added
+`main.test.ts` case). `src/frontend/src/main.ts` was the only gap on the first pass
+(lines 121-133, the new `/configuracion/horario` bootstrap block, 0% coverage — real,
+necessary code with no test targeting it at all): `Layers implicated:
+requires-tdd-engineer` per `reviewer.md` Step 3b, mirroring the Postgres-repository case
+the role file names as the common example, applied here to a bootstrap-routing block
+instead. `tdd-engineer` was re-invoked once (no cycle cost, no human checkpoint) and
+added exactly one `it()` to `main.test.ts` mounting `app-schedule-settings-view` on
+`/configuracion/horario`, mirroring the existing `/configuracion/ano-academico` case —
+`main.ts` is now 121/121 lines covered. No implementation file was touched to close this
+gap. GitHub Issue [#8](https://github.com/dbetancorfp/PYTO_CUADERNO_DE_AULA_V0/issues/8)
+closed as resolved.
+
+## Acceptance criteria marked (use-cases.md)
+
+| Criterion | Test that verifies it |
+|-----------|------------------------|
+| UC-10: on first load, `schedule-academic-year-filter-value` shows the school year containing today's date | `schedule-settings-view.test.ts` — "defaults to the school year containing today (before September)" / "(September onward)" |
+| UC-10: `schedule-academic-year-filter-prev` disabled with no earlier `academic_years` row | `schedule-settings-view.test.ts` — "schedule-academic-year-filter-prev is disabled with no earlier academic_years row" |
+| UC-10: `schedule-academic-year-filter-next` disabled at `currentSchoolYearStartYear + 5` | `schedule-settings-view.test.ts` — "schedule-academic-year-filter-next is disabled once the selected year reaches currentSchoolYearStartYear + 5" |
+| UC-10: `schedule-cycle-filter` lists distinct cycles, first selected by default | `schedule-settings-view.test.ts` — "schedule-cycle-filter lists distinct cycles, first selected by default, deriving schedule-module-filter" |
+| UC-10: `schedule-module-filter` lists the selected cycle's módulos, first selected by default | same test as above (asserts both selects in one flow) |
+| UC-10: `schedule-empty-state` shown instead of the grid whenever no módulo is selected | `schedule-settings-view.test.ts` — "shows schedule-empty-state instead of the weekday grid when the selected year has no cycles" |
+| UC-11: each weekday select offers exactly 4 options | `schedule-settings-view.test.ts` — "each weekday select offers exactly 4 options: blank/'Sin clase', 1, 2, 3" |
+| UC-11: on load, each weekday select reflects its saved value or blank | `schedule-settings-view.test.ts` — "on load, each weekday select reflects its saved value, or blank when no row exists for that weekday" |
+| UC-11: changing a weekday select does not send a request by itself | `schedule-settings-view.test.ts` — "changing a weekday select does not call scheduleService.save by itself" |
+| UC-11: clicking `schedule-save-button` sends exactly one request with all 5 weekdays' values | `schedule-settings-view.test.ts` — "clicking schedule-save-button sends exactly one save with all 5 weekdays´ current draft values" |
+| UC-11: a blank weekday has no row after a successful save | `schedule-settings-view.test.ts` — "a weekday left blank in the draft is not included in the save payload" + `academic-year-module-schedule.routes.test.ts` — "PUT ... removes a weekday left out of a later save" / "with an empty array clears every previously saved weekday" |
+| UC-11: a weekday set to 1/2/3 persists exactly that value | `academic-year-module-schedule.routes.test.ts` — "PUT ... persists the full weekly schedule, reflected on the next GET" |
+| UC-11: `schedule-save-message` shows success after a successful response | `schedule-settings-view.test.ts` — "schedule-save-message shows success after a successful save" |
+| UC-11: `schedule-save-message` shows an error after a failed response | `schedule-settings-view.test.ts` — "schedule-save-message shows an error after a failed save" |
+
+## Criteria without verifiable coverage
+
+| Criterion | Reason |
+|-----------|--------|
+| UC-10: "Changing any filter discards an unsaved weekday draft for the previously selected módulo" | Only the `schedule-module-filter`-change case is tested (`"changing schedule-module-filter discards an unsaved draft..."`); no test exercises the year-carousel or `schedule-cycle-filter` cases specifically, even though the same `_applySelectedYear`/`_onElementChange` code path resets `_draft` for all three — code inspection confirms the behavior, but per Step 6b's rule a criterion is only marked from a concrete matching test, not from reading the implementation |
+| UC-11: "`schedule-save-button` shows a loading state and is disabled from click until the response arrives" | `schedule-settings-view.ts` does implement this (`_saving` flag, `?disabled=${this._saving}`, "Guardando…" label — visible in the file, lines 302-303/399-406), but no test in `schedule-settings-view.test.ts` asserts the button's state *during* an in-flight save (e.g. via a controllable/delayed fake `scheduleService.save`) |
+| UC-11: "`schedule-save-message` hides again as soon as a filter **or weekday select** changes after a save" | **Spec inconsistency found**: `ui-spec.json`'s own `schedule-save-message` "hidden" state condition (line ~2014) says only *"a filter changed since the last save"* — it never mentions a weekday-select change. `use-cases.md`'s UC-11 criterion (written by `requirement-architect`, i.e. myself in this same session, one phase after `ui-spec.json`) added "or a weekday select changes," which `ui-spec.json` doesn't support. `frontend-implementer` correctly followed `ui-spec.json` (the earlier, authoritative artifact) and only clears `_saveMessage` on year/cycle/módulo filter changes, not on a weekday-select change — `schedule-settings-view.test.ts`'s own test is named "...hides again as soon as **a filter** changes..." and only exercises the filter case, consistent with `ui-spec.json`. This is a documentation drift between two of this view's own Phase A artifacts, not an implementation defect — flagging per CLAUDE.md's "Question assumptions" rule rather than silently marking it done. No code or test change recommended; if the user wants weekday-select changes to also hide the message, that's a new behavior change, not a fix to this pass. |
+
+## Deferred to e2e-engineer
+
+None.
+
+---
+
 # Review Report — configuracion (Año académico) — 2026-08-06
 
 ## Result: PASS ✅

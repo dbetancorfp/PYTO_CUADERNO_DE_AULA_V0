@@ -12,6 +12,7 @@ import { HttpTeacherSettingsApiService } from '../src/http-teacher-settings-api-
 import { HttpCatalogTrainingCycleApiService } from '../src/http-catalog-training-cycle-api-service';
 import { HttpCatalogModuleApiService } from '../src/http-catalog-module-api-service';
 import { HttpAcademicYearApiService } from '../src/http-academic-year-api-service';
+import { HttpAcademicYearModuleScheduleApiService } from '../src/http-academic-year-module-schedule-api-service';
 import { HttpCalendarioModuloApiService } from '../src/http-calendario-modulo-api-service';
 import { HttpEvaluationWorkingDaysApiService } from '../src/http-evaluation-working-days-api-service';
 import { HttpKeyDateApiService } from '../src/http-key-date-api-service';
@@ -19,6 +20,7 @@ import type { DashboardView } from '../src/dashboard-view';
 import type { TeacherSettingsView } from '../src/teacher-settings-view';
 import type { TrainingCatalogSettingsView } from '../src/training-catalog-settings-view';
 import type { AcademicYearSettingsView } from '../src/academic-year-settings-view';
+import type { ScheduleSettingsView } from '../src/schedule-settings-view';
 import type { CalendarioView } from '../src/calendario-view';
 import type { KeyDateSettingsView } from '../src/key-date-settings-view';
 import type { LoginView } from '../src/login-view';
@@ -92,6 +94,18 @@ describe('bootstrap', () => {
     expect(el!.academicYearService).toBeInstanceOf(HttpAcademicYearApiService);
     expect(el!.catalogCycleService).toBeInstanceOf(HttpCatalogTrainingCycleApiService);
     expect(el!.catalogModuleService).toBeInstanceOf(HttpCatalogModuleApiService);
+  });
+
+  it('mounts app-schedule-settings-view with real services on /configuracion/horario', async () => {
+    globalThis.fetch = (async () => new Response(null, { status: 401 })) as unknown as typeof fetch;
+
+    await mountAt('/configuracion/horario');
+
+    const el = document.body.querySelector('app-schedule-settings-view') as ScheduleSettingsView | null;
+    expect(el).not.toBeNull();
+    expect(el!.sessionService).toBeInstanceOf(HttpSessionApiService);
+    expect(el!.academicYearService).toBeInstanceOf(HttpAcademicYearApiService);
+    expect(el!.scheduleService).toBeInstanceOf(HttpAcademicYearModuleScheduleApiService);
   });
 
   it('mounts app-calendario-view with real services on /calendario', async () => {

@@ -436,3 +436,64 @@ No body.
 | Code | Condition |
 |------|-----------|
 | 404 | `id` doesn't match an `academic_year_modules` row owned (via its academic year) by this teacher |
+
+---
+
+## Horario (Horario screen, 2026-08-11)
+
+The filter bar's Año/Ciclo/Módulo cascade reuses `GET /api/academic-years` and
+`GET /api/academic-years/:id/modules` (documented above under "Academic year módulo
+selection") as-is — no new endpoint for the filter bar itself, only for the weekly
+schedule grid below it. `id` in both endpoints below is an `academic_year_modules.id`
+(same resource `DELETE /api/academic-year-modules/:id` already uses), never a bare
+`catalog_module_id`.
+
+### GET /api/academic-year-modules/:id/schedule
+
+**Description**: Lists the weekly schedule already saved for this `academic_year_module` —
+one entry per weekday that has a row. A weekday absent from the array means "no class that
+day"; the frontend renders it as the weekday select's blank/"Sin clase" option.
+**Elements**: `schedule-monday-select`, `schedule-tuesday-select`, `schedule-wednesday-select`,
+`schedule-thursday-select`, `schedule-friday-select`
+
+#### Request
+- **Params**: `{ id: string }` — the `academic_year_modules` row id.
+
+#### Response 200
+```json
+{ "schedule": [ { "weekday": 1, "hours": 2 }, { "weekday": 3, "hours": 1 } ] }
+```
+
+#### Errors
+| Code | Condition |
+|------|-----------|
+| 404 | `id` doesn't match an `academic_year_modules` row owned (via its academic year) by this teacher |
+
+---
+
+### PUT /api/academic-year-modules/:id/schedule
+
+**Description**: Replaces this `academic_year_module`'s entire weekly schedule in one
+request — what `schedule-save-button` calls. Weekdays present in `schedule` are upserted
+with their `hours`; weekdays not present are deleted if a row existed for them (this is a
+full replace, not a partial patch — the frontend always sends its complete 5-weekday draft,
+one entry per weekday that isn't left blank).
+**Elements**: `schedule-save-button`, `schedule-save-message`, `schedule-monday-select`,
+`schedule-tuesday-select`, `schedule-wednesday-select`, `schedule-thursday-select`,
+`schedule-friday-select`
+
+#### Request
+- **Params**: `{ id: string }` — the `academic_year_modules` row id.
+- **Body**: `{ schedule: Array<{ weekday: number, hours: number }> }` — `weekday` 1-5
+  (Monday-Friday), `hours` 1-3; at most one entry per `weekday`.
+
+#### Response 200
+```json
+{ "schedule": [ { "weekday": 1, "hours": 2 }, { "weekday": 3, "hours": 1 } ] }
+```
+
+#### Errors
+| Code | Condition |
+|------|-----------|
+| 400 | `schedule` missing or not an array; an entry's `weekday` not in 1-5; an entry's `hours` not in 1-3; the same `weekday` appears more than once |
+| 404 | `id` doesn't match an `academic_year_modules` row owned (via its academic year) by this teacher |

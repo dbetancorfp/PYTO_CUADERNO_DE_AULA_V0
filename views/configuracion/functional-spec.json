@@ -1,21 +1,21 @@
 {
-  "appOverview": "Configuración is reached from Dashboard's settings-menu (which stops being a disabled placeholder) and is three separate top-level views: app-teacher-settings-view (/configuracion/profesor — edit the signed-in teacher's full name; change password), app-training-catalog-settings-view (/configuracion/ciclos-modulos — master CRUD over a shared, global catalog of ciclos formativos and módulos profesionales, seeded from the official BOC curricula, un-scoped from any teacher as of 2026-08-05), and app-academic-year-settings-view (/configuracion/ano-academico — each signed-in teacher's own list of academic years, each with the cycles/módulos they teach that year, picked from the shared catalog). Each has its own Shadow DOM and is reached by a plain nav link (teacher-nav-link / training-catalog-nav-link / academic-year-nav-link) rendered identically on all three screens via one shared function. **Redesign history**: 2026-08-04 dropped the old, teacher-owned training_cycles/modules/academic_years/academic_year_modules tables and rebuilt Ciclos/Módulos as a standalone catalog with a UI-only Año académico stub. 2026-08-05 gives Año académico a real data layer again — academic_years (per-teacher: id, teacher_id, start_year integer displayed as \"2026-2027\", is_current) and academic_year_modules (join to catalog_modules; a row's cycle is derived via catalog_modules.catalog_training_cycle_id, not stored again) — built on top of the shared catalog instead of duplicating it per teacher. Creating brand-new cycles/módulos is no longer possible from this screen: every cycle/módulo a teacher assigns to a year must already exist in the Ciclos/Módulos catalog, so training-cycle-table-add-button, module-table-add-button, module-edit-confirm-modal, training-cycle-delete-blocked-message and module-delete-blocked-message are removed. A new, reusable Toast component (academic-year-toast, first used here) surfaces this screen's two error cases: a duplicate start year on rename, and a blocked delete when the year still has módulos assigned.",
+  "appOverview": "Configuración is reached from Dashboard's settings-menu (which stops being a disabled placeholder) and is four separate top-level views: app-teacher-settings-view (/configuracion/profesor — edit the signed-in teacher's full name; change password), app-training-catalog-settings-view (/configuracion/ciclos-modulos — master CRUD over a shared, global catalog of ciclos formativos and módulos profesionales, seeded from the official BOC curricula, un-scoped from any teacher as of 2026-08-05), app-academic-year-settings-view (/configuracion/ano-academico — each signed-in teacher's own list of academic years, each with the cycles/módulos they teach that year, picked from the shared catalog), and app-schedule-settings-view (/configuracion/horario, new 2026-08-11 — a weekly Mon-Fri hours grid per academic_year_module, reusing Calendario's 3-level Año/Ciclo/Módulo filter). Each has its own Shadow DOM and is reached by a plain nav link (teacher-nav-link / training-catalog-nav-link / academic-year-nav-link / schedule-nav-link) rendered identically on all four screens via one shared function. **Redesign history**: 2026-08-04 dropped the old, teacher-owned training_cycles/modules/academic_years/academic_year_modules tables and rebuilt Ciclos/Módulos as a standalone catalog with a UI-only Año académico stub. 2026-08-05 gives Año académico a real data layer again — academic_years (per-teacher: id, teacher_id, start_year integer displayed as \"2026-2027\", is_current) and academic_year_modules (join to catalog_modules; a row's cycle is derived via catalog_modules.catalog_training_cycle_id, not stored again) — built on top of the shared catalog instead of duplicating it per teacher. Creating brand-new cycles/módulos is no longer possible from this screen: every cycle/módulo a teacher assigns to a year must already exist in the Ciclos/Módulos catalog, so training-cycle-table-add-button, module-table-add-button, module-edit-confirm-modal, training-cycle-delete-blocked-message and module-delete-blocked-message are removed. A new, reusable Toast component (academic-year-toast, first used here) surfaces this screen's two error cases: a duplicate start year on rename, and a blocked delete when the year still has módulos assigned.",
   "elementSpecs": [
     {
       "elementId": "back-to-dashboard-link",
-      "behavior": "Navigates to /dashboard. Rendered on all three settings screens, sharing the same elementId and markup via one plain function, never a nested custom element.",
+      "behavior": "Navigates to /dashboard. Rendered on all four settings screens, sharing the same elementId and markup via one plain function, never a nested custom element.",
       "businessRules": [
         "Always navigates to /dashboard when clicked, regardless of which settings screen is active"
       ],
       "dataNeeds": [],
       "acceptanceCriteria": [
-        "Present on /configuracion/profesor, /configuracion/ciclos-modulos and /configuracion/ano-academico",
+        "Present on /configuracion/profesor, /configuracion/ciclos-modulos, /configuracion/ano-academico and /configuracion/horario",
         "Clicking it navigates to /dashboard"
       ]
     },
     {
       "elementId": "teacher-nav-link",
-      "behavior": "Navigates to /configuracion/profesor. Rendered on all three settings screens, sharing the same elementId and markup via one plain function.",
+      "behavior": "Navigates to /configuracion/profesor. Rendered on all four settings screens, sharing the same elementId and markup via one plain function.",
       "businessRules": [
         "Shows an active state when the current route is /configuracion/profesor, inactive otherwise",
         "Clicking it while already on /configuracion/profesor is a no-op"
@@ -23,13 +23,13 @@
       "dataNeeds": [],
       "acceptanceCriteria": [
         "Shows an active visual state on /configuracion/profesor",
-        "Shows an inactive visual state on /configuracion/ciclos-modulos and on /configuracion/ano-academico",
-        "Clicking it from either other screen navigates to /configuracion/profesor"
+        "Shows an inactive visual state on /configuracion/ciclos-modulos, /configuracion/ano-academico and /configuracion/horario",
+        "Clicking it from any other screen navigates to /configuracion/profesor"
       ]
     },
     {
       "elementId": "training-catalog-nav-link",
-      "behavior": "Navigates to /configuracion/ciclos-modulos. Rendered on all three settings screens, sharing the same elementId and markup via one plain function.",
+      "behavior": "Navigates to /configuracion/ciclos-modulos. Rendered on all four settings screens, sharing the same elementId and markup via one plain function.",
       "businessRules": [
         "Shows an active state when the current route is /configuracion/ciclos-modulos, inactive otherwise",
         "Clicking it while already on /configuracion/ciclos-modulos is a no-op"
@@ -37,14 +37,14 @@
       "dataNeeds": [],
       "acceptanceCriteria": [
         "Shows an active visual state on /configuracion/ciclos-modulos",
-        "Shows an inactive visual state on /configuracion/profesor and on /configuracion/ano-academico",
-        "Clicking it from either other screen navigates to /configuracion/ciclos-modulos",
+        "Shows an inactive visual state on /configuracion/profesor, /configuracion/ano-academico and /configuracion/horario",
+        "Clicking it from any other screen navigates to /configuracion/ciclos-modulos",
         "Appears between teacher-nav-link and academic-year-nav-link in the rendered nav order"
       ]
     },
     {
       "elementId": "academic-year-nav-link",
-      "behavior": "Navigates to /configuracion/ano-academico. Rendered on all three settings screens, sharing the same elementId and markup via one plain function.",
+      "behavior": "Navigates to /configuracion/ano-academico. Rendered on all four settings screens, sharing the same elementId and markup via one plain function.",
       "businessRules": [
         "Shows an active state when the current route is /configuracion/ano-academico, inactive otherwise",
         "Clicking it while already on /configuracion/ano-academico is a no-op"
@@ -52,8 +52,35 @@
       "dataNeeds": [],
       "acceptanceCriteria": [
         "Shows an active visual state on /configuracion/ano-academico",
-        "Shows an inactive visual state on /configuracion/profesor and on /configuracion/ciclos-modulos",
-        "Clicking it from either other screen navigates to /configuracion/ano-academico"
+        "Shows an inactive visual state on /configuracion/profesor, /configuracion/ciclos-modulos and /configuracion/horario",
+        "Clicking it from any other screen navigates to /configuracion/ano-academico"
+      ]
+    },
+    {
+      "elementId": "key-dates-nav-link",
+      "behavior": "Navigates to /configuracion/fechas-senaladas when clicked, unless already there (no-op). Rendered active (highlighted) when the current route is /configuracion/fechas-senaladas. Belongs to views/fechas-senaladas/ (its own view, own elementSpecs) — listed here only because settings-nav.ts's shared NAV_LINKS renders it on this screen too, same as on the other Configuración-family screens.",
+      "businessRules": [
+        "Shared across every Configuración-family screen via settings-nav.ts — one render function, not duplicated per screen"
+      ],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "key-dates-nav-link shows an active visual state when the current route is /configuracion/fechas-senaladas",
+        "Clicking key-dates-nav-link navigates to /configuracion/fechas-senaladas"
+      ]
+    },
+    {
+      "elementId": "schedule-nav-link",
+      "behavior": "Navigates to /configuracion/horario. Rendered on all four settings screens, sharing the same elementId and markup via one plain function.",
+      "businessRules": [
+        "Shows an active state when the current route is /configuracion/horario, inactive otherwise",
+        "Clicking it while already on /configuracion/horario is a no-op"
+      ],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "Shows an active visual state on /configuracion/horario",
+        "Shows an inactive visual state on /configuracion/profesor, /configuracion/ciclos-modulos and /configuracion/ano-academico",
+        "Clicking it from any other screen navigates to /configuracion/horario",
+        "Appears after academic-year-nav-link in the rendered nav order"
       ]
     },
     {
@@ -386,6 +413,221 @@
         "Is hidden while already in adding mode",
         "Clicking it switches training-cycle-table to adding mode without adding a draft row to academic-year-table"
       ]
+    },
+    {
+      "elementId": "schedule-academic-year-filter-prev",
+      "behavior": "Simulated carousel arrow — moves the selected school year one back, same calculation as Calendario's academic-year-filter-prev.",
+      "businessRules": [
+        "Disabled when no earlier academic_years row exists for this teacher (backward is data-bound, unlike forward)"
+      ],
+      "dataNeeds": [
+        "academic_years"
+      ],
+      "acceptanceCriteria": [
+        "Is disabled when the selected year is this teacher's earliest academic_years row",
+        "Clicking it (when enabled) selects startYear-1 and re-derives schedule-cycle-filter/schedule-module-filter",
+        "Discards any unsaved weekday-select draft for the previously selected módulo"
+      ]
+    },
+    {
+      "elementId": "schedule-academic-year-filter-value",
+      "behavior": "Read-only label between the two arrows, showing the selected school year as \"startYear-startYear+1\".",
+      "businessRules": [
+        "Defaults to the current school year (month ≥ 9 → current calendar year, else current calendar year − 1) if the teacher has that academic_years row; otherwise no default selection"
+      ],
+      "dataNeeds": [
+        "academic_years"
+      ],
+      "acceptanceCriteria": [
+        "On load, shows the current school year if the teacher has it, formatted as e.g. \"2026-2027\"",
+        "Updates when either arrow changes the selected year"
+      ]
+    },
+    {
+      "elementId": "schedule-academic-year-filter-next",
+      "behavior": "Simulated carousel arrow — moves the selected school year one forward, same calculation as Calendario's academic-year-filter-next (up to currentSchoolYearStartYear + 5, no data requirement forward).",
+      "businessRules": [
+        "Disabled once the selected year reaches currentSchoolYearStartYear + 5"
+      ],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "Is disabled once the forward limit (current + 5) is reached",
+        "Clicking it (when enabled) selects startYear+1 and re-derives schedule-cycle-filter/schedule-module-filter",
+        "Discards any unsaved weekday-select draft for the previously selected módulo"
+      ]
+    },
+    {
+      "elementId": "schedule-cycle-filter",
+      "behavior": "Lists the cycles the signed-in teacher teaches in the selected school year, same derivation as Calendario's cycle-filter (from academic_year_modules joined to catalog_modules). First one selected by default.",
+      "businessRules": [
+        "Empty/disabled when the selected year has no academic_years row for this teacher, or has one with no módulos assigned"
+      ],
+      "dataNeeds": [
+        "academic_year_modules",
+        "catalog_modules"
+      ],
+      "acceptanceCriteria": [
+        "Lists only cycles the teacher teaches in the selected school year",
+        "First cycle is selected by default when the list is non-empty",
+        "Is empty/disabled when the selected year has no cycles for this teacher",
+        "Changing it re-derives schedule-module-filter and reloads the weekday grid"
+      ]
+    },
+    {
+      "elementId": "schedule-module-filter",
+      "behavior": "Lists the módulos of the selected cycle within the selected school year, same derivation as Calendario's module-filter. First one selected by default.",
+      "businessRules": [
+        "Empty/disabled when no cycle is selected, or the selected cycle has no módulos in this school year",
+        "Selecting a módulo loads its academic_year_module_schedules rows into the 5 weekday selects (blank/\"Sin clase\" where no row exists for that weekday)"
+      ],
+      "dataNeeds": [
+        "academic_year_modules",
+        "catalog_modules",
+        "academic_year_module_schedules"
+      ],
+      "acceptanceCriteria": [
+        "Lists only módulos of the selected cycle within the selected school year",
+        "First módulo is selected by default when the list is non-empty",
+        "Selecting a módulo loads its saved weekday hours (or blank for weekdays with no row) into the grid",
+        "Discards any unsaved draft for the previously selected módulo"
+      ]
+    },
+    {
+      "elementId": "schedule-empty-state",
+      "behavior": "Prompt shown instead of the weekday grid and schedule-save-button when no módulo is selected.",
+      "businessRules": [
+        "Visible exactly when schedule-module-filter has no selection (empty school year or empty cycle)"
+      ],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "Is shown when the selected school year has no cycles, or the selected cycle has no módulos",
+        "Is not shown once a módulo is selected"
+      ]
+    },
+    {
+      "elementId": "schedule-monday-select",
+      "behavior": "Combobox for Monday's weekly hours for the selected academic_year_module_id: blank (\"Sin clase\"), 1, 2 or 3.",
+      "businessRules": [
+        "Hidden while no módulo is selected (schedule-empty-state shown instead)",
+        "Changing it only updates the local, in-progress draft — no request until schedule-save-button is clicked",
+        "Values outside 1-3 are not offered — the only options are blank, 1, 2, 3"
+      ],
+      "dataNeeds": [
+        "academic_year_module_schedules"
+      ],
+      "acceptanceCriteria": [
+        "Is hidden while no módulo is selected",
+        "Offers exactly 4 options: blank/\"Sin clase\", 1, 2, 3",
+        "On load, reflects the saved value for Monday, or blank if no row exists for weekday=1",
+        "Changing it does not send a request by itself"
+      ]
+    },
+    {
+      "elementId": "schedule-tuesday-select",
+      "behavior": "Combobox for Tuesday's weekly hours for the selected academic_year_module_id: blank (\"Sin clase\"), 1, 2 or 3.",
+      "businessRules": [
+        "Hidden while no módulo is selected (schedule-empty-state shown instead)",
+        "Changing it only updates the local, in-progress draft — no request until schedule-save-button is clicked",
+        "Values outside 1-3 are not offered — the only options are blank, 1, 2, 3"
+      ],
+      "dataNeeds": [
+        "academic_year_module_schedules"
+      ],
+      "acceptanceCriteria": [
+        "Is hidden while no módulo is selected",
+        "Offers exactly 4 options: blank/\"Sin clase\", 1, 2, 3",
+        "On load, reflects the saved value for Tuesday, or blank if no row exists for weekday=2",
+        "Changing it does not send a request by itself"
+      ]
+    },
+    {
+      "elementId": "schedule-wednesday-select",
+      "behavior": "Combobox for Wednesday's weekly hours for the selected academic_year_module_id: blank (\"Sin clase\"), 1, 2 or 3.",
+      "businessRules": [
+        "Hidden while no módulo is selected (schedule-empty-state shown instead)",
+        "Changing it only updates the local, in-progress draft — no request until schedule-save-button is clicked",
+        "Values outside 1-3 are not offered — the only options are blank, 1, 2, 3"
+      ],
+      "dataNeeds": [
+        "academic_year_module_schedules"
+      ],
+      "acceptanceCriteria": [
+        "Is hidden while no módulo is selected",
+        "Offers exactly 4 options: blank/\"Sin clase\", 1, 2, 3",
+        "On load, reflects the saved value for Wednesday, or blank if no row exists for weekday=3",
+        "Changing it does not send a request by itself"
+      ]
+    },
+    {
+      "elementId": "schedule-thursday-select",
+      "behavior": "Combobox for Thursday's weekly hours for the selected academic_year_module_id: blank (\"Sin clase\"), 1, 2 or 3.",
+      "businessRules": [
+        "Hidden while no módulo is selected (schedule-empty-state shown instead)",
+        "Changing it only updates the local, in-progress draft — no request until schedule-save-button is clicked",
+        "Values outside 1-3 are not offered — the only options are blank, 1, 2, 3"
+      ],
+      "dataNeeds": [
+        "academic_year_module_schedules"
+      ],
+      "acceptanceCriteria": [
+        "Is hidden while no módulo is selected",
+        "Offers exactly 4 options: blank/\"Sin clase\", 1, 2, 3",
+        "On load, reflects the saved value for Thursday, or blank if no row exists for weekday=4",
+        "Changing it does not send a request by itself"
+      ]
+    },
+    {
+      "elementId": "schedule-friday-select",
+      "behavior": "Combobox for Friday's weekly hours for the selected academic_year_module_id: blank (\"Sin clase\"), 1, 2 or 3.",
+      "businessRules": [
+        "Hidden while no módulo is selected (schedule-empty-state shown instead)",
+        "Changing it only updates the local, in-progress draft — no request until schedule-save-button is clicked",
+        "Values outside 1-3 are not offered — the only options are blank, 1, 2, 3"
+      ],
+      "dataNeeds": [
+        "academic_year_module_schedules"
+      ],
+      "acceptanceCriteria": [
+        "Is hidden while no módulo is selected",
+        "Offers exactly 4 options: blank/\"Sin clase\", 1, 2, 3",
+        "On load, reflects the saved value for Friday, or blank if no row exists for weekday=5",
+        "Changing it does not send a request by itself"
+      ]
+    },
+    {
+      "elementId": "schedule-save-button",
+      "behavior": "Commits the 5 weekday selects' current draft values in one request for the selected academic_year_module_id: upserts a row per weekday with a value 1-3, deletes any existing row for a weekday now left blank.",
+      "businessRules": [
+        "Hidden while no módulo is selected",
+        "Disabled and showing a loading state while the request is in flight",
+        "On success: schedule-save-message shows a success state",
+        "On failure: schedule-save-message shows an error state"
+      ],
+      "dataNeeds": [
+        "academic_year_module_schedules"
+      ],
+      "acceptanceCriteria": [
+        "Is hidden while no módulo is selected",
+        "Clicking it sends exactly one request with all 5 weekdays' current draft values",
+        "A weekday left blank in the draft has no academic_year_module_schedules row after a successful save",
+        "A weekday set to 1/2/3 has exactly that value persisted after a successful save",
+        "Shows a loading state and is disabled from click until the response arrives",
+        "schedule-save-message shows success after a successful response",
+        "schedule-save-message shows an error after a failed response"
+      ]
+    },
+    {
+      "elementId": "schedule-save-message",
+      "behavior": "Hidden by default; shows the outcome of the last schedule-save-button attempt. Hides again as soon as any filter or weekday select changes.",
+      "businessRules": [
+        "Not visible on first load or before any save attempt",
+        "Hides once the selected filters or draft change after a save, so it never shows a stale result"
+      ],
+      "dataNeeds": [],
+      "acceptanceCriteria": [
+        "Is not visible on first load",
+        "Is not visible immediately after changing school year, cycle or módulo"
+      ]
     }
   ],
   "globalRules": [
@@ -395,6 +637,10 @@
     "Año académico (app-academic-year-settings-view) has a real backend as of 2026-08-05: academic_years and academic_year_modules (see their elementSpecs). academic_years rows are scoped per teacher (teacher_id FK, start_year unique within teacher_id); academic_year_modules rows reference catalog_modules — a cycle/módulo can only be assigned to a year if it already exists in the shared Ciclos/Módulos catalog, this screen creates none of its own",
     "Deleting an academic_years row is blocked at the application level (not a DB constraint) while it still has academic_year_modules rows — 409 HAS_DEPENDENTS, surfaced via academic-year-toast",
     "A duplicate academic_years.start_year for the same teacher is rejected — 409 DUPLICATE_NAME, surfaced via academic-year-toast",
-    "academic-year-toast is a new, reusable Web Component (not scoped to this view) — any future view needing a transient, auto-dismissing notification can reuse it instead of building another one"
+    "academic-year-toast is a new, reusable Web Component (not scoped to this view) — any future view needing a transient, auto-dismissing notification can reuse it instead of building another one",
+    "Horario (app-schedule-settings-view, new 2026-08-11) is per academic_year_module, not per academic_years — a teacher with several módulos in the same year has one independent weekly schedule per módulo, each with its own academic_year_module_id row set in the new academic_year_module_schedules table",
+    "academic_year_module_schedules: id, academic_year_module_id (FK academic_year_modules, ON DELETE CASCADE), weekday (1-5, Monday=1), hours (1-3), unique within (academic_year_module_id, weekday). A weekday with no row means \"no class that day\" — 0 is never stored",
+    "The 3-level filter bar on Horario (Año/Ciclo/Módulo) reuses Calendario's exact cascading derivation and current-school-year default logic, prefixed schedule-* to stay unique within this view's elementIds",
+    "The weekday grid is a client-side draft committed only by schedule-save-button (one PUT for all 5 weekdays) — unlike Ciclos/Módulos and Año académico's immediate-persist edits, this view's grid follows the same draft-until-saved shape as module-selection-save-button"
   ]
 }

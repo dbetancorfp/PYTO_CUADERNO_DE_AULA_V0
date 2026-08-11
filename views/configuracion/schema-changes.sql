@@ -72,3 +72,26 @@ CREATE INDEX IF NOT EXISTS academic_year_modules_academic_year_id_idx
 
 CREATE INDEX IF NOT EXISTS academic_year_modules_catalog_module_id_idx
   ON academic_year_modules (catalog_module_id);
+
+-- views/configuracion — Horario section (2026-08-11)
+--
+-- Weekly Mon-Fri hours grid per academic_year_module — a teacher with several módulos in
+-- the same academic year has one independent schedule per módulo, not one per academic
+-- year. Absence of a row for a given weekday means "no class that day"; 0 is never stored
+-- (see use-cases.md UC-10/UC-11).
+
+CREATE TABLE IF NOT EXISTS academic_year_module_schedules (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  -- ON DELETE CASCADE: deleting the módulo assignment (or the academic year it cascades
+  -- from) removes its schedule with it — no application-level dependency block needed here,
+  -- unlike academic_years' own deletion (see UC-06's blocked-delete case).
+  academic_year_module_id UUID NOT NULL REFERENCES academic_year_modules(id) ON DELETE CASCADE,
+  -- 1 = Monday ... 5 = Friday, Spanish school-week convention (no Saturday/Sunday row).
+  weekday SMALLINT NOT NULL CHECK (weekday BETWEEN 1 AND 5),
+  hours SMALLINT NOT NULL CHECK (hours BETWEEN 1 AND 3),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (academic_year_module_id, weekday)
+);
+
+CREATE INDEX IF NOT EXISTS academic_year_module_schedules_module_id_idx
+  ON academic_year_module_schedules (academic_year_module_id);
