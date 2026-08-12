@@ -113,8 +113,10 @@ módulo) simply has no `evaluationNumber: 3` entry, not a `workingDays: 0` one. 
 
 **Description**: Returns a módulo's `calendario_horario` snapshot (see
 `views/calendario/description_calendario.md`'s "Horario" section, UC-13) — one row per
-real, laborable school-year date whose weekday has an hours value in the module's saved
-Horario schedule. The data source for `calendario-months`'s ring overlay,
+real, laborable date within that módulo's own `[Inicio curso, Fin de curso]` teaching
+period (2026-08-12 bugfix: not a fixed 1 September–30 June window — see UC-12) whose
+weekday has an hours value in the module's saved Horario schedule. The data source for
+`calendario-months`'s ring overlay,
 `calendario-legend`'s extra "Horario" item, and `calendario-day-tooltip`'s extra line.
 **Allowed roles**: authenticated teacher, only for an `academic_year_module_id` belonging
 to one of their own `academic_years` — same ownership check as `GET
@@ -198,8 +200,10 @@ codes.
 `views/configuracion/api-contracts.md`'s "Horario" section (request/response shapes,
 existing 400/404 errors — all unchanged). After persisting the weekly schedule, regenerates
 `calendario_horario` for this `academic_year_module_id` in full (delete every existing row,
-then insert one row per real, laborable school-year date matching the just-saved weekday
-pattern — see UC-12's Main flow for the exact algorithm). Purely additive to the response
+then insert one row per real, laborable date within `[Inicio curso, Fin de curso]` matching
+the just-saved weekday pattern — see UC-12's Main flow for the exact algorithm, including
+the 2026-08-12 bugfix that replaced an incorrect fixed 1 September–30 June window). Purely
+additive to the response
 shape (`{ schedule }`, unchanged); the regeneration itself never fails the request — no new
 error codes. `academic_year_modules(id) ON DELETE CASCADE` also covers
 `calendario_horario.academic_year_module_id` (see `views/calendario/schema-changes.sql`),

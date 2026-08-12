@@ -1,3 +1,66 @@
+# Review Report — calendario — 2026-08-12 (bugfix: calendario_horario date range)
+
+## Result: PASS ✅
+
+**User-reported bug**: horario rings were showing on every Sept 1–June 30 weekday matching
+the schedule, not bounded to the módulo's actual teaching period. Root cause: UC-12's
+original Main flow (2026-08-11 pass, see below) specified a fixed "1 September–30 June"
+walk window instead of the módulo's own `[Inicio curso, Fin de curso]` `academic_key_dates`
+rows (16/09–22/06 for course 1, 16/09–27/05 for course 2, per the real `key_dates` seed) —
+verified against real Postgres: previously generated rows as early as 2026-09-01 (15 days
+before any teaching starts) and, for a course-2 módulo, as late as 2027-06-30 (over a month
+past the real 27/05 end).
+
+**Fix**: `calendario-horario.service.ts`'s `seedForModule` now derives its walk bounds from
+the módulo's own already-seeded `calendario_modulo` rows (`teachingPeriod()`, finds the
+`"Inicio curso: ..."`/`"Fin de curso: ..."` single-day entries UC-06/A2 already produces)
+instead of a fixed calendar window — the `SCHOOL_YEAR_*` constants and `schoolYearDates()`
+helper are removed entirely, not just adjusted. `CalendarioHorarioSeeder.seedForModule` also
+dropped its now-unused `startYear` parameter (the bounds no longer come from the academic
+year row at all) — `AcademicYearModuleScheduleService.saveSchedule`'s ownership-check helper
+reverts from `ownedYear` (added 2026-08-11 solely to thread `startYear` through) back to a
+plain `isOwnedByTeacher` boolean, since nothing needs the year row's fields anymore.
+
+Verified against real Postgres (not just unit tests): a course-1 módulo's schedule now
+generates rows from 2026-09-21 (first Monday on/after 16/09) through 2027-06-21 (last Monday
+on/before 22/06); a course-2 módulo with the same weekly pattern stops at 2027-05-24 (last
+Monday on/before 27/05) — neither before Inicio curso nor after Fin de curso.
+
+`calendario-horario.service.test.ts` rewritten with realistic `Inicio curso`/`Fin de curso`
+fixtures (previously used `moduloEntries: []` throughout, which the corrected algorithm
+would now legitimately treat as "no teaching period known — insert nothing," making every
+old fixture wrong under the fix); added new coverage for the A4 boundary-exclusion case (a
+scheduled weekday whose date falls before `Inicio curso` or after `Fin de curso`) and for the
+"Inicio/Fin curso entries missing" defensive-default path. `calendario-horario.routes.test.ts`
+updated to also seed an "Inicio curso" `key_date` (needed for `calendario_modulo`'s own
+UC-06/A2 split to produce the bounds this fix now depends on) and corrected its hardcoded
+date assertions. `academic-year-module-schedule.service.test.ts` updated for the dropped
+`startYear` parameter.
+
+`bun test src/backend/tests`: 377 pass / 0 fail. `bun test src/frontend/tests`: 313 pass / 0
+fail (frontend untouched by this fix — it only ever renders whatever the API returns).
+`bun run type-check`: 0 errors. Coverage: `calendario-horario.service.ts` 54/54,
+`academic-year-module-schedule.service.ts` 26/26 (both 100%, confirmed via
+`bun test --coverage`).
+
+## Acceptance criteria updated (use-cases.md, UC-12)
+
+- Marked `[x]`: "Saving a schedule with N weekdays set generates exactly one
+  calendario_horario row per laborable date, within [Inicio curso, Fin de curso]..." — now
+  proven by `calendario-horario.service.test.ts`'s rewritten first test, using real Inicio/Fin
+  curso fixtures instead of an unbounded fixed window.
+- Marked `[x]`: "A scheduled weekday's date before Inicio curso or after Fin de curso gets no
+  calendario_horario row (A4)" — new criterion this pass, proven by
+  `calendario-horario.service.test.ts`'s two new tests (`excludes a date before Inicio
+  curso...` / `excludes a date after Fin de curso...`) and reconfirmed against real Postgres
+  in this session's own smoke test.
+- Still unmarked: "Re-saving the same schedule twice never duplicates calendario_horario
+  rows" — unchanged from the 2026-08-11 pass, still no test calls `PUT .../schedule` twice
+  with an identical body (true by construction, per `replaceAll`'s delete-then-reinsert
+  design, but not test-proven per Step 6b's rule).
+
+---
+
 # Review Report — calendario (Horario overlay, UC-12/UC-13) — 2026-08-11
 
 ## Result: PASS ✅

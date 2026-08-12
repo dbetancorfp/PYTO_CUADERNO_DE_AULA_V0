@@ -20,11 +20,13 @@ function currentSchoolYearStartYear(): number {
   return today.getMonth() >= 8 ? today.getFullYear() : today.getFullYear() - 1;
 }
 
-/** First Monday on/after 1 September of `startYear` — same school-year-window walk
- * `calendario-horario.service.ts`'s `schoolYearDates`/`weekdayOf` use server-side, computed
- * here client-side so the spec stays correct whenever it actually runs. */
+/** First Monday on/after this course-1 módulo's real "Inicio curso" date (16 September,
+ * per the real key_dates seed — see calendario-horario.service.ts's `teachingPeriod`,
+ * 2026-08-12 bugfix: the walk range is [Inicio curso, Fin de curso], never a fixed 1
+ * September window). Computed here client-side so the spec stays correct whenever it
+ * actually runs. */
 function firstMondayOfSchoolYear(startYear: number): { year: number; month: number; day: number } {
-  const date = new Date(Date.UTC(startYear, 8, 1)); // 1 September, UTC
+  const date = new Date(Date.UTC(startYear, 8, 16)); // 16 September, UTC — Inicio curso
   while (date.getUTCDay() !== 1) {
     date.setUTCDate(date.getUTCDate() + 1);
   }

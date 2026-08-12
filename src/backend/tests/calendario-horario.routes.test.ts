@@ -109,6 +109,24 @@ beforeAll(async () => {
       type: 'Vacaciones',
     }),
   });
+
+  // calendario_horario's walk range is [Inicio curso, Fin de curso] (2026-08-12 bugfix,
+  // see calendario-horario.service.ts) — this key_date is what UC-06/A2 splits into those
+  // two single-day calendario_modulo rows for a course-1 módulo, same real seed shape
+  // (16/09-22/06) production data has.
+  await fetch(`${baseUrl}/api/key-dates`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: cookie },
+    body: JSON.stringify({
+      category: 'academic_key_dates',
+      name: 'Inicio curso: 1º de Grado Superior de FP.',
+      startDay: 16,
+      startMonth: 9,
+      endDay: 22,
+      endMonth: 6,
+      type: 'Curso escolar',
+    }),
+  });
 });
 
 afterAll(() => {
@@ -172,8 +190,11 @@ describe('elementId: calendario-months, calendario-legend, calendario-day-toolti
     const body = (await response.json()) as { entries: CalendarioHorarioEntryBody[] };
 
     expect(response.status).toBe(200);
-    // 2026-09-07 is the first Monday of the 2026-2027 school year.
-    expect(body.entries).toContainEqual({ date: '2026-09-07', hours: 2 });
+    // 2026-09-21 is the first Monday on/after this módulo's Inicio curso (16/09/2026, a
+    // Wednesday) — never 2026-09-07, which is a Monday but before Inicio curso (2026-08-12
+    // bugfix).
+    expect(body.entries).toContainEqual({ date: '2026-09-21', hours: 2 });
+    expect(body.entries).not.toContainEqual(expect.objectContaining({ date: '2026-09-07' }));
     // 2026-12-28 is a Monday inside the seeded Navidad holiday range — excluded (UC-12/A2).
     expect(body.entries).not.toContainEqual(expect.objectContaining({ date: '2026-12-28' }));
   });

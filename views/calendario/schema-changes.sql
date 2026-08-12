@@ -110,10 +110,12 @@ WHERE cm.category = kd.category
   AND cm.name = kd.name
   AND cm.category != 'final_exams';
 
--- calendario_horario (2026-08-11) — one row per real, laborable school-year date whose
--- weekday has an hours value in academic_year_module_schedules (see
--- views/configuracion/schema-changes.sql), regenerated in full every time Horario's
--- schedule-save-button is clicked (see use-cases.md UC-12). Independent of
+-- calendario_horario (2026-08-11, date range bugfixed 2026-08-12) — one row per real,
+-- laborable date within the module's own [Inicio curso, Fin de curso] teaching period
+-- (course-specific, not a fixed calendar-year window) whose weekday has an hours value in
+-- academic_year_module_schedules (see views/configuracion/schema-changes.sql), regenerated
+-- in full every time Horario's schedule-save-button is clicked (see use-cases.md UC-12).
+-- Independent of
 -- calendario_modulo: a day can have a calendario_horario row with zero calendario_modulo
 -- entries (the common case — most school days have no key_dates entry at all), or both at
 -- once (UC-13/A2). Never a color-table row (UC-11) — an overlay ring on calendario-months,

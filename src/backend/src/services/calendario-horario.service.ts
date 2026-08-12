@@ -8,8 +8,16 @@
 // only — `academic_key_dates` is informational, same exclusion
 // `calendario-modulo.service.ts`'s `NON_WORKING_CATEGORIES` already applies for UC-08/UC-09),
 // not from `key_dates` directly.
+//
+// 2026-08-12 bugfix: the walk range is this módulo's own real teaching period — the
+// single-day `"Inicio curso: <sufijo>."`/`"Fin de curso: <sufijo>."` `academic_key_dates`
+// rows UC-06/A2 already splits into `calendario_modulo` (16/09-22/06 for course 1,
+// 16/09-27/05 for course 2, per the real `key_dates` seed) — never a fixed 1
+// September-30 June window (the original, incorrect implementation this replaced: it both
+// started 15 days too early and, for a course-2 módulo, ran a full month past the real end
+// date).
 import type { CalendarioHorarioEntry, CalendarioHorarioRepository } from '../repositories/calendario-horario.repository';
-import type { CalendarioModuloRepository } from '../repositories/calendario-modulo.repository';
+import type { CalendarioModuloEntry, CalendarioModuloRepository } from '../repositories/calendario-modulo.repository';
 import type { AcademicYearModuleRepository } from '../repositories/academic-year-module.repository';
 import type { AcademicYearRepository } from '../repositories/academic-year.repository';
 import type { AcademicYearModuleScheduleEntry } from '../repositories/academic-year-module-schedule.repository';
@@ -17,9 +25,11 @@ import { isLaborable, type DateRange } from './business-day';
 
 /** Narrow seam `AcademicYearModuleScheduleService` depends on (ISP) — it only ever needs to
  * trigger regeneration, never to read `calendario_horario` back. Mirrors
- * `CalendarioModuloSeeder` (see calendario-modulo.service.ts). */
+ * `CalendarioModuloSeeder` (see calendario-modulo.service.ts). No `startYear` param (removed
+ * 2026-08-12) — the walk range now comes entirely from the módulo's own `calendario_modulo`
+ * Inicio/Fin curso rows, not from the academic year's `startYear`. */
 export interface CalendarioHorarioSeeder {
-  seedForModule(academicYearModuleId: string, startYear: number, scheduleEntries: AcademicYearModuleScheduleEntry[]): Promise<void>;
+  seedForModule(academicYearModuleId: string, scheduleEntries: AcademicYearModuleScheduleEntry[]): Promise<void>;
 }
 
 /** Same categories `calendario-modulo.service.ts`'s `NON_WORKING_CATEGORIES` treats as a
@@ -29,10 +39,8 @@ export interface CalendarioHorarioSeeder {
  * if the category set ever changes. */
 const NON_WORKING_CATEGORIES = new Set(['holidays', 'public_holidays', 'free_disposal_days']);
 
-const SCHOOL_YEAR_START_MONTH = 9; // September
-const SCHOOL_YEAR_START_DAY = 1;
-const SCHOOL_YEAR_END_MONTH = 6; // June
-const SCHOOL_YEAR_END_DAY = 30;
+const INICIO_CURSO_PREFIX = 'Inicio curso:';
+const FIN_CURSO_PREFIX = 'Fin de curso:';
 
 function toIsoDate(year: number, month: number, day: number): string {
   return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -46,17 +54,33 @@ function weekdayOf(date: string): number {
   return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
 }
 
-/** Walks every date from `${startYear}-09-01` to `${startYear + 1}-06-30` inclusive — the
- * same 10-month window `calendario-months` renders (UC-04), never July. */
-function schoolYearDates(startYear: number): string[] {
+function addOneDay(date: string): string {
+  const [year, month, day] = date.split('-').map(Number);
+  const next = new Date(Date.UTC(year, month - 1, day) + 24 * 60 * 60 * 1000);
+  return toIsoDate(next.getUTCFullYear(), next.getUTCMonth() + 1, next.getUTCDate());
+}
+
+/** Walks every date in `[start, end]` inclusive. */
+function datesBetween(start: string, end: string): string[] {
   const dates: string[] = [];
-  let current = new Date(Date.UTC(startYear, SCHOOL_YEAR_START_MONTH - 1, SCHOOL_YEAR_START_DAY));
-  const end = new Date(Date.UTC(startYear + 1, SCHOOL_YEAR_END_MONTH - 1, SCHOOL_YEAR_END_DAY));
-  while (current.getTime() <= end.getTime()) {
-    dates.push(toIsoDate(current.getUTCFullYear(), current.getUTCMonth() + 1, current.getUTCDate()));
-    current = new Date(current.getTime() + 24 * 60 * 60 * 1000);
+  for (let current = start; current <= end; current = addOneDay(current)) {
+    dates.push(current);
   }
   return dates;
+}
+
+/** This módulo's own real teaching-period bounds — the single-day `"Inicio curso: ..."`/
+ * `"Fin de curso: ..."` rows UC-06/A2 already produced in `calendario_modulo` (course-
+ * specific: `calendario_modulo` is already course-filtered at seed time, per UC-06/A1, so
+ * exactly one of each exists for a módulo that has gone through UC-06's seeding). `null`
+ * only if neither has been seeded yet — shouldn't happen for a real, assigned módulo (see
+ * this file's header comment), but `seedForModule` treats it as "nothing to walk" rather
+ * than throwing. */
+function teachingPeriod(moduloEntries: readonly CalendarioModuloEntry[]): DateRange | null {
+  const inicio = moduloEntries.find((entry) => entry.category === 'academic_key_dates' && entry.name.startsWith(INICIO_CURSO_PREFIX));
+  const fin = moduloEntries.find((entry) => entry.category === 'academic_key_dates' && entry.name.startsWith(FIN_CURSO_PREFIX));
+  if (!inicio || !fin) return null;
+  return { startDate: inicio.startDate, endDate: fin.startDate };
 }
 
 export class CalendarioHorarioService implements CalendarioHorarioSeeder {
@@ -68,29 +92,29 @@ export class CalendarioHorarioService implements CalendarioHorarioSeeder {
   ) {}
 
   /** Regenerates `calendario_horario` for this módulo in full (UC-12's Main flow): walks
-   * every real date of the `startYear` school year, and for each one whose weekday has a
-   * matching entry in `scheduleEntries` and that isn't inside a real non-working range
-   * (`calendario_modulo`'s holidays/public_holidays/free_disposal_days rows for this
-   * módulo), includes `{ date, hours }` — always calls `replaceAll`, even with an empty
-   * result, so an all-blank schedule still clears any previously generated rows. */
-  async seedForModule(
-    academicYearModuleId: string,
-    startYear: number,
-    scheduleEntries: AcademicYearModuleScheduleEntry[],
-  ): Promise<void> {
+   * every real date in this módulo's own `[Inicio curso, Fin de curso]` teaching period,
+   * and for each one whose weekday has a matching entry in `scheduleEntries` and that isn't
+   * inside a real non-working range (`calendario_modulo`'s holidays/public_holidays/
+   * free_disposal_days rows for this módulo), includes `{ date, hours }` — always calls
+   * `replaceAll`, even with an empty result, so an all-blank schedule (or a módulo whose
+   * teaching period can't be determined yet) still clears any previously generated rows. */
+  async seedForModule(academicYearModuleId: string, scheduleEntries: AcademicYearModuleScheduleEntry[]): Promise<void> {
     const hoursByWeekday = new Map(scheduleEntries.map((entry) => [entry.weekday, entry.hours]));
 
     const moduloEntries = await this.calendarioModuloRepository.findAllForAcademicYearModule(academicYearModuleId);
+    const period = teachingPeriod(moduloEntries);
     const nonWorkingRanges: DateRange[] = moduloEntries
       .filter((entry) => NON_WORKING_CATEGORIES.has(entry.category))
       .map((entry) => ({ startDate: entry.startDate, endDate: entry.endDate }));
 
     const entries: CalendarioHorarioEntry[] = [];
-    for (const date of schoolYearDates(startYear)) {
-      const hours = hoursByWeekday.get(weekdayOf(date));
-      if (hours === undefined) continue;
-      if (!isLaborable(date, nonWorkingRanges)) continue;
-      entries.push({ date, hours });
+    if (period) {
+      for (const date of datesBetween(period.startDate, period.endDate)) {
+        const hours = hoursByWeekday.get(weekdayOf(date));
+        if (hours === undefined) continue;
+        if (!isLaborable(date, nonWorkingRanges)) continue;
+        entries.push({ date, hours });
+      }
     }
 
     await this.calendarioHorarioRepository.replaceAll(academicYearModuleId, entries);
