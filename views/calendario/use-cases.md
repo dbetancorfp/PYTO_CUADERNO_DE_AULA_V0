@@ -596,25 +596,34 @@ a flat 2-hour discount per evaluación for the day spent on its own resit exam:
 3. The third evaluación's period (if the módulo's course has one, A1) starts the day after
    the second evaluación's "Examen final." date and ends the day before the third's.
 4. For each period, sum every `calendario_horario` row's `hours` whose `date` falls inside
-   it, then subtract 2 (the day given over to that evaluación's own resit exam, which
-   falls inside the same period, before its "Examen final.") — floored at 0, never
-   negative.
+   it — for evaluación 2 only, then subtract 2 (the day given over to that evaluación's own
+   resit exam, which falls inside the same period, before its "Examen final."), floored at
+   0, never negative; 1ª and 3ª (when the module's course has one) keep their full sum,
+   undiscounted (2026-08-12 correction, see below).
 5. Same replace-not-insert semantics as `final_exams`' 2026-08-12 revision — a changed
    weekly schedule can change every evaluación's hour count, not just add new rows.
 6. If the teacher's saved schedule is entirely blank (`calendario_horario` empty for this
    módulo), there's nothing to sum — falls back to the original day-count formula (steps
    3-4 above), same provisional state as before any Horario was ever saved.
 
-### Acceptance criteria (2026-08-12 addition)
+#### 2026-08-12 correction — the 2-hour discount only ever applies to evaluación 2
+
+User correction, same day as the revision above: the 2-hour resit-day discount was
+originally applied to every evaluación's sum. Corrected: it applies **only to evaluación
+2**, for both course 1 (1ª/2ª/3ª — 1ª and 3ª keep their full, undiscounted sum) and course
+2 (1ª/2ª only — 1ª keeps its full sum). The discount is a fixed property of
+`evaluationNumber === 2`, independent of the módulo's `course`.
+
+### Acceptance criteria (2026-08-12 addition, discount rule corrected same day)
 
 - [x] Once `calendario_horario` has at least one row for a módulo, saving Horario
-      recomputes every evaluación's `working_days` value as an hour-sum-minus-2, replacing
-      (not duplicating) whatever was there before
+      recomputes every evaluación's `working_days` value, replacing (not duplicating)
+      whatever was there before
 - [x] The first evaluación's period starts at `Inicio curso`; each later evaluación's
       period starts the day after the previous evaluación's own "Examen final." date — the
       periods never overlap and never all start from `Inicio curso`
-- [x] Each evaluación's count is exactly `(sum of calendario_horario.hours in its period) -
-      2`, floored at 0
+- [x] Evaluación 2's count is `(sum of calendario_horario.hours in its period) - 2`, floored
+      at 0; evaluación 1's and evaluación 3's counts are the full, undiscounted sum
 - [x] Saving an all-blank schedule (empty `calendario_horario`) falls back to the original
       day-count formula, same as before any Horario was ever saved
 

@@ -1,3 +1,41 @@
+# Review Report — calendario — 2026-08-12 (correction: 2-hour discount only on evaluación 2)
+
+## Result: PASS ✅
+
+**User correction**, same day as the hour-sum revision below: the 2-hour resit-day
+discount was being applied to every evaluación's hour-sum. Corrected: it applies only to
+evaluación 2 — 1ª and 3ª (course 1) / 1ª (course 2) keep their full, undiscounted sum. The
+rule is keyed purely to `evaluationNumber === 2`, independent of `course`.
+
+**Fix**: one-line change in `computeEvaluationWorkingDaysEntries` —
+`const discount = evaluationNumber === 2 ? RECOVERY_DAY_HOURS_DISCOUNT : 0;`, applied
+inside the existing `useHorario` branch only (the pre-Horario provisional/day-count branch
+never had a discount concept and is untouched). Updated the two existing tests that
+assumed a universal discount (`calendario-modulo.service.test.ts`'s "hour-sum-minus-2"
+test rewritten to prove 1ª/3ª undiscounted and 2ª discounted-and-floored in one test; the
+incremental-range test's 1ª expectation raised from 20 to 22, its 2ª expectation unchanged
+at 14 since 2ª was already correctly discounted before this fix). `use-cases.md`/
+`api-contracts.md` UC-09 wording updated to state the per-evaluación rule explicitly.
+
+Verified against real Postgres: re-saved the same real module's weekly schedule (Mon 1h/
+Tue 2h/Thu 2h) after the fix — `working_days` moved from 48/40/55 to **50/40/57** (1ª and
+3ª each gained back their 2-hour discount, 2ª unchanged), hand-confirmed 1ª's new value
+(50) equals the raw `SUM(hours) FROM calendario_horario` for its own period exactly, no
+subtraction.
+
+`bun test src/backend` + `src/frontend`: 702 pass / 0 fail combined. `bun run type-check`:
+0 errors. `bun run e2e` (full suite, real Postgres, real server): **37/37 specs, 84/84
+tests passing**, dev Postgres left with zero test debris.
+
+## Acceptance criteria updated (use-cases.md, UC-09)
+
+- Reworded the three affected 2026-08-12-addition criteria (was: "each evaluación's count
+  is `sum - 2`, floored at 0"; now: "evaluación 2's count is `sum - 2`, floored at 0;
+  evaluación 1's and 3's counts are the full, undiscounted sum") — still `[x]`, proven by
+  the rewritten `calendario-modulo.service.test.ts` test and the real-Postgres check above.
+
+---
+
 # Review Report — calendario — 2026-08-12 (UC-08/UC-09 revision: horario-aware final_exams snapping + hour-sum working days)
 
 ## Result: PASS ✅

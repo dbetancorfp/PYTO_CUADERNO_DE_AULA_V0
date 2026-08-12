@@ -741,8 +741,20 @@ describe('elementId: calendario-months, calendario-legend, calendario-day-toolti
     });
   });
 
-  it('sums horario hours between "Inicio curso" and the day before "Examen final", minus the 2-hour recovery-day discount, floored at 0', async () => {
+  it('applies the 2-hour recovery-day discount only to evaluación 2 (2026-08-12 correction) — 1ª and 3ª keep their full sum, undiscounted, while 2ª floors at 0 when its own sum is smaller than the discount', async () => {
     const EVALUACION_1 = moduloEntry({ id: 'cm-eval-1', startDate: '2026-10-15', endDate: '2026-10-15' });
+    const EVALUACION_2 = moduloEntry({
+      id: 'cm-eval-2',
+      name: '2ª Evaluación (1º) - Último día para poner notas.',
+      startDate: '2027-02-17',
+      endDate: '2027-02-17',
+    });
+    const EVALUACION_3 = moduloEntry({
+      id: 'cm-eval-3',
+      name: '3ª Evaluación (1º) - Último día para poner notas.',
+      startDate: '2027-06-10',
+      endDate: '2027-06-10',
+    });
     const inicioCloseToFinal = moduloEntry({
       id: 'cm-inicio-2',
       category: 'academic_key_dates',
@@ -750,25 +762,36 @@ describe('elementId: calendario-months, calendario-legend, calendario-day-toolti
       startDate: '2026-10-05',
       endDate: '2026-10-05',
     });
-    const deps = fakeDeps({ entries: [inicioCloseToFinal, EVALUACION_1] });
+    const deps = fakeDeps({ entries: [inicioCloseToFinal, EVALUACION_1, EVALUACION_2, EVALUACION_3] });
     const service = makeService(deps);
 
-    // Plain final = 2026-10-07 (Wed), retake = 2026-10-13 (Tue) — both already horario
-    // days here (anchored below), so no snapping drift. Only one horario hour falls
-    // inside [2026-10-05, 2026-10-07) — 1 - 2 = -1, floored to 0.
+    // Plain eval-1 final = 2026-10-07 (Wed), retake = 2026-10-13 (Tue); plain eval-2 final
+    // = 2027-02-09 (Tue), retake = 2027-02-15 (Mon); plain eval-3 final = 2027-06-02 (Wed),
+    // retake = 2027-06-08 (Tue) — all six already horario days here (anchored below), so
+    // no snapping drift. 5 horario hours fall inside eval 1's own range [2026-10-05,
+    // 2026-10-07) — no discount applies to evaluación 1, so its sum stays 5. Only 1
+    // horario hour (eval 1's own retake, 2026-10-13) falls inside eval 2's own range
+    // [2026-10-08, 2027-02-09) — 1 - 2 = -1, floored to 0. Eval 2's own retake anchor
+    // (2027-02-15, 2h) plus another 4 horario hours fall inside eval 3's own range
+    // [2027-02-10, 2027-06-02) — no discount applies to evaluación 3 either, so its sum
+    // stays the full 6.
     const horarioEntries = horario([
-      ['2026-10-06', 1],
-      ['2026-10-07', 2],
-      ['2026-10-13', 2],
+      ['2026-10-06', 5],
+      ['2026-10-07', 3],
+      ['2026-10-13', 1],
+      ['2027-02-09', 2],
+      ['2027-02-15', 2],
+      ['2027-05-03', 4],
+      ['2027-06-02', 2],
+      ['2027-06-08', 2],
     ]);
 
     await service.recomputeForModule('am1', horarioEntries);
 
-    expect(deps.replaceWorkingDaysCalls[0]!.entries).toContainEqual({
-      academicYearModuleId: 'am1',
-      evaluationNumber: 1,
-      workingDays: 0,
-    });
+    const workingDays = deps.replaceWorkingDaysCalls[0]!.entries;
+    expect(workingDays).toContainEqual({ academicYearModuleId: 'am1', evaluationNumber: 1, workingDays: 5 });
+    expect(workingDays).toContainEqual({ academicYearModuleId: 'am1', evaluationNumber: 2, workingDays: 0 });
+    expect(workingDays).toContainEqual({ academicYearModuleId: 'am1', evaluationNumber: 3, workingDays: 6 });
   });
 
   it('counts evaluación 2´s hours incrementally from the day after evaluación 1´s "Examen final", not cumulatively from "Inicio curso" again', async () => {
@@ -787,8 +810,9 @@ describe('elementId: calendario-months, calendario-legend, calendario-day-toolti
     //   eval 1 final = 2026-10-07, retake = 2026-10-13
     //   eval 2 final = 2027-02-09, retake = 2027-02-15
     // A large chunk of hours sits entirely before eval 1's own final (2026-09-16 to
-    // 2026-09-30, 11 weekdays × 2h = 22h) — if eval 2's range were still (incorrectly)
-    // counted from "Inicio curso", those 22h would leak into its total too. A small,
+    // 2026-09-30, 11 weekdays × 2h = 22h, undiscounted per the 2026-08-12 correction —
+    // only evaluación 2 loses the recovery-day discount) — if eval 2's range were still
+    // (incorrectly) counted from "Inicio curso", those 22h would leak into its total too. A small,
     // distinct chunk (2027-02-01 to 2027-02-05, 5 weekdays × 3h = 15h) plus eval 1's own
     // retake anchor (2026-10-13, 1h — it falls after eval 1's final and before eval 2's
     // final, so it's legitimately inside eval 2's own incremental range) sit inside eval
@@ -804,7 +828,7 @@ describe('elementId: calendario-months, calendario-legend, calendario-day-toolti
     await service.recomputeForModule('am1', horarioEntries);
 
     const workingDays = deps.replaceWorkingDaysCalls[0]!.entries;
-    expect(workingDays).toContainEqual({ academicYearModuleId: 'am1', evaluationNumber: 1, workingDays: 20 });
+    expect(workingDays).toContainEqual({ academicYearModuleId: 'am1', evaluationNumber: 1, workingDays: 22 });
     expect(workingDays).toContainEqual({ academicYearModuleId: 'am1', evaluationNumber: 2, workingDays: 14 });
   });
 

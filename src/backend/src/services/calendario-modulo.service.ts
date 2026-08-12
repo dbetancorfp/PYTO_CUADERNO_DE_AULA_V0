@@ -208,8 +208,9 @@ function finalExamNameFor(evaluationNumber: 1 | 2 | 3, course: 1 | 2): string | 
  * passes one): `workingDays` becomes an hour-sum instead — each evaluación gets its own
  * non-overlapping period (the first starts at course-start; each later one starts the day
  * *after* the previous evaluación's own "Examen final.", never back at course-start again),
- * summed from `calendario_horario` and discounted by `RECOVERY_DAY_HOURS_DISCOUNT`, floored
- * at 0. */
+ * summed from `calendario_horario` and, for evaluación 2 only (2026-08-12 correction — 1ª
+ * and 3ª keep their full sum, the recovery day only ever falls within 2ª's own period),
+ * discounted by `RECOVERY_DAY_HOURS_DISCOUNT`, floored at 0. */
 function computeEvaluationWorkingDaysEntries(
   module: Pick<AcademicYearModuleDetail, 'id' | 'course'>,
   moduleEntries: CalendarioModuloInsert[],
@@ -234,8 +235,9 @@ function computeEvaluationWorkingDaysEntries(
     const finalExamEntry = finalExamsEntries.find((entry) => entry.category === 'final_exams' && entry.name === examName);
     if (!finalExamEntry) continue;
 
+    const discount = evaluationNumber === 2 ? RECOVERY_DAY_HOURS_DISCOUNT : 0;
     const workingDays = useHorario
-      ? Math.max(0, sumHorarioHours(incrementalRangeStart, finalExamEntry.startDate, horarioEntries!) - RECOVERY_DAY_HOURS_DISCOUNT)
+      ? Math.max(0, sumHorarioHours(incrementalRangeStart, finalExamEntry.startDate, horarioEntries!) - discount)
       : countLaborableDays(courseStartEntry.startDate, finalExamEntry.startDate, nonWorkingRanges);
 
     workingDaysEntries.push({ academicYearModuleId: module.id, evaluationNumber, workingDays });

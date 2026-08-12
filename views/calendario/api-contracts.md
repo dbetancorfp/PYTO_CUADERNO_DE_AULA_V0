@@ -70,8 +70,10 @@ and `calendario-months`'s per-(category,type) color (UC-11).
 name (unchanged since 2026-08-07, kept to avoid an invasive rename across this table/route/
 element), this is **no longer a day count** as of 2026-08-12: once the módulo has a saved
 Horario schedule, it's the sum of `calendario_horario` hours scheduled in that evaluación's
-own period, minus 2 (the resit-exam day), floored at 0 — see
-`views/calendario/use-cases.md` UC-09's 2026-08-12 revision. Before any Horario is ever
+own period — for evaluación 2 only, minus 2 (the resit-exam day), floored at 0; 1ª and 3ª
+(when the módulo's course has one) keep their full, undiscounted sum (2026-08-12 same-day
+correction) — see `views/calendario/use-cases.md` UC-09's 2026-08-12 revision. Before any
+Horario is ever
 saved for the módulo, it's still the original count of working days between course start
 ("Inicio curso: 1º de Grado Superior de FP." or "Inicio curso: 2º de Grado Superior de
 FP.", whichever matches the módulo's own `course`) and each evaluación's "Examen final"
@@ -216,6 +218,7 @@ error codes. `academic_year_modules(id) ON DELETE CASCADE` also covers
 same as `DELETE /api/academic-year-modules/:id` above already does for `calendario_modulo`.
 **2026-08-12**: also recomputes and replaces this módulo's `final_exams` rows (UC-08's
 2026-08-12 revision, snapped to a `calendario_horario` date) and its
-`calendario_evaluation_working_days` rows (UC-09's 2026-08-12 revision, an hour-sum minus 2
-per evaluación instead of a day-count) — same request, same "no new error codes" guarantee.
+`calendario_evaluation_working_days` rows (UC-09's 2026-08-12 revision, an hour-sum instead
+of a day-count, minus 2 for evaluación 2 only — same-day correction) — same request, same
+"no new error codes" guarantee.
 **Elements**: `schedule-save-button` (`views/configuracion/`)
