@@ -61,4 +61,17 @@ export class PgCalendarioModuloRepository implements CalendarioModuloRepository 
       `;
     }
   }
+
+  async replaceFinalExamsForModule(academicYearModuleId: string, entries: CalendarioModuloInsert[]): Promise<void> {
+    await this.sql`
+      DELETE FROM calendario_modulo
+      WHERE academic_year_module_id = ${academicYearModuleId} AND category = 'final_exams'
+    `;
+    for (const entry of entries) {
+      await this.sql`
+        INSERT INTO calendario_modulo (academic_year_module_id, category, name, start_date, end_date, type)
+        VALUES (${entry.academicYearModuleId}, ${entry.category}, ${entry.name}, ${entry.startDate}, ${entry.endDate}, ${entry.type})
+      `;
+    }
+  }
 }

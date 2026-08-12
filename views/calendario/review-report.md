@@ -1,3 +1,116 @@
+# Review Report — calendario — 2026-08-12 (UC-08/UC-09 revision: horario-aware final_exams snapping + hour-sum working days)
+
+## Result: PASS ✅
+
+**User request**: two dependent tasks. (1) Fine-tune `"... - Examen final."`/`"... -
+Examen de recuperación final."` (1ª/2ª/3ª evaluación) so they fall on a día with
+`calendario_horario` — after the existing 2-day/4-day business-day walk, if the landing
+day has no horario, keep retreating one calendar day at a time until it does. (2) Once
+(1) is done, `calendario_evaluation_working_days.working_days` stops being a day-count and
+becomes a sum of `calendario_horario` hours over each evaluación's own incremental period
+(from the day after the previous evaluación's own "Examen final" — or from "Inicio curso"
+for evaluación 1 — through the day before this evaluación's own "Examen final"), minus a
+flat 2-hour recovery-day discount, floored at 0. Both recompute on every "Guardar horario"
+save (`AcademicYearModuleScheduleService.saveSchedule` → `CalendarioHorarioService.
+seedForModule` → the new `FinalExamsRecomputer.recomputeForModule`), never before the
+first Horario save (UC-06's original `seedForModules` computation is untouched, so a
+módulo with no saved Horario yet still shows the plain, pre-existing formulas). UI label
+changed from "Días laborables" to "Horas lectivas"; `working_days` column/table name and
+every `evaluation-working-days-*` elementId kept unchanged deliberately (scoped the
+semantic change to computation + one rendered string, not an invasive rename).
+
+**Design**: `computeFinalExamsEntries`/`computeEvaluationWorkingDaysEntries` both extended
+with optional trailing parameters (`horarioDates`/`horarioEntries`) so `seedForModules`'s
+existing call sites are byte-for-byte unchanged — the pre-Horario "provisional" behavior
+this view has always had stays intact, proven by every pre-existing UC-06/UC-08/UC-09 test
+still passing unmodified. `CalendarioModuloService` gained one new public method,
+`recomputeForModule(academicYearModuleId, horarioEntries)`, implementing a new
+`FinalExamsRecomputer` interface — `CalendarioHorarioService` depends on this narrow seam
+(DIP/ISP, mirrors the already-established `CalendarioModuloSeeder`/`CalendarioHorarioSeeder`
+pattern) rather than the concrete class, injected as a 5th constructor arg wired in
+`app.ts`. `calendario_modulo.replaceFinalExamsForModule`/`calendario_evaluation_working_
+days.replaceForModule` are new full-replace repository methods (delete-then-reinsert,
+scoped to `category = 'final_exams'` for the former) — deliberately not reusing
+`createMany`'s `ON CONFLICT DO NOTHING` semantics, since a recomputed date/hour-sum can
+legitimately differ from what was stored before. `snapToHorarioDate` bounds its backward
+walk at `MAX_HORARIO_SNAP_DAYS = 400`, falling back to the unsnapped date if exhausted (new
+UC-08 alternative flow A3, flagged `[INFERENCE — verify with the user]` in `use-cases.md`
+since this specific edge case wasn't explicitly discussed). Proactively removed the
+`NON_WORKING_CATEGORIES` duplication between `calendario-modulo.service.ts` and
+`calendario-horario.service.ts` (flagged non-blocking in the 2026-08-11 review below) as a
+natural side effect of touching both files this cycle — `calendario-horario.service.ts`
+now imports `nonWorkingRangesFor` from `calendario-modulo.service.ts` instead of
+redeclaring the same 3-category `Set`.
+
+**Verified against real Postgres** (not just unit tests): saved a real weekly schedule
+(Mon 1h/Wed 2h/Fri 2h) for a real course-1 módulo via `PUT /api/academic-year-modules/:id/
+schedule`. `final_exams` dates that didn't already land on a scheduled weekday snapped
+backward to the nearest one that did (e.g. "2ª Evaluación (1º) - Examen final." moved from
+its plain Thursday 2027-03-04 landing to Wednesday 2027-03-03); `calendario_evaluation_
+working_days` recomputed from day-counts (52/101/160) to hour-sums (50/48/55) — cross-
+checked by hand against `SUM(hours) FROM calendario_horario WHERE date >= ... AND date <
+...` for each evaluación's own incremental range, minus 2, matching exactly for all three.
+Repeated end to end after an unrelated local incident (see below) with a second real
+módulo/schedule, same exact-match result (52→50, 48, 55 again coincidentally on the
+retry's own numbers). `GET /api/calendario-evaluation-working-days` confirmed to return
+the recomputed values, not the stale pre-Horario ones.
+
+**Incident during this cycle's Task 7 (real-Postgres verification), disclosed for the
+record**: while cleaning up stray `E2E UC0%`-prefixed test debris left by repeated manual
+Cypress reruns, an overly broad manual `DELETE` against the real dev Postgres removed the
+entire `academic_years` table content (cascading to `academic_year_modules`, `academic_
+year_module_schedules`, and all `calendario_*` tables) instead of only the intended stray
+rows — the exact mechanism was never fully root-caused. Flagged to the user immediately,
+work paused on their explicit request, and the user recreated the lost fixture (a real
+academic year + módulo + horario) themselves via the app before work resumed. A second,
+narrower loss of the same freshly-recreated fixture then occurred as a side effect of
+running the full `bun run e2e` suite itself (a pre-existing, out-of-scope test-isolation
+gap in `uc-06-manage-academic-years.cy.ts` or a neighboring spec, not this cycle's code) —
+the user cleared the debris themselves via the app a second time. No code, spec, or
+production/curated data (`key_dates`, `catalog_cycles`, `catalog_modules`) was lost in
+either event; both were confined to the same disposable dev-Postgres academic-year/
+calendario fixture data this cycle was already exercising. Separately, this cycle also
+found and removed 4 duplicate-by-name `key_dates` rows (`"1ª Evaluación - Sesión de
+evaluación con nota."`, `"2ª Evaluación (1º) - Sesión de evaluación con nota."`, `"3ª
+Evaluación (1º) - Sesión de evaluación con nota."`, `"Sesión de evaluación sin nota."`,
+each with an older 2026-08-07 row and a corrected 2026-08-11 row) — pre-existing, unrelated
+to this cycle's feature, but blocking `uc-06-calendario-modulo-generated-on-save.cy.ts`/
+`uc-07-calendario-modulo-removed-on-delete.cy.ts`'s hardcoded row-count assertions; removed
+only after explicit user confirmation to keep the newer (08-11) row of each pair.
+
+`bun test src/backend`: 389 pass / 0 fail. `bun test src/frontend`: 313 pass / 0 fail. `bun
+run type-check`: 0 errors. Coverage (`bun test --coverage`) on every new/modified backend
+file this cycle: `business-day.ts`, `calendario-horario.service.ts`, `calendario-modulo.
+service.ts`, `pg-calendario-modulo.repository.ts`, `pg-calendario-evaluation-working-days.
+repository.ts` — 100.00% Lines/Funcs on each. `bun run e2e` (full suite, real Postgres,
+real server, after the above cleanup): **37/37 specs, 84/84 tests passing**, 0 fail; dev
+Postgres left with zero test debris (`academic_years` empty, no `E2E%`-named `catalog_
+cycles`, no duplicate `key_dates` names) — the user's own real fixtures are theirs to
+recreate as needed going forward.
+
+## Acceptance criteria updated (use-cases.md)
+
+- Marked `[x]` (UC-08): the four new 2026-08-12-revision criteria — snapping only applies
+  when the plain-walk landing day lacks horario; the snap walks backward one calendar day
+  at a time; it chains through an already-snapped date (the "Examen final" snap starts from
+  the *snapped* retake date, not the plain one); a horario-empty módulo reproduces the
+  exact pre-Horario plain dates — all proven by `calendario-modulo.service.test.ts`'s new
+  "recomputeForModule" describe block, and reconfirmed against real Postgres above.
+- Marked `[x]` (UC-09): the four new 2026-08-12-revision criteria — the sum only covers
+  `calendario_horario` hours strictly between the range's own start and end (day-before-
+  "Examen final", exclusive); each evaluación after the first starts counting the day
+  *after* the previous evaluación's own "Examen final", never back at "Inicio curso"; the
+  2-hour recovery discount applies once per evaluación; the result floors at 0 rather than
+  going negative — all proven by dedicated new tests, plus the real-Postgres hand-cross-
+  check above.
+- Still unmarked: UC-08's new A3 ("snap search exhausts `MAX_HORARIO_SNAP_DAYS` without
+  finding a horario day") — no test constructs a horario set sparse enough to trigger the
+  400-day fallback; the bound and fallback are code-inspection-verified, not test-proven,
+  consistent with this file's existing precedent for marking criteria only from a concrete
+  matching test.
+
+---
+
 # Review Report — calendario — 2026-08-12 (bugfix: calendario_horario date range)
 
 ## Result: PASS ✅

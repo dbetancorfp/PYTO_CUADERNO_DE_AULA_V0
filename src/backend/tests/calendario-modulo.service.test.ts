@@ -15,6 +15,7 @@ import type {
 import type { KeyDate, KeyDateRepository } from '../src/repositories/key-date.repository';
 import type { AcademicYear, AcademicYearRepository } from '../src/repositories/academic-year.repository';
 import type { AcademicYearModuleDetail, AcademicYearModuleRef, AcademicYearModuleRepository } from '../src/repositories/academic-year-module.repository';
+import type { CalendarioHorarioEntry } from '../src/repositories/calendario-horario.repository';
 
 const TEACHER = 'teacher-1';
 
@@ -52,6 +53,8 @@ interface FakeDeps {
   academicYearRepository: AcademicYearRepository;
   createManyCalls: CalendarioModuloInsert[][];
   workingDaysCreateManyCalls: CalendarioEvaluationWorkingDaysInsert[][];
+  replaceFinalExamsCalls: { academicYearModuleId: string; entries: CalendarioModuloInsert[] }[];
+  replaceWorkingDaysCalls: { academicYearModuleId: string; entries: CalendarioEvaluationWorkingDaysInsert[] }[];
 }
 
 function fakeDeps(overrides: Partial<{
@@ -63,6 +66,8 @@ function fakeDeps(overrides: Partial<{
 }> = {}): FakeDeps {
   const createManyCalls: CalendarioModuloInsert[][] = [];
   const workingDaysCreateManyCalls: CalendarioEvaluationWorkingDaysInsert[][] = [];
+  const replaceFinalExamsCalls: { academicYearModuleId: string; entries: CalendarioModuloInsert[] }[] = [];
+  const replaceWorkingDaysCalls: { academicYearModuleId: string; entries: CalendarioEvaluationWorkingDaysInsert[] }[] = [];
   const moduleRefs = overrides.moduleRefs ?? {};
   const years = overrides.years ?? [];
 
@@ -71,12 +76,18 @@ function fakeDeps(overrides: Partial<{
     createMany: async (entries: CalendarioModuloInsert[]) => {
       createManyCalls.push(entries);
     },
+    replaceFinalExamsForModule: async (academicYearModuleId: string, entries: CalendarioModuloInsert[]) => {
+      replaceFinalExamsCalls.push({ academicYearModuleId, entries });
+    },
   };
 
   const calendarioEvaluationWorkingDaysRepository: CalendarioEvaluationWorkingDaysRepository = {
     findAllForAcademicYearModule: async () => overrides.workingDaysEntries ?? [],
     createMany: async (entries: CalendarioEvaluationWorkingDaysInsert[]) => {
       workingDaysCreateManyCalls.push(entries);
+    },
+    replaceForModule: async (academicYearModuleId: string, entries: CalendarioEvaluationWorkingDaysInsert[]) => {
+      replaceWorkingDaysCalls.push({ academicYearModuleId, entries });
     },
   };
 
@@ -117,6 +128,8 @@ function fakeDeps(overrides: Partial<{
     academicYearRepository,
     createManyCalls,
     workingDaysCreateManyCalls,
+    replaceFinalExamsCalls,
+    replaceWorkingDaysCalls,
   };
 }
 
@@ -638,6 +651,190 @@ describe('elementId: evaluation-working-days-summary (working-days generation �
     await service.seedForModules([makeModule({ id: 'am1', course: 1 })], 2026);
 
     expect(deps.workingDaysCreateManyCalls.flat()).toHaveLength(0);
+  });
+});
+
+describe('elementId: calendario-months, calendario-legend, calendario-day-tooltip (recomputeForModule — UC-08/UC-09 2026-08-12 revision)', () => {
+  function moduloEntry(overrides: Partial<CalendarioModuloEntry> = {}): CalendarioModuloEntry {
+    return {
+      id: 'cm-entry',
+      academicYearModuleId: 'am1',
+      category: 'evaluations',
+      name: '1ª Evaluación - Último día para poner notas.',
+      startDate: '2026-12-11',
+      endDate: '2026-12-11',
+      type: null,
+      ...overrides,
+    };
+  }
+
+  const INICIO_CURSO_1 = moduloEntry({
+    id: 'cm-inicio',
+    category: 'academic_key_dates',
+    name: 'Inicio curso: 1º de Grado Superior de FP.',
+    startDate: '2026-09-16',
+    endDate: '2026-09-16',
+  });
+
+  function horario(dates: [string, number][]): CalendarioHorarioEntry[] {
+    return dates.map(([date, hours]) => ({ date, hours }));
+  }
+
+  it('snaps "Examen de recuperación final"/"Examen final" backward, one day at a time, to the nearest date the módulo actually has horario for', async () => {
+    const EVALUACION_1 = moduloEntry({ id: 'cm-eval-1', startDate: '2026-12-11', endDate: '2026-12-11' });
+    const deps = fakeDeps({ entries: [INICIO_CURSO_1, EVALUACION_1] });
+    const service = makeService(deps);
+
+    // Horario = Mondays only. Plain walk lands retake on Wed 2026-12-09 (not a horario
+    // day) and final (from the plain retake) on Thu 2026-12-03 — both snap back to the
+    // nearest earlier Monday, chained through the already-snapped retake per the user's
+    // exact rule: "Retrocedemos lo acordado ... si no cae en día con horario seguimos
+    // retrocediendo hasta que caiga en día con horario."
+    const horarioEntries = horario([
+      ['2026-11-30', 2],
+      ['2026-12-07', 2],
+      ['2026-12-14', 2],
+      ['2026-12-21', 2],
+      ['2026-12-28', 2],
+    ]);
+
+    await service.recomputeForModule('am1', horarioEntries);
+
+    const finalExams = deps.replaceFinalExamsCalls[0]!.entries;
+    expect(finalExams).toContainEqual({
+      academicYearModuleId: 'am1',
+      category: 'final_exams',
+      name: '1ª Evaluación - Examen de recuperación final.',
+      startDate: '2026-12-07',
+      endDate: '2026-12-07',
+      type: null,
+    });
+    expect(finalExams).toContainEqual({
+      academicYearModuleId: 'am1',
+      category: 'final_exams',
+      name: '1ª Evaluación - Examen final.',
+      startDate: '2026-11-30',
+      endDate: '2026-11-30',
+      type: null,
+    });
+  });
+
+  it('falls back to the plain (unsnapped) business-day dates when horarioEntries is empty', async () => {
+    const EVALUACION_1 = moduloEntry({ id: 'cm-eval-1', startDate: '2026-12-11', endDate: '2026-12-11' });
+    const deps = fakeDeps({ entries: [INICIO_CURSO_1, EVALUACION_1] });
+    const service = makeService(deps);
+
+    await service.recomputeForModule('am1', []);
+
+    const finalExams = deps.replaceFinalExamsCalls[0]!.entries;
+    expect(finalExams).toContainEqual(
+      expect.objectContaining({ name: '1ª Evaluación - Examen de recuperación final.', startDate: '2026-12-09' }),
+    );
+    expect(finalExams).toContainEqual(
+      expect.objectContaining({ name: '1ª Evaluación - Examen final.', startDate: '2026-12-03' }),
+    );
+    // Working-days falls back to the original day-count formula too.
+    expect(deps.replaceWorkingDaysCalls[0]!.entries).toContainEqual({
+      academicYearModuleId: 'am1',
+      evaluationNumber: 1,
+      workingDays: 56,
+    });
+  });
+
+  it('sums horario hours between "Inicio curso" and the day before "Examen final", minus the 2-hour recovery-day discount, floored at 0', async () => {
+    const EVALUACION_1 = moduloEntry({ id: 'cm-eval-1', startDate: '2026-10-15', endDate: '2026-10-15' });
+    const inicioCloseToFinal = moduloEntry({
+      id: 'cm-inicio-2',
+      category: 'academic_key_dates',
+      name: 'Inicio curso: 1º de Grado Superior de FP.',
+      startDate: '2026-10-05',
+      endDate: '2026-10-05',
+    });
+    const deps = fakeDeps({ entries: [inicioCloseToFinal, EVALUACION_1] });
+    const service = makeService(deps);
+
+    // Plain final = 2026-10-07 (Wed), retake = 2026-10-13 (Tue) — both already horario
+    // days here (anchored below), so no snapping drift. Only one horario hour falls
+    // inside [2026-10-05, 2026-10-07) — 1 - 2 = -1, floored to 0.
+    const horarioEntries = horario([
+      ['2026-10-06', 1],
+      ['2026-10-07', 2],
+      ['2026-10-13', 2],
+    ]);
+
+    await service.recomputeForModule('am1', horarioEntries);
+
+    expect(deps.replaceWorkingDaysCalls[0]!.entries).toContainEqual({
+      academicYearModuleId: 'am1',
+      evaluationNumber: 1,
+      workingDays: 0,
+    });
+  });
+
+  it('counts evaluación 2´s hours incrementally from the day after evaluación 1´s "Examen final", not cumulatively from "Inicio curso" again', async () => {
+    const EVALUACION_1 = moduloEntry({ id: 'cm-eval-1', startDate: '2026-10-15', endDate: '2026-10-15' });
+    const EVALUACION_2 = moduloEntry({
+      id: 'cm-eval-2',
+      name: '2ª Evaluación (1º) - Último día para poner notas.',
+      startDate: '2027-02-17',
+      endDate: '2027-02-17',
+    });
+    const deps = fakeDeps({ entries: [INICIO_CURSO_1, EVALUACION_1, EVALUACION_2] });
+    const service = makeService(deps);
+
+    // Anchors pin both evaluaciones' final/recuperación dates exactly on a horario day
+    // (no snap drift), isolating this test to the incremental-range behavior alone:
+    //   eval 1 final = 2026-10-07, retake = 2026-10-13
+    //   eval 2 final = 2027-02-09, retake = 2027-02-15
+    // A large chunk of hours sits entirely before eval 1's own final (2026-09-16 to
+    // 2026-09-30, 11 weekdays × 2h = 22h) — if eval 2's range were still (incorrectly)
+    // counted from "Inicio curso", those 22h would leak into its total too. A small,
+    // distinct chunk (2027-02-01 to 2027-02-05, 5 weekdays × 3h = 15h) plus eval 1's own
+    // retake anchor (2026-10-13, 1h — it falls after eval 1's final and before eval 2's
+    // final, so it's legitimately inside eval 2's own incremental range) sit inside eval
+    // 2's actual [2026-10-08, 2027-02-09) range.
+    const horarioEntries = horario([
+      ['2026-09-16', 2], ['2026-09-17', 2], ['2026-09-18', 2], ['2026-09-21', 2], ['2026-09-22', 2],
+      ['2026-09-23', 2], ['2026-09-24', 2], ['2026-09-25', 2], ['2026-09-28', 2], ['2026-09-29', 2], ['2026-09-30', 2],
+      ['2026-10-07', 2], ['2026-10-13', 1],
+      ['2027-02-01', 3], ['2027-02-02', 3], ['2027-02-03', 3], ['2027-02-04', 3], ['2027-02-05', 3],
+      ['2027-02-09', 2], ['2027-02-15', 2],
+    ]);
+
+    await service.recomputeForModule('am1', horarioEntries);
+
+    const workingDays = deps.replaceWorkingDaysCalls[0]!.entries;
+    expect(workingDays).toContainEqual({ academicYearModuleId: 'am1', evaluationNumber: 1, workingDays: 20 });
+    expect(workingDays).toContainEqual({ academicYearModuleId: 'am1', evaluationNumber: 2, workingDays: 14 });
+  });
+
+  it('replaces, rather than appends to, the existing final_exams and working_days rows for this módulo', async () => {
+    const EVALUACION_1 = moduloEntry({ id: 'cm-eval-1', startDate: '2026-12-11', endDate: '2026-12-11' });
+    const deps = fakeDeps({ entries: [INICIO_CURSO_1, EVALUACION_1] });
+    const service = makeService(deps);
+
+    await service.recomputeForModule('am1', []);
+
+    expect(deps.replaceFinalExamsCalls).toHaveLength(1);
+    expect(deps.replaceFinalExamsCalls[0]!.academicYearModuleId).toBe('am1');
+    expect(deps.replaceFinalExamsCalls[0]!.entries).toHaveLength(2);
+    expect(deps.replaceWorkingDaysCalls).toHaveLength(1);
+    expect(deps.replaceWorkingDaysCalls[0]!.academicYearModuleId).toBe('am1');
+    expect(deps.replaceWorkingDaysCalls[0]!.entries).toHaveLength(1);
+    // createMany (the append-only, seed-time path) is never used by this recompute path.
+    expect(deps.createManyCalls).toHaveLength(0);
+    expect(deps.workingDaysCreateManyCalls).toHaveLength(0);
+  });
+
+  it('does nothing when the módulo has no "Inicio curso" entry to anchor the recomputation', async () => {
+    const EVALUACION_1 = moduloEntry({ id: 'cm-eval-1', startDate: '2026-12-11', endDate: '2026-12-11' });
+    const deps = fakeDeps({ entries: [EVALUACION_1] });
+    const service = makeService(deps);
+
+    await service.recomputeForModule('am1', horario([['2026-12-07', 2]]));
+
+    expect(deps.replaceFinalExamsCalls).toHaveLength(0);
+    expect(deps.replaceWorkingDaysCalls).toHaveLength(0);
   });
 });
 

@@ -80,4 +80,35 @@ describe('PgCalendarioModuloRepository', () => {
 
     expect(fakeSql.calls).toHaveLength(0);
   });
+
+  it('replaceFinalExamsForModule deletes every existing final_exams row for the módulo, then inserts one row per entry (2026-08-12, UC-08 revision)', async () => {
+    const fakeSql = createFakeSql([
+      [], // DELETE
+      [], // INSERT
+      [], // INSERT
+    ]);
+    const repo = new PgCalendarioModuloRepository(fakeSql);
+
+    await repo.replaceFinalExamsForModule('am1', [
+      { academicYearModuleId: 'am1', category: 'final_exams', name: '1ª Evaluación - Examen de recuperación final.', startDate: '2026-12-07', endDate: '2026-12-07', type: null },
+      { academicYearModuleId: 'am1', category: 'final_exams', name: '1ª Evaluación - Examen final.', startDate: '2026-11-30', endDate: '2026-11-30', type: null },
+    ]);
+
+    expect(fakeSql.calls).toHaveLength(3);
+    expect(sqlTextOf(fakeSql.calls[0]!)).toContain('DELETE FROM calendario_modulo');
+    expect(sqlTextOf(fakeSql.calls[0]!)).toContain("category = 'final_exams'");
+    expect(fakeSql.calls[0]!.values).toEqual(['am1']);
+    expect(sqlTextOf(fakeSql.calls[1]!)).toContain('INSERT INTO calendario_modulo');
+    expect(fakeSql.calls[1]!.values).toEqual(['am1', 'final_exams', '1ª Evaluación - Examen de recuperación final.', '2026-12-07', '2026-12-07', null]);
+  });
+
+  it('replaceFinalExamsForModule with an empty entries array only deletes, making no INSERT calls', async () => {
+    const fakeSql = createFakeSql([[]]);
+    const repo = new PgCalendarioModuloRepository(fakeSql);
+
+    await repo.replaceFinalExamsForModule('am1', []);
+
+    expect(fakeSql.calls).toHaveLength(1);
+    expect(sqlTextOf(fakeSql.calls[0]!)).toContain('DELETE FROM calendario_modulo');
+  });
 });

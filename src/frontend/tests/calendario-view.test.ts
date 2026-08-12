@@ -334,8 +334,8 @@ describe('elementId: evaluation-working-days-summary', () => {
       }),
     });
 
-    expect(el.shadowRoot!.querySelector('[data-element-id="evaluation-working-days-1"]')!.textContent).toBe('Días laborables 1ª evaluación: 56');
-    expect(el.shadowRoot!.querySelector('[data-element-id="evaluation-working-days-2"]')!.textContent).toBe('Días laborables 2ª evaluación: 121');
+    expect(el.shadowRoot!.querySelector('[data-element-id="evaluation-working-days-1"]')!.textContent).toBe('Horas lectivas 1ª evaluación: 56');
+    expect(el.shadowRoot!.querySelector('[data-element-id="evaluation-working-days-2"]')!.textContent).toBe('Horas lectivas 2ª evaluación: 121');
     expect(el.shadowRoot!.querySelector('[data-element-id="evaluation-working-days-3"]')).toBeNull();
 
     el.remove();
@@ -352,7 +352,7 @@ describe('elementId: evaluation-working-days-summary', () => {
       }),
     });
 
-    expect(el.shadowRoot!.querySelector('[data-element-id="evaluation-working-days-3"]')!.textContent).toBe('Días laborables 3ª evaluación: 186');
+    expect(el.shadowRoot!.querySelector('[data-element-id="evaluation-working-days-3"]')!.textContent).toBe('Horas lectivas 3ª evaluación: 186');
 
     el.remove();
   });
@@ -378,14 +378,14 @@ describe('elementId: evaluation-working-days-summary', () => {
       }),
     });
 
-    expect(el.shadowRoot!.querySelector('[data-element-id="evaluation-working-days-1"]')!.textContent).toBe('Días laborables 1ª evaluación: 56');
+    expect(el.shadowRoot!.querySelector('[data-element-id="evaluation-working-days-1"]')!.textContent).toBe('Horas lectivas 1ª evaluación: 56');
 
     const cycleSelect = el.shadowRoot!.querySelector<HTMLSelectElement>('[data-element-id="cycle-filter"]')!;
     cycleSelect.value = 'c2';
     cycleSelect.dispatchEvent(new Event('change', { bubbles: true }));
     await tick();
 
-    expect(el.shadowRoot!.querySelector('[data-element-id="evaluation-working-days-1"]')!.textContent).toBe('Días laborables 1ª evaluación: 30');
+    expect(el.shadowRoot!.querySelector('[data-element-id="evaluation-working-days-1"]')!.textContent).toBe('Horas lectivas 1ª evaluación: 30');
 
     el.remove();
   });

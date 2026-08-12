@@ -686,7 +686,7 @@ export class CalendarioView extends HTMLElement {
     const entry = this._evaluationWorkingDaysEntries.find((candidate) => candidate.evaluationNumber === evaluationNumber);
     if (entry === undefined) return nothing;
 
-    return html`<p data-element-id="evaluation-working-days-${evaluationNumber}">Días laborables ${evaluationNumber}ª evaluación: ${entry.workingDays}</p>`;
+    return html`<p data-element-id="evaluation-working-days-${evaluationNumber}">Horas lectivas ${evaluationNumber}ª evaluación: ${entry.workingDays}</p>`;
   }
 
   /**

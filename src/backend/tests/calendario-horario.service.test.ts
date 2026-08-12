@@ -23,6 +23,7 @@ import type { CalendarioModuloEntry, CalendarioModuloRepository } from '../src/r
 import type { AcademicYear, AcademicYearRepository } from '../src/repositories/academic-year.repository';
 import type { AcademicYearModuleRef, AcademicYearModuleRepository } from '../src/repositories/academic-year-module.repository';
 import type { AcademicYearModuleScheduleEntry } from '../src/repositories/academic-year-module-schedule.repository';
+import type { FinalExamsRecomputer } from '../src/services/calendario-modulo.service';
 
 const TEACHER = 'teacher-1';
 
@@ -76,7 +77,9 @@ interface FakeDeps {
   calendarioModuloRepository: CalendarioModuloRepository;
   academicYearModuleRepository: AcademicYearModuleRepository;
   academicYearRepository: AcademicYearRepository;
+  finalExamsRecomputer: FinalExamsRecomputer;
   replaceAllCalls: { academicYearModuleId: string; entries: CalendarioHorarioEntry[] }[];
+  recomputeForModuleCalls: { academicYearModuleId: string; horarioEntries: CalendarioHorarioEntry[] }[];
 }
 
 function fakeDeps(
@@ -88,6 +91,7 @@ function fakeDeps(
   }> = {},
 ): FakeDeps {
   const replaceAllCalls: { academicYearModuleId: string; entries: CalendarioHorarioEntry[] }[] = [];
+  const recomputeForModuleCalls: { academicYearModuleId: string; horarioEntries: CalendarioHorarioEntry[] }[] = [];
   const moduleRefs = overrides.moduleRefs ?? { am1: { id: 'am1', academicYearId: 'y1', catalogModuleId: 'm1' } };
   const years = overrides.years ?? [makeYear()];
 
@@ -101,6 +105,13 @@ function fakeDeps(
   const calendarioModuloRepository: CalendarioModuloRepository = {
     findAllForAcademicYearModule: async () => overrides.moduloEntries ?? [],
     createMany: async () => {},
+    replaceFinalExamsForModule: async () => {},
+  };
+
+  const finalExamsRecomputer: FinalExamsRecomputer = {
+    recomputeForModule: async (academicYearModuleId: string, horarioEntries: CalendarioHorarioEntry[]) => {
+      recomputeForModuleCalls.push({ academicYearModuleId, horarioEntries });
+    },
   };
 
   const academicYearModuleRepository: AcademicYearModuleRepository = {
@@ -123,7 +134,15 @@ function fakeDeps(
     delete: async () => {},
   };
 
-  return { calendarioHorarioRepository, calendarioModuloRepository, academicYearModuleRepository, academicYearRepository, replaceAllCalls };
+  return {
+    calendarioHorarioRepository,
+    calendarioModuloRepository,
+    academicYearModuleRepository,
+    academicYearRepository,
+    finalExamsRecomputer,
+    replaceAllCalls,
+    recomputeForModuleCalls,
+  };
 }
 
 function makeService(deps: FakeDeps): CalendarioHorarioService {
@@ -132,6 +151,7 @@ function makeService(deps: FakeDeps): CalendarioHorarioService {
     deps.calendarioModuloRepository,
     deps.academicYearModuleRepository,
     deps.academicYearRepository,
+    deps.finalExamsRecomputer,
   );
 }
 
@@ -251,6 +271,27 @@ describe('elementId: calendario-months, calendario-legend, calendario-day-toolti
     const entries = deps.replaceAllCalls[0]!.entries;
     expect(entries).toContainEqual({ date: '2026-09-21', hours: 1 }); // first Monday on/after Inicio curso
     expect(entries).toContainEqual({ date: '2026-09-25', hours: 3 }); // first Friday on/after Inicio curso
+  });
+
+  it('triggers finalExamsRecomputer with the just-computed calendario_horario entries (2026-08-12, UC-08/UC-09 cascade)', async () => {
+    const deps = fakeDeps({ moduloEntries: [inicioCursoEntry(1), finCursoEntry(1)] });
+    const service = makeService(deps);
+    const schedule: AcademicYearModuleScheduleEntry[] = [{ weekday: 1, hours: 2 }]; // Monday
+
+    await service.seedForModule('am1', schedule);
+
+    expect(deps.recomputeForModuleCalls).toHaveLength(1);
+    expect(deps.recomputeForModuleCalls[0]!.academicYearModuleId).toBe('am1');
+    expect(deps.recomputeForModuleCalls[0]!.horarioEntries).toEqual(deps.replaceAllCalls[0]!.entries);
+  });
+
+  it('triggers finalExamsRecomputer with an empty array when the schedule is empty (still cascades the clear)', async () => {
+    const deps = fakeDeps({ moduloEntries: [inicioCursoEntry(1), finCursoEntry(1)] });
+    const service = makeService(deps);
+
+    await service.seedForModule('am1', []);
+
+    expect(deps.recomputeForModuleCalls).toEqual([{ academicYearModuleId: 'am1', horarioEntries: [] }]);
   });
 });
 

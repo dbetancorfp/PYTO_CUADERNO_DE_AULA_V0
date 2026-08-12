@@ -25,4 +25,9 @@ export interface CalendarioEvaluationWorkingDaysRepository {
   /** Inserts every entry, ignoring ones that already exist (natural key:
    * `academicYearModuleId` + `evaluationNumber`) — idempotent, no error, no duplicate row. */
   createMany(entries: CalendarioEvaluationWorkingDaysInsert[]): Promise<void>;
+  /** Full replace (2026-08-12, UC-09's horario-aware revision): deletes every existing row
+   * for `academicYearModuleId`, then inserts `entries` — unlike `createMany`'s
+   * insert-if-absent semantics, `workingDays` (an hour-sum once the módulo has a saved
+   * Horario schedule) can legitimately change every time the teacher edits it. */
+  replaceForModule(academicYearModuleId: string, entries: CalendarioEvaluationWorkingDaysInsert[]): Promise<void>;
 }

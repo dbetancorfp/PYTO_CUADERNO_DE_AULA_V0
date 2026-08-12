@@ -29,4 +29,16 @@ export class InMemoryCalendarioModuloRepository implements CalendarioModuloRepos
       this.store.entries.set(entry.id, entry);
     }
   }
+
+  async replaceFinalExamsForModule(academicYearModuleId: string, entries: CalendarioModuloInsert[]): Promise<void> {
+    for (const [id, entry] of this.store.entries) {
+      if (entry.academicYearModuleId === academicYearModuleId && entry.category === 'final_exams') {
+        this.store.entries.delete(id);
+      }
+    }
+    for (const insert of entries) {
+      const entry: CalendarioModuloEntry = { id: crypto.randomUUID(), ...insert };
+      this.store.entries.set(entry.id, entry);
+    }
+  }
 }

@@ -22,6 +22,7 @@ import type { AcademicYearModuleRepository } from '../repositories/academic-year
 import type { AcademicYearRepository } from '../repositories/academic-year.repository';
 import type { AcademicYearModuleScheduleEntry } from '../repositories/academic-year-module-schedule.repository';
 import { isLaborable, type DateRange } from './business-day';
+import { nonWorkingRangesFor, type FinalExamsRecomputer } from './calendario-modulo.service';
 
 /** Narrow seam `AcademicYearModuleScheduleService` depends on (ISP) — it only ever needs to
  * trigger regeneration, never to read `calendario_horario` back. Mirrors
@@ -31,13 +32,6 @@ import { isLaborable, type DateRange } from './business-day';
 export interface CalendarioHorarioSeeder {
   seedForModule(academicYearModuleId: string, scheduleEntries: AcademicYearModuleScheduleEntry[]): Promise<void>;
 }
-
-/** Same categories `calendario-modulo.service.ts`'s `NON_WORKING_CATEGORIES` treats as a
- * real day off — `academic_key_dates` deliberately excluded (informational, not a real
- * non-working day). Kept as its own constant (rather than importing the private one) since
- * `calendario-modulo.service.ts` doesn't export it; both lists must be kept in sync by hand
- * if the category set ever changes. */
-const NON_WORKING_CATEGORIES = new Set(['holidays', 'public_holidays', 'free_disposal_days']);
 
 const INICIO_CURSO_PREFIX = 'Inicio curso:';
 const FIN_CURSO_PREFIX = 'Fin de curso:';
@@ -89,6 +83,7 @@ export class CalendarioHorarioService implements CalendarioHorarioSeeder {
     private readonly calendarioModuloRepository: CalendarioModuloRepository,
     private readonly academicYearModuleRepository: AcademicYearModuleRepository,
     private readonly academicYearRepository: AcademicYearRepository,
+    private readonly finalExamsRecomputer: FinalExamsRecomputer,
   ) {}
 
   /** Regenerates `calendario_horario` for this módulo in full (UC-12's Main flow): walks
@@ -97,15 +92,15 @@ export class CalendarioHorarioService implements CalendarioHorarioSeeder {
    * inside a real non-working range (`calendario_modulo`'s holidays/public_holidays/
    * free_disposal_days rows for this módulo), includes `{ date, hours }` — always calls
    * `replaceAll`, even with an empty result, so an all-blank schedule (or a módulo whose
-   * teaching period can't be determined yet) still clears any previously generated rows. */
+   * teaching period can't be determined yet) still clears any previously generated rows.
+   * 2026-08-12: also triggers `finalExamsRecomputer` with the just-computed entries, right
+   * after — see UC-08/UC-09's revisions and `CalendarioModuloService.recomputeForModule`. */
   async seedForModule(academicYearModuleId: string, scheduleEntries: AcademicYearModuleScheduleEntry[]): Promise<void> {
     const hoursByWeekday = new Map(scheduleEntries.map((entry) => [entry.weekday, entry.hours]));
 
     const moduloEntries = await this.calendarioModuloRepository.findAllForAcademicYearModule(academicYearModuleId);
     const period = teachingPeriod(moduloEntries);
-    const nonWorkingRanges: DateRange[] = moduloEntries
-      .filter((entry) => NON_WORKING_CATEGORIES.has(entry.category))
-      .map((entry) => ({ startDate: entry.startDate, endDate: entry.endDate }));
+    const nonWorkingRanges: DateRange[] = nonWorkingRangesFor(moduloEntries);
 
     const entries: CalendarioHorarioEntry[] = [];
     if (period) {
@@ -118,6 +113,7 @@ export class CalendarioHorarioService implements CalendarioHorarioSeeder {
     }
 
     await this.calendarioHorarioRepository.replaceAll(academicYearModuleId, entries);
+    await this.finalExamsRecomputer.recomputeForModule(academicYearModuleId, entries);
   }
 
   /** Returns `null` when `academicYearModuleId` doesn't exist, or its academic year isn't

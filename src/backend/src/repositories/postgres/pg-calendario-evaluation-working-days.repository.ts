@@ -47,4 +47,17 @@ export class PgCalendarioEvaluationWorkingDaysRepository implements CalendarioEv
       `;
     }
   }
+
+  async replaceForModule(academicYearModuleId: string, entries: CalendarioEvaluationWorkingDaysInsert[]): Promise<void> {
+    await this.sql`
+      DELETE FROM calendario_evaluation_working_days
+      WHERE academic_year_module_id = ${academicYearModuleId}
+    `;
+    for (const entry of entries) {
+      await this.sql`
+        INSERT INTO calendario_evaluation_working_days (academic_year_module_id, evaluation_number, working_days)
+        VALUES (${entry.academicYearModuleId}, ${entry.evaluationNumber}, ${entry.workingDays})
+      `;
+    }
+  }
 }

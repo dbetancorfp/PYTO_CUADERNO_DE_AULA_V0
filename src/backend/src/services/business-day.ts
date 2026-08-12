@@ -41,7 +41,10 @@ function isWithinRange(date: string, range: DateRange): boolean {
   return date >= range.startDate && date <= range.endDate;
 }
 
-function shiftByOneDay(date: string, direction: 1 | -1): string {
+/** Exported (2026-08-12) for callers that need plain day-arithmetic without the
+ * laborable-day walk — e.g. calendario-modulo.service.ts's evaluation-range boundaries and
+ * calendario-horario.service.ts's school-year date walk. */
+export function shiftByOneDay(date: string, direction: 1 | -1): string {
   const shifted = new Date(toUtcMillis(date));
   shifted.setUTCDate(shifted.getUTCDate() + direction);
   return toDateString(shifted.getTime());
