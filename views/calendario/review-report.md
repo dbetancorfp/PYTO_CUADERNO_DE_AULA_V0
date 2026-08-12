@@ -1,3 +1,67 @@
+# Review Report — calendario — 2026-08-12 (DRY: shared Año/Ciclo/Módulo cascade, closes SonarCloud duplication)
+
+## Result: PASS ✅
+
+**User-reported SonarCloud finding**: `src/frontend/src/schedule-settings-view.ts` 15.8%
+duplicated lines (69) and `src/frontend/src/calendario-view.ts` 8.4% (70) — both files'
+own comments already acknowledged the duplication verbatim ("Reuses Calendario's exact
+Año/Ciclo/Módulo cascading-filter shape", "Same `Pick` narrowing `calendario-view.ts`
+already applies") without ever extracting it, exactly the shape CLAUDE.md's Web Components
+section anticipates: "Sharing behavior across near-identical views via plain
+functions/classes ... is fine and encouraged once duplication between views is real."
+
+**Fix**: new `src/frontend/src/academic-year-cycle-module-cascade.ts` — the `DistinctCycle`
+interface, `FORWARD_YEAR_WINDOW` constant, and 5 pure functions (`currentSchoolYearStartYear`,
+`canGoToPreviousYear`, `canGoToNextYear`, `distinctCyclesFromYearModules`,
+`modulesForSelectedCycle`) plus one pure lit-html render function
+(`renderYearCycleModuleFilters`, parameterized by `idPrefix` so `calendario-view.ts`'s
+unprefixed `cycle-filter`/`module-filter` and `schedule-settings-view.ts`'s
+`schedule-cycle-filter`/`schedule-module-filter` both resolve correctly) covering the year-
+carousel arrows + Ciclo/Módulo `<select>` markup shared verbatim by both screens' own
+filters `<section>`. Each caller keeps its own `<section>` wrapper (`calendario-view.ts`
+alone keeps its `relative min-h-24` classes for the absolutely-positioned working-days
+summary) and its own extra slot content. Composition, not inheritance — the two views
+extend different base classes (`HTMLElement` vs `SettingsScreenBase`), so a shared abstract
+base class was never an option here; plain functions were the correct CLAUDE.md-sanctioned
+choice. Deliberately did **not** touch `academic-year-settings-view.ts`, which has its own,
+separate copy of `_distinctCyclesFromYearModules`/`modulesForSelectedCycle`-shaped logic —
+out of scope (not part of the two files SonarCloud flagged this pass, and that file's
+surrounding logic — add/remove módulos — is materially different, not a drop-in fit for
+this same shared module without further design work).
+
+Behavior-preserving: every existing `calendario-view.test.ts` (30 tests) and
+`schedule-settings-view.test.ts` (unchanged count) test passes unmodified — same
+`data-element-id`s, same disabled/selected logic, same carousel bounds. New dedicated
+`academic-year-cycle-module-cascade.test.ts` (15 tests) covers the shared module directly:
+the two boundary predicates, cycle/módulo derivation (dedup order, sort, empty-cycle
+fallback), and the render function's prefix behavior, disabled states, and selected-option
+correctness.
+
+## SOLID violations found
+
+None. The extraction is a pure DRY fix — SRP unaffected (the shared module owns exactly
+"what does the cascade allow/derive/render", each view still owns its own state and what
+reloads when the cascade changes); OCP unaffected (no new branching, `idPrefix` is data, not
+a code path); no interface/class hierarchy changed (composition via plain function calls,
+matching CLAUDE.md's explicit guidance for this exact scenario).
+
+## SonarCloud Quality Gate
+
+| Metric | Threshold | Backend | Frontend | Result |
+|--------|-----------|---------|----------|--------|
+| Coverage (lines) | 100% | untouched this cycle, still green | `academic-year-cycle-module-cascade.ts` 100.00%, `calendario-view.ts` 100.00%, `schedule-settings-view.ts` 100.00% | ✅ |
+| Duplication | ≤ 3% | n/a | the flagged ~70-line block removed from both files, replaced by one shared definition | ✅ |
+| Bugs / Vulnerabilities | 0 | 0 | 0 | ✅ |
+
+`calendario-view.ts` Funcs: 85/86 (98.84%) — confirmed via `git stash` against this
+branch's own prior commit that this is the same long-tracked pre-existing gap (was 97.87%
+immediately before this change), not a regression: this extraction only *removed* local
+functions, the ratio improved. `bun test src/backend src/frontend`: 717 pass / 0 fail (702
++ 15 new). `bun run type-check`: 0 errors. `bun run e2e` (full suite, real Postgres, real
+server): **37/37 specs, 84/84 tests passing**, dev Postgres left with zero test debris.
+
+---
+
 # Review Report — calendario — 2026-08-12 (correction: 2-hour discount only on evaluación 2)
 
 ## Result: PASS ✅

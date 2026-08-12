@@ -7,11 +7,14 @@ import type { AcademicYear, AcademicYearApiService, AcademicYearModuleDetail } f
 import type { CalendarioModuloApiService, CalendarioModuloEntry } from './calendario-modulo-api-service';
 import type { EvaluationWorkingDaysApiService, EvaluationWorkingDaysEntry } from './evaluation-working-days-api-service';
 import type { CalendarioHorarioApiService, CalendarioHorarioEntry } from './calendario-horario-api-service';
-
-interface DistinctCycle {
-  id: string;
-  name: string;
-}
+import {
+  canGoToNextYear,
+  canGoToPreviousYear,
+  currentSchoolYearStartYear,
+  distinctCyclesFromYearModules,
+  modulesForSelectedCycle,
+  renderYearCycleModuleFilters,
+} from './academic-year-cycle-module-cascade';
 
 /** This view only ever calls `list()`/`listModules()` on the injected academic-year
  * service (ISP) — the full `AcademicYearApiService` also carries write methods
@@ -98,7 +101,6 @@ function entryHex(entry: CalendarioModuloEntry): string {
   return colorRowForEntry(entry)?.hex ?? WEEKEND_NEUTRAL_HEX;
 }
 
-const FORWARD_YEAR_WINDOW = 5;
 /** Beyond this many inclusive days, a range only marks its own boundaries (see
  * `views/calendario/use-cases.md` UC-04/A1). */
 const LONG_RANGE_THRESHOLD_DAYS = 30;
@@ -122,12 +124,6 @@ const WEEKDAY_LABELS: readonly string[] = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 
 function pad2(value: number): string {
   return String(value).padStart(2, '0');
-}
-
-/** September (month index >= 8, 0-indexed) or later belongs to that calendar year's school
- * year; earlier months belong to the school year that started the previous calendar year. */
-function currentSchoolYearStartYear(today: Date): number {
-  return today.getMonth() >= 8 ? today.getFullYear() : today.getFullYear() - 1;
 }
 
 /** September of `startYear` through June of `startYear + 1`, in order — 10 months. */
@@ -437,11 +433,11 @@ export class CalendarioView extends HTMLElement {
   // ---------------------------------------------------------------------------------------
 
   private _canGoToPreviousYear(): boolean {
-    return this._academicYears.some((year) => year.startYear < this._selectedStartYear);
+    return canGoToPreviousYear(this._academicYears, this._selectedStartYear);
   }
 
   private _canGoToNextYear(): boolean {
-    return this._selectedStartYear < this._currentSchoolYearStartYear + FORWARD_YEAR_WINDOW;
+    return canGoToNextYear(this._selectedStartYear, this._currentSchoolYearStartYear);
   }
 
   private _goToPreviousYear(): void {
@@ -488,32 +484,13 @@ export class CalendarioView extends HTMLElement {
   // Cycle / módulo cascade
   // ---------------------------------------------------------------------------------------
 
-  private _distinctCyclesFromYearModules(): DistinctCycle[] {
-    const seen = new Set<string>();
-    const cycles: DistinctCycle[] = [];
-    for (const module of this._yearModules) {
-      if (!seen.has(module.catalogTrainingCycleId)) {
-        seen.add(module.catalogTrainingCycleId);
-        cycles.push({ id: module.catalogTrainingCycleId, name: module.catalogTrainingCycleName });
-      }
-    }
-    return cycles;
-  }
-
-  private _modulesForSelectedCycle(): AcademicYearModuleDetail[] {
-    if (this._selectedCycleId === null) return [];
-    return [...this._yearModules.filter((module) => module.catalogTrainingCycleId === this._selectedCycleId)].sort(
-      (a, b) => a.course - b.course || a.name.localeCompare(b.name),
-    );
-  }
-
   private _selectFirstCycle(): void {
-    const cycles = this._distinctCyclesFromYearModules();
+    const cycles = distinctCyclesFromYearModules(this._yearModules);
     this._selectedCycleId = cycles.length > 0 ? cycles[0]!.id : null;
   }
 
   private _selectFirstModuleForCycle(): void {
-    const modules = this._modulesForSelectedCycle();
+    const modules = modulesForSelectedCycle(this._yearModules, this._selectedCycleId);
     this._selectedModuleId = modules.length > 0 ? modules[0]!.id : null;
   }
 
@@ -599,51 +576,21 @@ export class CalendarioView extends HTMLElement {
 
   private _renderFilters(): TemplateResult {
     const yearLabel = `${this._selectedStartYear}-${this._selectedStartYear + 1}`;
-    const cycles = this._distinctCyclesFromYearModules();
-    const modules = this._modulesForSelectedCycle();
+    const cycles = distinctCyclesFromYearModules(this._yearModules);
+    const modules = modulesForSelectedCycle(this._yearModules, this._selectedCycleId);
 
     return html`
       <section class="${classesFor('card')} relative flex min-h-24 flex-wrap items-center gap-6 px-4 py-3">
-        <div class="flex items-center gap-2">
-          <button
-            type="button"
-            class="${classesFor('icon-button', 'ghost', 'sm')}"
-            data-element-id="academic-year-filter-prev"
-            aria-label="Año académico anterior"
-            ?disabled=${!this._canGoToPreviousYear()}
-          >
-            ‹
-          </button>
-          <p class="${classesFor('paragraph')}" data-element-id="academic-year-filter-value">${yearLabel}</p>
-          <button
-            type="button"
-            class="${classesFor('icon-button', 'ghost', 'sm')}"
-            data-element-id="academic-year-filter-next"
-            aria-label="Año académico siguiente"
-            ?disabled=${!this._canGoToNextYear()}
-          >
-            ›
-          </button>
-        </div>
-
-        <label class="flex items-center gap-2 ${classesFor('paragraph')}">
-          Ciclo
-          <select class="${classesFor('select')}" data-element-id="cycle-filter" ?disabled=${cycles.length === 0}>
-            ${cycles.map(
-              (cycle) => html`<option value="${cycle.id}" ?selected=${cycle.id === this._selectedCycleId}>${cycle.name}</option>`,
-            )}
-          </select>
-        </label>
-
-        <label class="flex items-center gap-2 ${classesFor('paragraph')}">
-          Módulo
-          <select class="${classesFor('select')}" data-element-id="module-filter" ?disabled=${modules.length === 0}>
-            ${modules.map(
-              (module) => html`<option value="${module.id}" ?selected=${module.id === this._selectedModuleId}>${module.name}</option>`,
-            )}
-          </select>
-        </label>
-
+        ${renderYearCycleModuleFilters({
+          idPrefix: '',
+          yearLabel,
+          canGoToPreviousYear: this._canGoToPreviousYear(),
+          canGoToNextYear: this._canGoToNextYear(),
+          cycles,
+          selectedCycleId: this._selectedCycleId,
+          modules,
+          selectedModuleId: this._selectedModuleId,
+        })}
         ${this._renderEvaluationWorkingDaysSummary()}
       </section>
     `;
