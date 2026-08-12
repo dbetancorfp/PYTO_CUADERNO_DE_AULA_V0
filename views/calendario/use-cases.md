@@ -676,23 +676,28 @@ so its generation rule belongs to this view's spec, not Horario's own `use-cases
    (`PUT /api/academic-year-modules/:id/schedule`, see
    `views/configuracion/api-contracts.md`'s "Horario" section — full replace, unchanged
    request/response shape).
-2. Before responding, the backend resolves this `academic_year_module`'s academic year
-   `startYear` and its school-year date range (1 September `startYear` – 30 June
-   `startYear + 1`, same 10-month range `calendario-months` renders, UC-04 — not the
-   longer 01/09–31/07 span `"Curso escolar"` itself covers in `key_dates`, since no July
-   month card ever renders for a row to be visible on) and reads this same
-   módulo's own already-seeded `calendario_modulo` rows (UC-06 already guarantees these
-   exist — a módulo always has its `calendario_modulo` snapshot before it can have a
-   schedule, since it can only be selected in Horario's own filter cascade once it's
-   assigned via Año académico) to derive the real non-working date ranges: only
-   `holidays`/`public_holidays`/`free_disposal_days` entries count (`academic_key_dates`
-   is informational, same exclusion `business-day.ts`'s callers already apply for UC-08/
-   UC-09 — see A2 there).
+2. Before responding, the backend reads this same módulo's own already-seeded
+   `calendario_modulo` rows (UC-06 already guarantees these exist — a módulo always has
+   its `calendario_modulo` snapshot before it can have a schedule, since it can only be
+   selected in Horario's own filter cascade once it's assigned via Año académico) to
+   derive **the module's own actual teaching-period bounds**: the single-day
+   `academic_key_dates` entries named `"Inicio curso: <sufijo>."` and `"Fin de curso:
+   <sufijo>."` (UC-06/A2's split, course-specific — `calendario_modulo` is already
+   course-filtered at seed time per UC-06/A1, so exactly one of each exists for this
+   módulo, matching its own `course`). **2026-08-12 bugfix**: the walk range is `[Inicio
+   curso date, Fin de curso date]` inclusive — e.g. 16/09–22/06 for a curso-1 módulo,
+   16/09–27/05 for curso-2 — **never** a fixed 1 September–30 June window (the original,
+   incorrect implementation): a fixed window both starts too early (before 16/09, no
+   teaching happens yet) and, for a curso-2 módulo, runs a full month past the real
+   27/05 end date. Also derives the real non-working date ranges from those same
+   `calendario_modulo` rows: only `holidays`/`public_holidays`/`free_disposal_days`
+   entries count (`academic_key_dates` is informational, same exclusion
+   `business-day.ts`'s callers already apply for UC-08/UC-09 — see A2 there).
 3. Every existing `calendario_horario` row for this `academic_year_module_id` is deleted.
-4. The backend walks every date in the school-year range; for each date whose weekday
-   (Monday=1 … Friday=5) has an entry in the just-saved schedule **and** is laborable
-   (`business-day.ts`'s `isLaborable`, excluding the ranges from step 2), it inserts one
-   `calendario_horario` row with that weekday's `hours`.
+4. The backend walks every date in `[Inicio curso date, Fin de curso date]`; for each date
+   whose weekday (Monday=1 … Friday=5) has an entry in the just-saved schedule **and** is
+   laborable (`business-day.ts`'s `isLaborable`, excluding the ranges from step 2), it
+   inserts one `calendario_horario` row with that weekday's `hours`.
 5. Regeneration is a full replace (delete-then-reinsert), same semantics `PUT
    /api/academic-year-modules/:id/schedule` itself already has — never a partial patch,
    never duplicated across repeated identical saves.
@@ -710,19 +715,28 @@ so its generation rule belongs to this view's spec, not Horario's own `use-cases
   `views/configuracion/api-contracts.md`) removes the `academic_year_modules` row;
   `calendario_horario`'s `ON DELETE CASCADE` FK removes its rows for that módulo too, same
   as `calendario_modulo` already does (UC-07).
+- **A4 — A scheduled weekday's date falls before `Inicio curso` or after `Fin de curso`**:
+  e.g. a curso-2 módulo's `Fin de curso` is 27/05 — no `calendario_horario` row for any
+  scheduled weekday's date in the last few days of May or in June, even though the
+  fixed-window bug used to generate them (see this UC's 2026-08-12 bugfix note above).
 
 ### Postconditions
 
 - `calendario_horario` for this `academic_year_module_id` contains exactly one row per
-  real, laborable school-year date whose weekday has an hours value in the just-saved
-  schedule — never a row for a non-laborable date, never a row for a weekday left blank.
+  real, laborable date within `[Inicio curso, Fin de curso]` (that módulo's own course-
+  specific teaching period, not a fixed calendar window) whose weekday has an hours value
+  in the just-saved schedule — never a row for a non-laborable date, never a row outside
+  that period, never a row for a weekday left blank.
 
 ### Acceptance criteria
 
 - [x] Saving a schedule with N weekdays set generates exactly one `calendario_horario` row
-      per laborable school-year date matching one of those N weekdays
+      per laborable date, within `[Inicio curso, Fin de curso]`, matching one of those N
+      weekdays
 - [x] A scheduled weekday that falls on a holiday/public-holiday/free-disposal-day date
       gets no `calendario_horario` row for that specific date (A2)
+- [x] A scheduled weekday's date before `Inicio curso` or after `Fin de curso` gets no
+      `calendario_horario` row (A4) — e.g. a curso-2 módulo generates no rows after 27/05
 - [x] Saving an all-blank schedule leaves `calendario_horario` empty for that módulo (A1)
 - [ ] Re-saving the same schedule twice never duplicates `calendario_horario` rows (full
       replace, not additive)

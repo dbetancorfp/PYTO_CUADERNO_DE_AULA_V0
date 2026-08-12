@@ -10,7 +10,8 @@
 // 2026-08-11: also takes a CalendarioHorarioSeeder (mirrors AcademicYearService's own
 // CalendarioModuloSeeder dependency) — see "calendario_horario side effect" below for
 // views/calendario/use-cases.md's UC-12 (the saveSchedule side effect that regenerates
-// calendario_horario).
+// calendario_horario). 2026-08-12: seedForModule no longer takes a startYear (the walk
+// range now comes from calendario_modulo's own Inicio/Fin curso rows instead).
 import { describe, it, expect } from 'bun:test';
 import { AcademicYearModuleScheduleService } from '../src/services/academic-year-module-schedule.service';
 import type {
@@ -33,7 +34,7 @@ interface FakeRepos {
   academicYearRepository: AcademicYearRepository;
   calendarioHorarioSeeder: CalendarioHorarioSeeder;
   replaceAllCalls: { academicYearModuleId: string; entries: AcademicYearModuleScheduleEntry[] }[];
-  seedForModuleCalls: { academicYearModuleId: string; startYear: number; entries: AcademicYearModuleScheduleEntry[] }[];
+  seedForModuleCalls: { academicYearModuleId: string; entries: AcademicYearModuleScheduleEntry[] }[];
 }
 
 function fakeRepos(
@@ -46,7 +47,7 @@ function fakeRepos(
   const years = overrides.years ?? [makeYear()];
   const moduleRefs = overrides.moduleRefs ?? { am1: { id: 'am1', academicYearId: 'y1', catalogModuleId: 'm1' } };
   const replaceAllCalls: { academicYearModuleId: string; entries: AcademicYearModuleScheduleEntry[] }[] = [];
-  const seedForModuleCalls: { academicYearModuleId: string; startYear: number; entries: AcademicYearModuleScheduleEntry[] }[] = [];
+  const seedForModuleCalls: { academicYearModuleId: string; entries: AcademicYearModuleScheduleEntry[] }[] = [];
 
   const scheduleRepository: AcademicYearModuleScheduleRepository = {
     findByModuleId: async () => overrides.scheduleEntries ?? [],
@@ -57,8 +58,8 @@ function fakeRepos(
   };
 
   const calendarioHorarioSeeder: CalendarioHorarioSeeder = {
-    seedForModule: async (academicYearModuleId: string, startYear: number, entries: AcademicYearModuleScheduleEntry[]) => {
-      seedForModuleCalls.push({ academicYearModuleId, startYear, entries });
+    seedForModule: async (academicYearModuleId: string, entries: AcademicYearModuleScheduleEntry[]) => {
+      seedForModuleCalls.push({ academicYearModuleId, entries });
     },
   };
 
@@ -190,14 +191,14 @@ describe('elementId: schedule-save-button', () => {
 });
 
 describe('elementId: calendario-months, calendario-legend, calendario-day-tooltip (calendario_horario side effect, UC-12)', () => {
-  it('saveSchedule triggers calendarioHorarioSeeder.seedForModule with the módulo id, its academic year startYear, and the saved entries', async () => {
+  it('saveSchedule triggers calendarioHorarioSeeder.seedForModule with the módulo id and the saved entries', async () => {
     const repos = fakeRepos({ years: [makeYear({ id: 'y1', startYear: 2026 })] });
     const service = makeService(repos);
     const entries: AcademicYearModuleScheduleEntry[] = [{ weekday: 1, hours: 2 }, { weekday: 5, hours: 3 }];
 
     await service.saveSchedule(TEACHER, 'am1', entries);
 
-    expect(repos.seedForModuleCalls).toEqual([{ academicYearModuleId: 'am1', startYear: 2026, entries }]);
+    expect(repos.seedForModuleCalls).toEqual([{ academicYearModuleId: 'am1', entries }]);
   });
 
   it('saveSchedule with an empty array still triggers the seeder, with an empty entries array (clears calendario_horario too)', async () => {
@@ -206,7 +207,7 @@ describe('elementId: calendario-months, calendario-legend, calendario-day-toolti
 
     await service.saveSchedule(TEACHER, 'am1', []);
 
-    expect(repos.seedForModuleCalls).toEqual([{ academicYearModuleId: 'am1', startYear: 2026, entries: [] }]);
+    expect(repos.seedForModuleCalls).toEqual([{ academicYearModuleId: 'am1', entries: [] }]);
   });
 
   it('saveSchedule never triggers the seeder when the academic_year_modules row does not exist', async () => {
