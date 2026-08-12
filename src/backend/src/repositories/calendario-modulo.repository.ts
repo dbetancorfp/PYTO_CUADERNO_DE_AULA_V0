@@ -39,4 +39,10 @@ export interface CalendarioModuloRepository {
   /** Inserts every entry, ignoring ones that already exist (natural key: `academicYearModuleId`
    * + `category` + `name` + `startDate`) — idempotent, no error, no duplicate row. */
   createMany(entries: CalendarioModuloInsert[]): Promise<void>;
+  /** Full replace (2026-08-12, UC-08's horario-aware revision): deletes every existing
+   * `category = 'final_exams'` row for `academicYearModuleId`, then inserts `entries` —
+   * unlike `createMany`'s insert-if-absent semantics, a recomputed exam date can
+   * legitimately differ from what was stored before (the teacher changed their weekly
+   * schedule), so this never silently keeps a stale date. */
+  replaceFinalExamsForModule(academicYearModuleId: string, entries: CalendarioModuloInsert[]): Promise<void>;
 }

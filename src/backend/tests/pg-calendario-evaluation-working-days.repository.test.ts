@@ -64,4 +64,34 @@ describe('PgCalendarioEvaluationWorkingDaysRepository', () => {
 
     expect(fakeSql.calls).toHaveLength(0);
   });
+
+  it('replaceForModule deletes every existing row for the módulo, then inserts one row per entry (2026-08-12, UC-09 revision)', async () => {
+    const fakeSql = createFakeSql([
+      [], // DELETE
+      [], // INSERT
+      [], // INSERT
+    ]);
+    const repo = new PgCalendarioEvaluationWorkingDaysRepository(fakeSql);
+
+    await repo.replaceForModule('am1', [
+      { academicYearModuleId: 'am1', evaluationNumber: 1, workingDays: 20 },
+      { academicYearModuleId: 'am1', evaluationNumber: 2, workingDays: 14 },
+    ]);
+
+    expect(fakeSql.calls).toHaveLength(3);
+    expect(sqlTextOf(fakeSql.calls[0]!)).toContain('DELETE FROM calendario_evaluation_working_days');
+    expect(fakeSql.calls[0]!.values).toEqual(['am1']);
+    expect(sqlTextOf(fakeSql.calls[1]!)).toContain('INSERT INTO calendario_evaluation_working_days');
+    expect(fakeSql.calls[1]!.values).toEqual(['am1', 1, 20]);
+  });
+
+  it('replaceForModule with an empty entries array only deletes, making no INSERT calls', async () => {
+    const fakeSql = createFakeSql([[]]);
+    const repo = new PgCalendarioEvaluationWorkingDaysRepository(fakeSql);
+
+    await repo.replaceForModule('am1', []);
+
+    expect(fakeSql.calls).toHaveLength(1);
+    expect(sqlTextOf(fakeSql.calls[0]!)).toContain('DELETE FROM calendario_evaluation_working_days');
+  });
 });

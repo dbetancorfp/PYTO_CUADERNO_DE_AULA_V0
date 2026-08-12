@@ -66,12 +66,18 @@ and `calendario-months`'s per-(category,type) color (UC-11).
 
 ### GET /api/calendario-evaluation-working-days
 
-**Description**: Returns, for one módulo, the count of working days between that módulo's
-course start ("Inicio curso: 1º de Grado Superior de FP." or "Inicio curso: 2º de Grado
-Superior de FP.", whichever matches the módulo's own `course`) and each evaluación's
-"Examen final" date — see
-`views/calendario/use-cases.md` UC-09. The only data source for
-`evaluation-working-days-summary`.
+**Description**: Returns, for one módulo, `workingDays` per evaluación — despite the field
+name (unchanged since 2026-08-07, kept to avoid an invasive rename across this table/route/
+element), this is **no longer a day count** as of 2026-08-12: once the módulo has a saved
+Horario schedule, it's the sum of `calendario_horario` hours scheduled in that evaluación's
+own period, minus 2 (the resit-exam day), floored at 0 — see
+`views/calendario/use-cases.md` UC-09's 2026-08-12 revision. Before any Horario is ever
+saved for the módulo, it's still the original count of working days between course start
+("Inicio curso: 1º de Grado Superior de FP." or "Inicio curso: 2º de Grado Superior de
+FP.", whichever matches the módulo's own `course`) and each evaluación's "Examen final"
+date (the provisional formula, UC-09 steps 3-4). The only data source for
+`evaluation-working-days-summary`, rendered there as "Horas lectivas" (label changed
+2026-08-12, was "Días laborables").
 **Allowed roles**: authenticated teacher, only for an `academic_year_module_id` belonging
 to one of their own `academic_years` — same ownership check as `GET
 /api/calendario-modulo`.
@@ -208,4 +214,8 @@ shape (`{ schedule }`, unchanged); the regeneration itself never fails the reque
 error codes. `academic_year_modules(id) ON DELETE CASCADE` also covers
 `calendario_horario.academic_year_module_id` (see `views/calendario/schema-changes.sql`),
 same as `DELETE /api/academic-year-modules/:id` above already does for `calendario_modulo`.
+**2026-08-12**: also recomputes and replaces this módulo's `final_exams` rows (UC-08's
+2026-08-12 revision, snapped to a `calendario_horario` date) and its
+`calendario_evaluation_working_days` rows (UC-09's 2026-08-12 revision, an hour-sum minus 2
+per evaluación instead of a day-count) — same request, same "no new error codes" guarantee.
 **Elements**: `schedule-save-button` (`views/configuracion/`)

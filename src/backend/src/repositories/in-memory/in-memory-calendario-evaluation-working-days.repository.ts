@@ -27,4 +27,16 @@ export class InMemoryCalendarioEvaluationWorkingDaysRepository implements Calend
       this.store.entries.set(entry.id, entry);
     }
   }
+
+  async replaceForModule(academicYearModuleId: string, entries: CalendarioEvaluationWorkingDaysInsert[]): Promise<void> {
+    for (const [id, entry] of this.store.entries) {
+      if (entry.academicYearModuleId === academicYearModuleId) {
+        this.store.entries.delete(id);
+      }
+    }
+    for (const insert of entries) {
+      const entry: CalendarioEvaluationWorkingDaysEntry = { id: crypto.randomUUID(), ...insert };
+      this.store.entries.set(entry.id, entry);
+    }
+  }
 }

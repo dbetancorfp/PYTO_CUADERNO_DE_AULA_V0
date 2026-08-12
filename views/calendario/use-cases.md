@@ -456,6 +456,52 @@ dates, not `key_dates`' day/month template.
       evaluación, and a course-2 módulo never gains one derived from a `(1º)`-tagged
       evaluación (2026-08-10 bugfix — see UC-06/A1)
 
+### 2026-08-12 revision — snapped to the módulo's real horario
+
+The dates computed above (steps 3-4) are a **provisional** estimate, valid only until the
+teacher has saved a weekly schedule for this módulo (Horario, UC-12) — a business day with
+no `calendario_horario` row for this módulo has no class to hold an exam in. Every time
+`schedule-save-button` is clicked (UC-12's `PUT /api/academic-year-modules/:id/schedule`),
+right after `calendario_horario` itself is regenerated, `final_exams` is **recomputed** for
+that módulo:
+
+1. Steps 3-4 above run exactly as before (2 business days back for the resit, 4 more for
+   the final — same non-working set, same chaining), landing on a candidate date.
+2. If that candidate date has no `calendario_horario` row for this módulo, keep walking
+   backward one calendar day at a time — no longer stepping in business-day units, just
+   checking each earlier date — until landing on one that does. A `calendario_horario` row
+   only ever exists on a laborable date to begin with (UC-12), so this walk can never land
+   on a weekend or a holiday.
+3. The resit's snapped date is used as the base for step 4's 4-business-day walk (not the
+   pre-snap one), so the final exam always lands strictly before the (snapped) resit date.
+4. The 2 rows are **replaced** (delete then insert, not `ON CONFLICT DO NOTHING`) — unlike
+   the idempotent insert in steps 5-6 above, a recomputed date can legitimately differ from
+   what was stored before, every time the teacher changes their weekly schedule.
+5. If the teacher's saved schedule is entirely blank (`calendario_horario` ends up empty
+   for this módulo), there's nothing to snap to — `final_exams` falls back to the plain
+   business-day dates from steps 3-4, same as the pre-Horario provisional state.
+
+### Alternative flows (2026-08-12 addition)
+
+- **A3 — Snapped past `Inicio curso`**: `[INFERENCE — verify with the user]` if the
+  backward walk in step 2 above would need to go earlier than the módulo's own `Inicio
+  curso` date to find a horario day (an edge case: a very sparse or very late-starting
+  weekly schedule), the walk is bounded and simply keeps the last date reached rather than
+  searching indefinitely — flagged for the user to confirm this is acceptable rather than
+  a validation error.
+
+### Acceptance criteria (2026-08-12 addition)
+
+- [x] Once `calendario_horario` has at least one row for a módulo, saving Horario
+      recomputes both `final_exams` rows for every evaluación that módulo has, replacing
+      (not duplicating) whatever was there before
+- [x] A recomputed "Examen de recuperación final"/"Examen final" date always falls on a
+      date present in that módulo's `calendario_horario`
+- [x] The final exam's date is always computed from the (already snapped) resit date, never
+      from the pre-snap one
+- [x] Saving an all-blank schedule (empty `calendario_horario`) falls back to the plain
+      business-day dates, same as before any Horario was ever saved
+
 ---
 
 ## UC-09: `calendario_evaluation_working_days` is generated when `calendario_modulo` is generated (Año académico)
@@ -530,6 +576,48 @@ Cross-view backend side effect, same nature as UC-06/UC-08.
 - [x] Deleting a módulo assignment removes every `calendario_evaluation_working_days` row
       tied to it
 
+### 2026-08-12 revision — hours actually taught, not days available
+
+Steps 3-4 above remain the **provisional** count, valid only until the teacher has saved a
+weekly schedule for this módulo (Horario, UC-12). Every time `schedule-save-button` is
+clicked, right after `calendario_horario` and the (now snapped) `final_exams` dates are
+regenerated (UC-08's 2026-08-12 revision), `calendario_evaluation_working_days` is
+**recomputed** with a different formula: the sum of `calendario_horario.hours` actually
+scheduled in each evaluación's own period — never a day-count again, an hour-count — minus
+a flat 2-hour discount per evaluación for the day spent on its own resit exam:
+
+1. The first evaluación's period is `[Inicio curso date, día antes de su "Examen final."
+   )` — half-open, same convention as the day-count version: `Inicio curso` counts if it
+   has horario hours, the exam day itself never counts.
+2. The second evaluación's period starts the day **after** the first evaluación's own
+   "Examen final." date (not from `Inicio curso` again — unlike the day-count version,
+   these are non-overlapping, sequential periods) and ends the day before the second
+   evaluación's own "Examen final." date.
+3. The third evaluación's period (if the módulo's course has one, A1) starts the day after
+   the second evaluación's "Examen final." date and ends the day before the third's.
+4. For each period, sum every `calendario_horario` row's `hours` whose `date` falls inside
+   it, then subtract 2 (the day given over to that evaluación's own resit exam, which
+   falls inside the same period, before its "Examen final.") — floored at 0, never
+   negative.
+5. Same replace-not-insert semantics as `final_exams`' 2026-08-12 revision — a changed
+   weekly schedule can change every evaluación's hour count, not just add new rows.
+6. If the teacher's saved schedule is entirely blank (`calendario_horario` empty for this
+   módulo), there's nothing to sum — falls back to the original day-count formula (steps
+   3-4 above), same provisional state as before any Horario was ever saved.
+
+### Acceptance criteria (2026-08-12 addition)
+
+- [x] Once `calendario_horario` has at least one row for a módulo, saving Horario
+      recomputes every evaluación's `working_days` value as an hour-sum-minus-2, replacing
+      (not duplicating) whatever was there before
+- [x] The first evaluación's period starts at `Inicio curso`; each later evaluación's
+      period starts the day after the previous evaluación's own "Examen final." date — the
+      periods never overlap and never all start from `Inicio curso`
+- [x] Each evaluación's count is exactly `(sum of calendario_horario.hours in its period) -
+      2`, floored at 0
+- [x] Saving an all-blank schedule (empty `calendario_horario`) falls back to the original
+      day-count formula, same as before any Horario was ever saved
+
 ---
 
 ## UC-10: See working-days-per-evaluación summary for the selected módulo
@@ -547,8 +635,11 @@ Cross-view backend side effect, same nature as UC-06/UC-08.
 2. `evaluation-working-days-summary` renders at the far right of the filters row (same row
    as `academic-year-filter-*`/`cycle-filter`/`module-filter`), one line per entry
    returned, stacked in a column, in small text that doesn't change the filters row's
-   height: `"Días laborables 1ª evaluación: <N>"`, `"Días laborables 2ª evaluación: <N>"`,
-   `"Días laborables 3ª evaluación: <N>"`.
+   height: `"Horas lectivas 1ª evaluación: <N>"`, `"Horas lectivas 2ª evaluación: <N>"`,
+   `"Horas lectivas 3ª evaluación: <N>"` (label changed 2026-08-12 — `<N>` is now a sum of
+   `calendario_horario` hours, not a day count, see UC-09's 2026-08-12 revision; the
+   underlying `working_days` field/table name is unchanged, only its meaning and this
+   label).
 3. Only lines with a real entry render — a `course = 2` módulo (no 3ª evaluación data,
    UC-09/A1) shows only two lines, not a third one reading "0".
 4. Changing `module-filter` reloads this summary for the newly selected
@@ -569,8 +660,8 @@ Cross-view backend side effect, same nature as UC-06/UC-08.
 
 - [x] `evaluation-working-days-summary` sits at the far right of the filters row, in a
       column, without increasing that row's height
-- [x] Each present `evaluationNumber` renders its own line, exact text `"Días laborables
-      <N>ª evaluación: <workingDays>"`
+- [x] Each present `evaluationNumber` renders its own line, exact text `"Horas lectivas
+      <N>ª evaluación: <workingDays>"` (2026-08-12 label change, see above)
 - [x] A módulo with no `evaluationNumber: 3` entry renders exactly two lines, not three
 - [x] Changing `module-filter` triggers a new `GET
       /api/calendario-evaluation-working-days` request and updates the rendered lines
@@ -701,6 +792,10 @@ so its generation rule belongs to this view's spec, not Horario's own `use-cases
 5. Regeneration is a full replace (delete-then-reinsert), same semantics `PUT
    /api/academic-year-modules/:id/schedule` itself already has — never a partial patch,
    never duplicated across repeated identical saves.
+6. **2026-08-12**: immediately after step 5, the just-computed `calendario_horario`
+   entries also drive a recomputation of `final_exams` (UC-08's 2026-08-12 revision) and
+   `calendario_evaluation_working_days` (UC-09's 2026-08-12 revision) for this same
+   módulo, in the same request — not a separate trigger, not a separate endpoint.
 
 ### Alternative flows
 

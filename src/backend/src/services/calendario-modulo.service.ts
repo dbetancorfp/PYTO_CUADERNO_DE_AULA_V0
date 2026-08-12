@@ -6,6 +6,14 @@
 // calendario_modulo"), computing the `final_exams` rows from the just-resolved `evaluations`
 // rows in the same pass (UC-08), and reading everything back, ownership-checked, for the
 // Calendario view's `GET /api/calendario-modulo` (`findForTeacher`).
+//
+// 2026-08-12: also owns `recomputeForModule` (`FinalExamsRecomputer`), called by
+// `CalendarioHorarioService.seedForModule` right after a Horario save regenerates
+// `calendario_horario` — snaps `final_exams` dates onto real horario days (UC-08's
+// revision) and turns `calendario_evaluation_working_days` from a day-count into an
+// hour-sum (UC-09's revision). `computeFinalExamsEntries`/`computeEvaluationWorkingDays
+// Entries` below now take an optional horario input: undefined/empty keeps the original,
+// provisional (pre-Horario) behavior unchanged — `seedForModules` never passes one.
 import type {
   CalendarioModuloEntry,
   CalendarioModuloInsert,
@@ -19,12 +27,20 @@ import type {
 import type { KeyDateRepository } from '../repositories/key-date.repository';
 import type { AcademicYearRepository } from '../repositories/academic-year.repository';
 import type { AcademicYearModuleDetail, AcademicYearModuleRepository } from '../repositories/academic-year-module.repository';
-import { countLaborableDays, subtractLaborableDays, type DateRange } from './business-day';
+import type { CalendarioHorarioEntry } from '../repositories/calendario-horario.repository';
+import { countLaborableDays, subtractLaborableDays, shiftByOneDay, type DateRange } from './business-day';
 
 /** Narrow seam `AcademicYearService` depends on (ISP) — it only ever needs to trigger
  * seeding, never to read `calendario_modulo` back. */
 export interface CalendarioModuloSeeder {
   seedForModules(modules: AcademicYearModuleDetail[], startYear: number): Promise<void>;
+}
+
+/** Narrow seam `CalendarioHorarioService` depends on (ISP, 2026-08-12) — it only ever needs
+ * to trigger the post-Horario-save recomputation, never to read `calendario_modulo`/
+ * `calendario_evaluation_working_days` back. */
+export interface FinalExamsRecomputer {
+  recomputeForModule(academicYearModuleId: string, horarioEntries: CalendarioHorarioEntry[]): Promise<void>;
 }
 
 /** month >= 9 (Sept-Dec) falls in `startYear`; month <= 8 (Jan-Aug) falls in `startYear + 1` —
@@ -74,25 +90,70 @@ function splitInicioCursoEntry(entry: CalendarioModuloInsert): CalendarioModuloI
 
 /** Categories that count as an actual day off for the business-day walk. `academic_key_dates`
  * is deliberately excluded — its ranges (e.g. "Curso escolar") are informational spans, not
- * real non-working days (see UC-08 step 2 and its A1/last acceptance criterion). */
-const NON_WORKING_CATEGORIES = new Set(['holidays', 'public_holidays', 'free_disposal_days']);
+ * real non-working days (see UC-08 step 2 and its A1/last acceptance criterion). Exported
+ * (2026-08-12) so `calendario-horario.service.ts` reads the same single list instead of
+ * hand-syncing its own copy. */
+export const NON_WORKING_CATEGORIES = new Set(['holidays', 'public_holidays', 'free_disposal_days']);
 
 /** Shared by `computeFinalExamsEntries` and `computeEvaluationWorkingDaysEntries` — both walk
- * business days over the same módulo, so both exclude the same real non-working ranges. */
-function nonWorkingRangesFor(resolvedEntries: CalendarioModuloInsert[]): DateRange[] {
+ * business days over the same módulo, so both exclude the same real non-working ranges.
+ * Exported (2026-08-12), same reason as `NON_WORKING_CATEGORIES`. */
+export function nonWorkingRangesFor(resolvedEntries: CalendarioModuloInsert[]): DateRange[] {
   return resolvedEntries
     .filter((entry) => NON_WORKING_CATEGORIES.has(entry.category))
     .map((entry) => ({ startDate: entry.startDate, endDate: entry.endDate }));
 }
 
+/** Safety bound for `snapToHorarioDate`'s backward walk — well over a school year's length,
+ * so a módulo whose `calendario_horario` genuinely has no earlier-enough day (UC-08/A3)
+ * gives up instead of looping forever. */
+const MAX_HORARIO_SNAP_DAYS = 400;
+
+/** UC-08's 2026-08-12 revision: walks `date` backward one calendar day at a time until it
+ * lands on a date present in `horarioDates` — a `calendario_horario` row only ever exists
+ * on a laborable date (UC-12), so this can never land on a weekend or a holiday. Returns
+ * `date` unchanged if `horarioDates` is empty (nothing to snap to) or the bound is
+ * exhausted (UC-08/A3). */
+function snapToHorarioDate(date: string, horarioDates: ReadonlySet<string>): string {
+  if (horarioDates.size === 0) return date;
+  let current = date;
+  for (let i = 0; i < MAX_HORARIO_SNAP_DAYS && !horarioDates.has(current); i += 1) {
+    current = shiftByOneDay(current, -1);
+  }
+  return horarioDates.has(current) ? current : date;
+}
+
+/** UC-09's 2026-08-12 revision: sum of `calendario_horario` hours in the half-open range
+ * `[start, endExclusive)` — same start-inclusive/end-exclusive convention
+ * `countLaborableDays` already uses. */
+function sumHorarioHours(start: string, endExclusive: string, horarioEntries: readonly CalendarioHorarioEntry[]): number {
+  return horarioEntries
+    .filter((entry) => entry.date >= start && entry.date < endExclusive)
+    .reduce((sum, entry) => sum + entry.hours, 0);
+}
+
+/** The day given over to each evaluación's own resit exam, discounted from that
+ * evaluación's hour-sum (UC-09's 2026-08-12 revision) — a flat 2, not that specific day's
+ * actual scheduled hours. */
+const RECOVERY_DAY_HOURS_DISCOUNT = 2;
+
 /** Computes the `final_exams` pair for every "Último día para poner notas" entry found among
  * this módulo's already-resolved entries (UC-08 steps 1-5). Pure with respect to its input —
- * takes only what's already been resolved for this módulo in the same seeding pass. */
+ * takes only what's already been resolved for this módulo in the same seeding pass.
+ *
+ * `horarioDates` (2026-08-12, UC-08's revision): when given and non-empty, each computed
+ * date is snapped backward onto the nearest real horario day (`snapToHorarioDate`) — the
+ * resit's snapped date is what the final exam's own 4-business-day walk starts from, so the
+ * final always lands strictly before the (already snapped) resit. Omitted or empty
+ * `horarioDates` (the default) keeps the original, provisional business-day-only dates —
+ * `seedForModules` never passes one, only `recomputeForModule` does. */
 function computeFinalExamsEntries(
   academicYearModuleId: string,
   resolvedEntries: CalendarioModuloInsert[],
+  horarioDates?: ReadonlySet<string>,
 ): CalendarioModuloInsert[] {
   const nonWorkingRanges = nonWorkingRangesFor(resolvedEntries);
+  const snap = (date: string): string => (horarioDates ? snapToHorarioDate(date, horarioDates) : date);
 
   const finalExamsEntries: CalendarioModuloInsert[] = [];
   for (const entry of resolvedEntries) {
@@ -101,8 +162,8 @@ function computeFinalExamsEntries(
     if (!match) continue;
     const prefix = match[1];
 
-    const retakeExamDate = subtractLaborableDays(entry.startDate, 2, nonWorkingRanges);
-    const finalExamDate = subtractLaborableDays(retakeExamDate, 4, nonWorkingRanges);
+    const retakeExamDate = snap(subtractLaborableDays(entry.startDate, 2, nonWorkingRanges));
+    const finalExamDate = snap(subtractLaborableDays(retakeExamDate, 4, nonWorkingRanges));
 
     finalExamsEntries.push(
       {
@@ -135,14 +196,25 @@ function finalExamNameFor(evaluationNumber: 1 | 2 | 3, course: 1 | 2): string | 
   return course === 1 ? '3ª Evaluación (1º) - Examen final.' : null;
 }
 
-/** Computes the `calendario_evaluation_working_days` rows for one módulo (UC-09): the count
- * of working days between the módulo's own course-start `academic_key_dates` entry and each
- * evaluación's already-computed `final_exams` "Examen final" date. Pure with respect to its
- * input, same shape as `computeFinalExamsEntries`. */
+/** Computes the `calendario_evaluation_working_days` rows for one módulo (UC-09). Pure with
+ * respect to its input, same shape as `computeFinalExamsEntries`.
+ *
+ * Without `horarioEntries` (the default — `seedForModules` never passes one): the original,
+ * provisional formula — `workingDays` is a count of working days between the módulo's own
+ * course-start `academic_key_dates` entry and each evaluación's own `final_exams` "Examen
+ * final" date, every evaluación counted from the same course-start date.
+ *
+ * With a non-empty `horarioEntries` (2026-08-12, UC-09's revision, only `recomputeForModule`
+ * passes one): `workingDays` becomes an hour-sum instead — each evaluación gets its own
+ * non-overlapping period (the first starts at course-start; each later one starts the day
+ * *after* the previous evaluación's own "Examen final.", never back at course-start again),
+ * summed from `calendario_horario` and discounted by `RECOVERY_DAY_HOURS_DISCOUNT`, floored
+ * at 0. */
 function computeEvaluationWorkingDaysEntries(
-  module: AcademicYearModuleDetail,
+  module: Pick<AcademicYearModuleDetail, 'id' | 'course'>,
   moduleEntries: CalendarioModuloInsert[],
   finalExamsEntries: CalendarioModuloInsert[],
+  horarioEntries?: readonly CalendarioHorarioEntry[],
 ): CalendarioEvaluationWorkingDaysInsert[] {
   const courseStartName = module.course === 1 ? 'Inicio curso: 1º de Grado Superior de FP.' : 'Inicio curso: 2º de Grado Superior de FP.';
   const courseStartEntry = moduleEntries.find(
@@ -151,8 +223,10 @@ function computeEvaluationWorkingDaysEntries(
   if (!courseStartEntry) return [];
 
   const nonWorkingRanges = nonWorkingRangesFor(moduleEntries);
+  const useHorario = horarioEntries !== undefined && horarioEntries.length > 0;
 
   const workingDaysEntries: CalendarioEvaluationWorkingDaysInsert[] = [];
+  let incrementalRangeStart = courseStartEntry.startDate;
   for (const evaluationNumber of [1, 2, 3] as const) {
     const examName = finalExamNameFor(evaluationNumber, module.course as 1 | 2);
     if (!examName) continue;
@@ -160,16 +234,17 @@ function computeEvaluationWorkingDaysEntries(
     const finalExamEntry = finalExamsEntries.find((entry) => entry.category === 'final_exams' && entry.name === examName);
     if (!finalExamEntry) continue;
 
-    workingDaysEntries.push({
-      academicYearModuleId: module.id,
-      evaluationNumber,
-      workingDays: countLaborableDays(courseStartEntry.startDate, finalExamEntry.startDate, nonWorkingRanges),
-    });
+    const workingDays = useHorario
+      ? Math.max(0, sumHorarioHours(incrementalRangeStart, finalExamEntry.startDate, horarioEntries!) - RECOVERY_DAY_HOURS_DISCOUNT)
+      : countLaborableDays(courseStartEntry.startDate, finalExamEntry.startDate, nonWorkingRanges);
+
+    workingDaysEntries.push({ academicYearModuleId: module.id, evaluationNumber, workingDays });
+    incrementalRangeStart = shiftByOneDay(finalExamEntry.startDate, 1);
   }
   return workingDaysEntries;
 }
 
-export class CalendarioModuloService implements CalendarioModuloSeeder {
+export class CalendarioModuloService implements CalendarioModuloSeeder, FinalExamsRecomputer {
   constructor(
     private readonly calendarioModuloRepository: CalendarioModuloRepository,
     private readonly calendarioEvaluationWorkingDaysRepository: CalendarioEvaluationWorkingDaysRepository,
@@ -245,5 +320,40 @@ export class CalendarioModuloService implements CalendarioModuloSeeder {
     if (!year) return null;
 
     return this.calendarioEvaluationWorkingDaysRepository.findAllForAcademicYearModule(academicYearModuleId);
+  }
+
+  /** UC-08/UC-09's 2026-08-12 revision — called by `CalendarioHorarioService.seedForModule`
+   * right after it regenerates `calendario_horario` for this módulo. Re-derives `course`
+   * from this módulo's own `calendario_modulo` "Inicio curso: ..." entry (via
+   * `courseTokenFor`) instead of taking a fresh `AcademicYearModuleDetail` lookup — this
+   * service already has everything it needs in `calendario_modulo` itself, no new
+   * repository dependency. A módulo whose "Inicio curso" entry can't be found (not yet
+   * assigned through UC-06) is a no-op — nothing to recompute against. */
+  async recomputeForModule(academicYearModuleId: string, horarioEntries: CalendarioHorarioEntry[]): Promise<void> {
+    const moduloEntries = await this.calendarioModuloRepository.findAllForAcademicYearModule(academicYearModuleId);
+
+    const inicioCursoEntry = moduloEntries.find(
+      (entry) => entry.category === 'academic_key_dates' && entry.name.startsWith('Inicio curso:'),
+    );
+    const course = inicioCursoEntry ? courseTokenFor(inicioCursoEntry.name) : null;
+    if (!inicioCursoEntry || course === null) return;
+
+    // Excludes the module's own previous final_exams rows from the recomputation's inputs
+    // — LAST_DAY_FOR_GRADES_PATTERN only ever matches category='evaluations' entries
+    // anyway, but deriving strictly from source data (not previously computed output)
+    // keeps this pass unambiguous.
+    const sourceEntries = moduloEntries.filter((entry) => entry.category !== 'final_exams');
+    const horarioDates = new Set(horarioEntries.map((entry) => entry.date));
+
+    const finalExamsEntries = computeFinalExamsEntries(academicYearModuleId, sourceEntries, horarioDates);
+    await this.calendarioModuloRepository.replaceFinalExamsForModule(academicYearModuleId, finalExamsEntries);
+
+    const workingDaysEntries = computeEvaluationWorkingDaysEntries(
+      { id: academicYearModuleId, course },
+      sourceEntries,
+      finalExamsEntries,
+      horarioEntries,
+    );
+    await this.calendarioEvaluationWorkingDaysRepository.replaceForModule(academicYearModuleId, workingDaysEntries);
   }
 }

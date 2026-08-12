@@ -98,9 +98,9 @@ describe('UC-09/UC-10: evaluation working-days computed and rendered', () => {
                   cy.get('[data-element-id="module-filter"]').should('contain.text', moduleName);
 
                   // UI-level content check: all three lines, exact wording.
-                  cy.get('[data-element-id="evaluation-working-days-1"]').should('contain.text', 'Días laborables 1ª evaluación:');
-                  cy.get('[data-element-id="evaluation-working-days-2"]').should('contain.text', 'Días laborables 2ª evaluación:');
-                  cy.get('[data-element-id="evaluation-working-days-3"]').should('contain.text', 'Días laborables 3ª evaluación:');
+                  cy.get('[data-element-id="evaluation-working-days-1"]').should('contain.text', 'Horas lectivas 1ª evaluación:');
+                  cy.get('[data-element-id="evaluation-working-days-2"]').should('contain.text', 'Horas lectivas 2ª evaluación:');
+                  cy.get('[data-element-id="evaluation-working-days-3"]').should('contain.text', 'Horas lectivas 3ª evaluación:');
 
                   // Style/layout proof (the criterion reviewer deferred to this pass, then
                   // refined after a real-browser regression report): the summary's own box

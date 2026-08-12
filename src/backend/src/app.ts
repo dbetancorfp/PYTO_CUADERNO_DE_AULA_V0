@@ -191,6 +191,7 @@ export function createApp(deps: AppDeps): Express {
     calendarioModuloRepository,
     academicYearModuleRepository,
     academicYearRepository,
+    calendarioModuloService,
   );
   const academicYearModuleScheduleService = new AcademicYearModuleScheduleService(
     academicYearModuleScheduleRepository,
